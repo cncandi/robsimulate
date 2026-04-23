@@ -2570,28 +2570,45 @@ END
 
 // STL-Dateien werden per fetch aus ./stl/ geladen
 function xhrSTL(url, onDone, onErr) {
+  // Absolute URL aufbauen um Pfad-Probleme zu vermeiden
+  var base = window.location.href.replace(/\/[^\/]*$/, '/');
+  var absUrl = url.indexOf('http') === 0 ? url : base + url.replace(/^\.\//,'');
   var xhr = new XMLHttpRequest();
-  xhr.open('GET', url, true);
+  xhr.open('GET', absUrl, true);
   xhr.responseType = 'arraybuffer';
-  xhr.timeout = 30000;
+  xhr.timeout = 60000;
   xhr.onload = function() {
     if ((xhr.status >= 200 && xhr.status < 300) || xhr.status === 0) {
-      if (xhr.response && xhr.response.byteLength > 0) { onDone(xhr.response); }
-      else { if(onErr) onErr('empty'); }
-    } else { if(onErr) onErr(xhr.status); }
+      if (xhr.response && xhr.response.byteLength > 0) {
+        onDone(xhr.response);
+      } else {
+        console.warn('XHR leer:', absUrl);
+        if(onErr) onErr('empty response');
+      }
+    } else {
+      console.warn('XHR Status ' + xhr.status + ':', absUrl);
+      if(onErr) onErr('HTTP ' + xhr.status);
+    }
   };
-  xhr.onerror   = function() { if(onErr) onErr('network'); };
-  xhr.ontimeout = function() { if(onErr) onErr('timeout'); };
+  xhr.onerror   = function(e) { console.error('XHR Netzwerkfehler:', absUrl, e); if(onErr) onErr('network error'); };
+  xhr.ontimeout = function()  { console.error('XHR Timeout:', absUrl); if(onErr) onErr('timeout'); };
   xhr.send();
 }
 
 function loadDefaultSTLs() {
   var axes = ['A1','A2','A3','A4','A5','A6'];
+  var loaded = 0;
+  var mi = document.getElementById('marker-info');
+  if (mi) { mi.style.display='block'; mi.textContent='Lade STL Modelle...'; }
   var i = 0;
   function next() {
-    if (i >= axes.length) return;
+    if (i >= axes.length) {
+      if (mi) { mi.style.display = loaded > 0 ? 'none' : 'block'; if(loaded===0) mi.textContent='STL nicht geladen — ↺ STL klicken'; }
+      return;
+    }
     var ax = axes[i++];
     var idx = parseInt(ax.replace('A','')) - 1;
+    if (mi) mi.textContent = 'Lade ' + ax + '...';
     xhrSTL('./stl/' + ax.toLowerCase() + '.stl',
       function(buf) {
         try {
@@ -2604,6 +2621,7 @@ function loadDefaultSTLs() {
           if (nameEl) nameEl.textContent = ax.toLowerCase();
           var delEl = document.getElementById('asl-del'+idx);
           if (delEl) delEl.style.display = '';
+          loaded++;
           buildRobotModel(jointAngles);
         } catch(e) { console.error('STL parse:', ax, e); }
         next();
