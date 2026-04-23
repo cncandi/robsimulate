@@ -2564,52 +2564,51 @@ END
 
 
 // STL-Dateien werden per fetch aus ./stl/ geladen
-async function loadDefaultSTLs() {
-  const axes = ['A1','A2','A3','A4','A5','A6'];
-  for (const ax of axes) {
-    try {
-      const resp = await fetch('./stl/' + ax.toLowerCase() + '.stl');
-      if (!resp.ok) { console.warn('STL nicht gefunden:', ax); continue; }
-      const buf = await resp.arrayBuffer();
-      const idx = parseInt(ax.replace('A','')) - 1;
-      loadAxisSTLFromBase64(idx, null, ax.toLowerCase()+'.stl', buf);
-    } catch(e) { console.warn('STL fetch error', ax, e); }
+function loadDefaultSTLs() {
+  var axes = ['A1','A2','A3','A4','A5','A6'];
+  var i = 0;
+  function next() {
+    if (i >= axes.length) return;
+    var ax = axes[i++];
+    fetch('./stl/' + ax.toLowerCase() + '.stl')
+      .then(function(r){ return r.ok ? r.arrayBuffer() : Promise.reject('not found'); })
+      .then(function(buf){
+        var idx = parseInt(ax.replace('A','')) - 1;
+        loadAxisSTLFromBase64(idx, null, ax.toLowerCase()+'.stl', buf);
+        next();
+      })
+      .catch(function(e){ console.warn('STL fetch:', ax, e); next(); });
   }
+  next();
 }
 
 
 // Podest + Tool per fetch laden
-async function loadDefaultSceneSTLs() {
-  // Podest
-  try {
-    const resp = await fetch('./stl/podest.stl');
-    if (resp.ok) {
-      const buf = await resp.arrayBuffer();
-      const geo = stlLoader.parse(buf); geo.computeVertexNormals();
+function loadDefaultSceneSTLs() {
+  fetch('./stl/podest.stl')
+    .then(function(r){ return r.ok ? r.arrayBuffer() : Promise.reject('not found'); })
+    .then(function(buf){
+      var geo = stlLoader.parse(buf); geo.computeVertexNormals();
       if (pedestalMesh) { scene.remove(pedestalMesh); pedestalMesh.geometry.dispose(); }
       pedestalMesh = new THREE.Mesh(geo, new THREE.MeshPhongMaterial({color:0x334455,shininess:40}));
       scene.add(pedestalMesh);
-      const el = document.getElementById('pedestal-name');
+      var el = document.getElementById('pedestal-name');
       if (el) el.textContent = 'podest';
-    }
-  } catch(e) { console.warn('Podest STL nicht geladen', e); }
+    }).catch(function(e){ console.warn('Podest STL:', e); });
 
-  // Tool — Ursprung = A6 Mitte
-  try {
-    const resp = await fetch('./stl/tool1_tcp.stl');
-    if (resp.ok) {
-      const buf = await resp.arrayBuffer();
-      const geo = stlLoader.parse(buf); geo.computeVertexNormals();
+  fetch('./stl/tool1_tcp.stl')
+    .then(function(r){ return r.ok ? r.arrayBuffer() : Promise.reject('not found'); })
+    .then(function(buf){
+      var geo = stlLoader.parse(buf); geo.computeVertexNormals();
       if (toolMesh) { scene.remove(toolMesh); toolMesh.geometry.dispose(); toolMesh.material.dispose(); }
-      const mat = new THREE.MeshPhongMaterial({color:0xdd9944,transparent:true,opacity:.85,
+      var mat = new THREE.MeshPhongMaterial({color:0xdd9944,transparent:true,opacity:.85,
         side:THREE.DoubleSide,specular:0x666666});
       toolMesh = new THREE.Mesh(geo, mat);
       scene.add(toolMesh);
       document.getElementById('tool-filename').textContent = 'Tool1_TCP';
       document.getElementById('tool-controls').style.display = 'block';
       buildRobotModel(jointAngles);
-    }
-  } catch(e) { console.warn('Tool STL nicht geladen', e); }
+    }).catch(function(e){ console.warn('Tool STL:', e); });
 }
 
 parseAndLoad();
