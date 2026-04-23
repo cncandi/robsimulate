@@ -2829,8 +2829,8 @@ initSettings();
 
 parseAndLoad();
 
-// STL-Laden nach kurzem Delay (Edge benötigt Zeit für vollst. Initialisierung)
-setTimeout(function() {
+// STL nach vollständigem Laden der Seite (inkl. Three.js CDN)
+window.addEventListener('load', function() {
   loadDefaultSTLs();
   loadDefaultSceneSTLs();
-}, 300);
+});
