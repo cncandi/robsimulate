@@ -2768,17 +2768,36 @@ function applyFZ() {
   // Editor
   var codeEl = document.getElementById('code-input');
   if (codeEl) { codeEl.style.fontSize = fzE + 'px'; codeEl.style.lineHeight = Math.round(fzE * 1.6) + 'px'; }
-  // Toolbar + buttons
-  document.querySelectorAll('.tb,.sbtn,.slbl,.sv,.sstatus').forEach(function(el) { el.style.fontSize = fzU + 'px'; });
-  // Header
-  document.querySelectorAll('header,.htag').forEach(function(el) { el.style.fontSize = fzU + 'px'; });
-  // Right panel
-  document.querySelectorAll('.info-panel,.sec-t,.sec-b,.pt,.stl-lbl,.stl-inp,.stl-unit,.cfg-lbl,.cfg-row,.pc,.pf,.vr,.sr,.ar').forEach(function(el) { el.style.fontSize = fzP + 'px'; });
-  // Status bars + robot bar
-  document.querySelectorAll('#robot-bar,.rb-val,.rb-dim,.scene-hint,#marker-info').forEach(function(el) { el.style.fontSize = fzS + 'px'; });
 
-  // Update value displays
-  ['fz-editor','fz-ui','fz-gutter','fz-panel','fz-status'].forEach(function(id) {
+  // Toolbar + Buttons + Header
+  document.querySelectorAll('.tb,.sbtn,.slbl,.sv,.sstatus,header,.htag').forEach(function(el) {
+    el.style.fontSize = fzU + 'px';
+  });
+
+  // Steuerungspanel + Einstellungsfenster (floating panels = UI-Schrift)
+  document.querySelectorAll(
+    '#steuer-panel,#steuer-panel .sp-hdr-title,#steuer-panel .sp-axis-row,' +
+    '#steuer-panel .sp-sec-title,#steuer-panel .sp-tcp-grid,#steuer-panel .sp-jog-btn,' +
+    '#steuer-panel .sp-axis-val,#steuer-panel .sp-axis-inp,' +
+    '#settings-panel,#settings-panel .sp-hdr-title,#settings-panel .sp-axis-row'
+  ).forEach(function(el) { el.style.fontSize = fzU + 'px'; });
+
+  // Achsenkarte
+  document.querySelectorAll('#axis-map-panel,#amp-hdr,#amp-title,.amp-tab,.amp-legend-lbl,.amp-sbtn,.amp-info')
+    .forEach(function(el) { el.style.fontSize = fzU + 'px'; });
+
+  // Rechtes Info-Panel
+  document.querySelectorAll(
+    '.info-panel,.sec-t,.sec-b,.pt,.stl-lbl,.stl-inp,.stl-unit,' +
+    '.cfg-lbl,.cfg-row,.pc,.pf,.vr,.sr,.ar,.ep-grid,.ep-lbl,.ep-inp,.ep-unit'
+  ).forEach(function(el) { el.style.fontSize = fzP + 'px'; });
+
+  // Statusleiste + Roboterbar
+  document.querySelectorAll('#robot-bar,.rb-val,.rb-dim,.scene-hint,#marker-info')
+    .forEach(function(el) { el.style.fontSize = fzS + 'px'; });
+
+  // Slider-Werte aktualisieren
+  ['fz-editor','fz-ui','fz-panel','fz-status'].forEach(function(id) {
     var sl = document.getElementById(id);
     var vl = document.getElementById(id+'-v');
     if (sl && vl) vl.textContent = sl.value + 'px';
