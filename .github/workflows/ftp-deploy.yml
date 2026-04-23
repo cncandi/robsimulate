@@ -18,7 +18,7 @@ jobs:
           server: ftp.fastmill.biz
           username: robsimul@cnc-technik.de
           password: ${{ secrets.FTP_PASSWORD }}
-          server-dir: /robsimul/
+          server-dir: /
           protocol: ftp
           port: 21
           timeout: 60000
