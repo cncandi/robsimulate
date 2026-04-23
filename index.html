@@ -45,13 +45,13 @@
   <span class="sv" id="sphere-size-v">18</span>
   <div class="sep"></div>
   <button class="sbtn on" id="btn-robot3d" title="Roboter 3D">Robot 3D</button>
-  <button class="sbtn" id="btn-tcp-trace" title="TCP Trace">TCP Trace</button>
+  <button class="sbtn" id="btn-tcp-trace" title="TCP Trace" data-i18n="tcptrace">TCP Trace</button>
   <div class="sep"></div>
-  <button class="sbtn" id="btn-bg" title="Hintergrund wechseln">◑ Hintergrund</button>
-    <button class="sbtn" onclick="toggleSettings()" title="Einstellungen">⚙ Einst.</button>
-    <button class="sbtn" onclick="loadDefaultSTLs();loadDefaultSceneSTLs();" title="STL Modelle neu laden">↺ STL</button>
-    <button class="sbtn" onclick="clearTCPTrace()" title="TCP Trace loeschen">✕ Trace</button>
-    <button class="sbtn r" onclick="resetAll()" title="Alles zuruecksetzen">⟳ Reset</button>
+  <button class="sbtn" id="btn-bg" title="Hintergrund wechseln" data-i18n="bg">◑ Hintergrund</button>
+    <button class="sbtn" onclick="toggleSettings()" title="Einstellungen" data-i18n="settings">⚙ Einst.</button>
+    <button class="sbtn" onclick="loadDefaultSTLs();loadDefaultSceneSTLs();" title="STL Modelle neu laden" data-i18n="stlload">↺ STL</button>
+    <button class="sbtn" onclick="clearTCPTrace()" title="TCP Trace loeschen" data-i18n="clrtrace">✕ Trace</button>
+    <button class="sbtn r" onclick="resetAll()" title="Alles zuruecksetzen" data-i18n="reset">⟳ Reset</button>
   <button class="sbtn" id="btn-steuer" onclick="toggleSteuerPanel()" title="Steuerungspanel">🖥 Status</button>
   <button class="sbtn" id="btn-axmap" onclick="toggleAxisMap()" title="Achsen-Karte">📊 Achsenkarte</button>
   <div class="sep"></div>
@@ -81,10 +81,10 @@
     <canvas id="c3d"></canvas>
     <div class="view-btns">
       <button class="vbtn on" id="vb-iso" onclick="setView('iso')">ISO</button>
-      <button class="vbtn" id="vb-top" onclick="setView('top')">Top</button>
-      <button class="vbtn" id="vb-bottom" onclick="setView('bottom')">Bottom</button>
-      <button class="vbtn" id="vb-front" onclick="setView('front')">Front</button>
-      <button class="vbtn" id="vb-back" onclick="setView('back')">Back</button>
+      <button class="vbtn" id="vb-top" onclick="setView('top')" data-i18n="top">Top</button>
+      <button class="vbtn" id="vb-bottom" onclick="setView('bottom')" data-i18n="bottom">Bottom</button>
+      <button class="vbtn" id="vb-front" onclick="setView('front')" data-i18n="front">Front</button>
+      <button class="vbtn" id="vb-back" onclick="setView('back')" data-i18n="back">Back</button>
       <button class="vbtn" id="vb-left" onclick="setView('left')">Left</button>
       <button class="vbtn" id="vb-right" onclick="setView('right')">Right</button>
     </div>
@@ -120,11 +120,11 @@
     <div id="steuer-panel">
       <div class="sp-hdr" id="steuer-hdr">
         <span class="sp-indicator" id="sp-indicator"></span>
-        <span class="sp-hdr-title">Steuerungspanel</span>
+        <span class="sp-hdr-title" data-i18n="ctrlpanel">Steuerungspanel</span>
         <span class="sp-close" onclick="toggleSteuerPanel()">✕</span>
       </div>
       <div class="sp-body" style="overflow-y:auto;max-height:calc(90vh - 40px)">
-        <div class="sp-sec-title">Physische Achsen</div>
+        <div class="sp-sec-title" data-i18n="phyaxes">Physische Achsen</div>
         <div id="sp-axes"></div>
         <hr class="sp-divider">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
@@ -142,18 +142,18 @@
         <div id="jog-status" style="font-size:.68em;color:#3a6080;min-height:14px;margin-bottom:4px"></div>
         <hr class="sp-divider">
         <div style="display:flex;align-items:center;gap:6px;margin-bottom:5px">
-          <span style="font-size:.72em;color:#2a4060;flex:1">Vorschub [mm/min]</span>
+          <span style="font-size:.72em;color:#2a4060;flex:1" data-i18n="feedrate">Vorschub [mm/min]</span>
           <input class="sp-jog-inp" id="jog-feed" type="number" value="10000" step="100" style="width:65px">
         </div>
-        <div style="font-size:.68em;color:#3a6080;margin-bottom:3px">Satz einfügen (vor END):</div>
+        <div style="font-size:.68em;color:#3a6080;margin-bottom:3px" data-i18n="insert_stmt">Satz einfügen (vor END):</div>
         <div style="display:flex;gap:4px">
-          <button class="sp-jog-btn" onclick="insertPTP()" style="flex:1" title="PTP mit aktuellen Achswinkeln">+ PTP</button>
-          <button class="sp-jog-btn" onclick="insertLIN()" style="flex:1" title="LIN mit aktuellem TCP">+ LIN</button>
+          <button class="sp-jog-btn" onclick="insertPTP()" style="flex:1" title="PTP mit aktuellen Achswinkeln" data-i18n="ins_ptp">+ PTP</button>
+          <button class="sp-jog-btn" onclick="insertLIN()" style="flex:1" title="LIN mit aktuellem TCP" data-i18n="ins_lin">+ LIN</button>
         </div>
       </div>
     </div>
     <div id="marker-info"></div>
-    <div class="scene-hint">LMB: Orbit / Pos. ziehen &nbsp;|&nbsp; RMB: Pan &nbsp;|&nbsp; Wheel: Zoom &nbsp;|&nbsp; Pos. klicken = auswählen</div>
+    <div class="scene-hint" data-i18n="hint">LMB: Orbit / Pos. ziehen &nbsp;|&nbsp; RMB: Pan &nbsp;|&nbsp; Wheel: Zoom &nbsp;|&nbsp; Pos. klicken = auswählen</div>
     <!-- robot status bar -->
     <div id="robot-bar">
       <span class="rb-dim">Achsen:</span>
@@ -173,11 +173,11 @@
   <div class="info-panel" id="info-panel">
     <!-- Kinematics -->
     <div class="sec">
-      <div class="sec-t" onclick="toggleSec(this)"><span class="tog">▼</span>⚙ Kinematik</div>
+      <div class="sec-t" onclick="toggleSec(this)"><span class="tog">▼</span data-i18n="kin_sec">⚙ Kinematik</div>
       <div class="sec-b">
         <!-- Name + New/Load/Save -->
         <div style="display:flex;gap:4px;align-items:center;margin-bottom:6px">
-          <input id="kin-name" class="stl-inp" type="text" value="KR8 R1420 HW" style="flex:1;font-size:.82em" placeholder="Name der Kinematik">
+          <input id="kin-name" class="stl-inp" type="text" value="KR8 R1420 HW" style="flex:1;font-size:.82em" placeholder="Name der Kinematik" data-i18n="kin_name_placeholder" data-i18n-attr="placeholder">
           <button class="sbtn" onclick="newKinematic()" title="Neue leere Kinematik">+Neu</button>
         </div>
         <div style="display:flex;gap:4px;margin-bottom:8px">
@@ -190,7 +190,7 @@
         <div id="joint-limits-ui"></div>
         <div style="font-size:.85em;color:var(--txt3);margin-top:8px;margin-bottom:4px;padding:0 2px;font-weight:bold">Link-Offsets [mm] · Robot CS</div>
         <div id="joint-offsets-ui" style="margin-top:2px"></div>
-        <button class="sbtn" onclick="applyKinematicConfig()" style="width:calc(100% - 10px);margin:5px">▶ Kinematik übernehmen</button>
+        <button class="sbtn" onclick="applyKinematicConfig()" style="width:calc(100% - 10px);margin:5px" data-i18n="applykin">▶ Kinematik übernehmen</button>
         <div style="font-size:.85em;color:var(--txt3);margin-top:10px;margin-bottom:4px;padding:0 2px;font-weight:bold">STL Achsmodelle</div>
         <div id="axis-stl-ui"></div>
         <input type="file" id="axis-stl-file" accept=".stl" style="display:none">
@@ -200,18 +200,18 @@
           <input type="file" id="pedestal-stl-file" accept=".stl" style="display:none">
         </div>
         <div style="display:flex;gap:4px;margin-top:4px">
-          <button class="sbtn on" id="btn-show-skeleton" onclick="toggleSkeleton()" style="flex:1">Skelett</button>
-          <button class="sbtn on" id="btn-show-stl-robot" onclick="toggleSTLRobot()" style="flex:1">Achsen STL</button>
+          <button class="sbtn on" id="btn-show-skeleton" onclick="toggleSkeleton()" style="flex:1" data-i18n="skeleton">Skelett</button>
+          <button class="sbtn on" id="btn-show-stl-robot" onclick="toggleSTLRobot()" style="flex:1" data-i18n="axstl">Achsen STL</button>
         </div>
         <div style="display:flex;gap:4px;margin-top:4px">
-          <button class="sbtn on" id="btn-show-tool" onclick="toggleToolMesh()" style="flex:1">Werkzeug STL</button>
-          <button class="sbtn on" id="btn-show-pedestal" onclick="togglePedestalMesh()" style="flex:1">Podest STL</button>
+          <button class="sbtn on" id="btn-show-tool" onclick="toggleToolMesh()" style="flex:1" data-i18n="toolstl2">Werkzeug STL</button>
+          <button class="sbtn on" id="btn-show-pedestal" onclick="togglePedestalMesh()" style="flex:1" data-i18n="pedstl">Podest STL</button>
         </div>
       </div>
     </div>
     <!-- Robot Settings -->
     <div class="sec collapsed">
-      <div class="sec-t" onclick="toggleSec(this)"><span class="tog">▼</span>🎨 Robot Einstellungen</div>
+      <div class="sec-t" onclick="toggleSec(this)"><span class="tog">▼</span data-i18n="robo_set">🎨 Robot Einstellungen</div>
       <div class="sec-b">
         <div class="cfg-grid">
           <div><div class="cfg-lbl">Link-Farbe</div><input type="color" class="cfg-color" id="cfg-link-col" value="#cc4400"></div>
@@ -220,7 +220,7 @@
           <div><div class="cfg-lbl">Path-Farbe</div><input type="color" class="cfg-color" id="cfg-path-col" value="#f05500"></div>
         </div>
         <div class="cfg-row">
-          <label>TCP Trace anzeigen</label>
+          <label data-i18n="showtrace">TCP Trace anzeigen</label>
           <input type="checkbox" id="cfg-show-trace" checked>
         </div>
         <div class="cfg-row">
@@ -231,7 +231,7 @@
     </div>
     <!-- TCP definition -->
     <div class="sec collapsed">
-      <div class="sec-t" onclick="toggleSec(this)"><span class="tog">▼</span>🔧 TCP · CH0</div>
+      <div class="sec-t" onclick="toggleSec(this)"><span class="tog">▼</span data-i18n="tcp_sec">🔧 TCP · CH0</div>
       <div class="sec-b">
         <div style="font-size:.7em;color:var(--txt3);margin-bottom:4px">Position [mm] relativ zum Flansch:</div>
         <div class="stl-grid" style="margin-bottom:5px">
@@ -242,7 +242,7 @@
           <span class="stl-lbl">B(Y)</span><input class="stl-inp" id="tcp-b" type="number" value="90" step="1"><span class="stl-unit">°</span>
           <span class="stl-lbl">C(X)</span><input class="stl-inp" id="tcp-c" type="number" value="0" step="1"><span class="stl-unit">°</span>
         </div>
-        <div style="margin-bottom:5px"><button class="sbtn on" onclick="updateTCPDef()" style="width:100%;background:var(--acc);color:#fff;border-color:#c04200;font-weight:bold">▶ Übernehmen</button></div>
+        <div style="margin-bottom:5px"><button class="sbtn on" onclick="updateTCPDef()" style="width:100%;background:var(--acc);color:#fff;border-color:#c04200;font-weight:bold" data-i18n="overnahme">▶ Übernehmen</button></div>
         <div style="font-size:.7em;color:var(--txt3)">
           <div style="display:flex;gap:4px;margin-bottom:4px"><button class="sbtn" onclick="saveTCP()" style="flex:1">💾 TCP speichern</button><button class="sbtn" onclick="loadTCP()" style="flex:1">📂 TCP laden</button><input type="file" id="tcp-file-in" accept=".json,.xml" style="display:none"></div>
           <button class="sbtn" onclick="loadToolFile()" style="width:100%;margin-top:3px">+ STL Werkzeug laden</button>
@@ -263,27 +263,27 @@
     </div>
     <!-- Positions -->
     <div class="sec collapsed">
-      <div class="sec-t" onclick="toggleSec(this)"><span class="tog">▼</span>📍 Positionen</div>
+      <div class="sec-t" onclick="toggleSec(this)"><span class="tog">▼</span data-i18n="pos_sec">📍 Positionen</div>
       <div class="sec-b" id="pos-list"><div class="empty">Keine Positionen gefunden</div></div>
     </div>
     <!-- Variables -->
     <div class="sec collapsed">
-      <div class="sec-t" onclick="toggleSec(this)"><span class="tog">▼</span>📦 Variablen</div>
+      <div class="sec-t" onclick="toggleSec(this)"><span class="tog">▼</span data-i18n="var_sec">📦 Variablen</div>
       <div class="sec-b" id="var-list"><div class="empty">Keine Variablen</div></div>
     </div>
     <!-- Digital Out -->
     <div class="sec collapsed">
-      <div class="sec-t" onclick="toggleSec(this)"><span class="tog">▼</span>🔴 Digital Outputs ($OUT)</div>
+      <div class="sec-t" onclick="toggleSec(this)"><span class="tog">▼</span data-i18n="dout_sec">🔴 Digital Outputs ($OUT)</div>
       <div class="sec-b" id="dout-list"><div class="empty">Kein $OUT</div></div>
     </div>
     <!-- Digital In -->
     <div class="sec collapsed">
-      <div class="sec-t" onclick="toggleSec(this)"><span class="tog">▼</span>🔵 Digital Inputs ($IN)</div>
+      <div class="sec-t" onclick="toggleSec(this)"><span class="tog">▼</span data-i18n="din_sec">🔵 Digital Inputs ($IN)</div>
       <div class="sec-b" id="din-list"><div class="empty">Kein $IN</div></div>
     </div>
     <!-- Analog -->
     <div class="sec collapsed">
-      <div class="sec-t" onclick="toggleSec(this)"><span class="tog">▼</span>📊 Analog ($ANOUT)</div>
+      <div class="sec-t" onclick="toggleSec(this)"><span class="tog">▼</span data-i18n="anout_sec">📊 Analog ($ANOUT)</div>
       <div class="sec-b" id="anout-list"><div class="empty">Kein $ANOUT</div></div>
     </div>
   </div>
@@ -327,39 +327,46 @@
   </div>
 </div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="./js/i18n.js"></script>
 <script src="./js/simulator.js"></script>
 
 <!-- Einstellungsfenster -->
 <div id="settings-panel" style="position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);width:360px;background:rgba(10,20,35,.97);border:1px solid var(--acc);border-radius:5px;z-index:25;font-family:'Consolas','Courier New',monospace;box-shadow:0 4px 20px rgba(0,0,0,.7);user-select:none;display:none">
   <div class="sp-hdr" id="settings-drag-handle">
-    <span class="sp-hdr-title">⚙ Einstellungen</span>
+    <span class="sp-hdr-title" data-i18n="sett_title">⚙ Einstellungen</span>
     <span class="sp-close" onclick="toggleSettings()">✕</span>
   </div>
   <div class="sp-body" style="overflow-y:auto;max-height:calc(90vh - 40px)">
-    <div class="sp-sec-title">Schriftgrössen</div>
+    <div class="sp-sec-title" data-i18n="fontsizes">Schriftgrössen</div>
     <div class="sp-axis-row">
-      <span style="flex:1;color:#c8d8e8;font-size:1em">Editor (Code)</span>
+      <span style="flex:1;color:#c8d8e8;font-size:1em" data-i18n="fz_editor">Editor (Code)</span>
       <input type="range" min="9" max="50" step="1" id="fz-editor" oninput="applyFZ()" style="width:80px;accent-color:var(--acc)">
       <span class="sp-axis-val" id="fz-editor-v">13</span>
     </div>
     <div class="sp-axis-row">
-      <span style="flex:1;color:#c8d8e8;font-size:1em">Toolbar / Buttons</span>
+      <span style="flex:1;color:#c8d8e8;font-size:1em" data-i18n="fz_ui">Toolbar / Buttons</span>
       <input type="range" min="8" max="50" step="1" id="fz-ui" oninput="applyFZ()" style="width:80px;accent-color:var(--acc)">
       <span class="sp-axis-val" id="fz-ui-v">11</span>
     </div>
     <div class="sp-axis-row">
-      <span style="flex:1;color:#c8d8e8;font-size:1em">Parameter rechts</span>
+      <span style="flex:1;color:#c8d8e8;font-size:1em" data-i18n="fz_panel">Parameter rechts</span>
       <input type="range" min="8" max="50" step="1" id="fz-panel" oninput="applyFZ()" style="width:80px;accent-color:var(--acc)">
       <span class="sp-axis-val" id="fz-panel-v">11</span>
     </div>
     <div class="sp-axis-row">
-      <span style="flex:1;color:#c8d8e8;font-size:1em">Statusleiste</span>
+      <span style="flex:1;color:#c8d8e8;font-size:1em" data-i18n="fz_status">Statusleiste</span>
       <input type="range" min="8" max="50" step="1" id="fz-status" oninput="applyFZ()" style="width:80px;accent-color:var(--acc)">
       <span class="sp-axis-val" id="fz-status-v">10</span>
     </div>
     <hr class="sp-divider">
+    <div class="sp-axis-row">
+      <span style="flex:1;color:#c8d8e8;font-size:1em" data-i18n="lang_label">Sprache:</span>
+      <button id="lang-btn-de" class="sp-jog-btn" onclick="setLang('de')" style="flex:0 0 auto;padding:4px 12px;margin-right:4px">Deutsch</button>
+      <button id="lang-btn-en" class="sp-jog-btn" onclick="setLang('en')" style="flex:0 0 auto;padding:4px 12px">English</button>
+    </div>
+    <hr class="sp-divider">
     <div style="display:flex;gap:6px">
-      <button class="sp-jog-btn" onclick="resetSettings()" style="flex:1">↺ Reset</button>
+      <button class="sp-jog-btn" onclick="resetSettings()" style="flex:1" data-i18n="fz_reset">↺ Reset</button>
       <button class="sp-jog-btn" onclick="saveSettings()" style="flex:1;color:var(--acc);border-color:var(--acc)">✓ Speichern</button>
     </div>
   </div>

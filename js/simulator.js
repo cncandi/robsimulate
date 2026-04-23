@@ -792,7 +792,7 @@ function applyKinematicData(data) {
 }
 
 function newKinematic() {
-  if (!confirm('Neue leere Kinematik erstellen? Aktuelle Einstellungen werden überschrieben.')) return;
+  if (!confirm(t('confirm_new_kin'))) return;
   JOINTS_DEF.forEach(j => { j.off=[0,0,0]; j.min=-180; j.max=180; });
   const el = document.getElementById('kin-name');
   if (el) el.value = 'Neue Kinematik';
@@ -1853,7 +1853,7 @@ function renderSTLEntry(idx){
 }
 
 function updateSTL(idx){const mesh=(stlObjects[idx]&&stlObjects[idx].mesh);if(!mesh)return;const g=ax=>parseFloat(document.getElementById(`sx${idx}-${ax}`).value)||0;mesh.position.set(g('x'),g('y'),g('z'));mesh.setRotationFromEuler(kukaEuler(g('a'),g('b'),g('c')));}
-function removeSTL(idx){const obj=stlObjects[idx];if(!obj)return;stlGrp.remove(obj.mesh);obj.mesh.geometry.dispose();obj.mesh.material.dispose();((obj&&obj.el)&&obj.el.remove());stlObjects[idx]=null;if(document.getElementById('stl-list').children.length===0)document.getElementById('stl-list').innerHTML='<div class="empty">Keine STL Dateien geladen</div>';}
+function removeSTL(idx){const obj=stlObjects[idx];if(!obj)return;stlGrp.remove(obj.mesh);obj.mesh.geometry.dispose();obj.mesh.material.dispose();((obj&&obj.el)&&obj.el.remove());stlObjects[idx]=null;if(document.getElementById('stl-list').children.length===0)document.getElementById('stl-list').innerHTML='<div class="empty">' + t('no_stl') + '</div>';}
 
 // ═══════════════════════════════════════════════════
 // SIMULATION ENGINE
@@ -2298,7 +2298,7 @@ function updateIKBadge(idx, res) {
 
 function renderPositions(positions){
   const el=document.getElementById('pos-list');
-  if(!positions.length){el.innerHTML='<div class="empty">Keine Positionen</div>';return;}
+  if(!positions.length){el.innerHTML='<div class="empty">' + t('no_pos2') + '</div>';return;}
   el.innerHTML=positions.map((p,i)=>{
     const tc=(p.type||'').toLowerCase();
     const ik=ikTable[i];
@@ -2317,7 +2317,7 @@ function renderPositions(positions){
 }
 
 function updatePosCards(activeIdx){document.querySelectorAll('.pc').forEach((el,i)=>el.classList.toggle('sim-cur',i===activeIdx));(function(){var _e=document.getElementById('pcard-'+activeIdx);if(_e)_e.scrollIntoView({block:'nearest',behavior:'smooth'});})();;}
-function renderVariables(vars){const el=document.getElementById('var-list');const entries=Object.entries(vars);if(!entries.length){el.innerHTML='<div class="empty">Keine Variablen</div>';return;}el.innerHTML=entries.map(([n,v])=>{const d=typeof v==='boolean'?(v?'TRUE':'FALSE'):String(v);return`<div class="vr"><span class="vn">${n}</span><span class="vv">${d}</span></div>`;}).join('');}
+function renderVariables(vars){const el=document.getElementById('var-list');const entries=Object.entries(vars);if(!entries.length){el.innerHTML='<div class="empty">' + t('no_vars') + '</div>';return;}el.innerHTML=entries.map(([n,v])=>{const d=typeof v==='boolean'?(v?'TRUE':'FALSE'):String(v);return`<div class="vr"><span class="vn">${n}</span><span class="vv">${d}</span></div>`;}).join('');}
 function renderDigital(sigs,prefix,elId){const el=document.getElementById(elId);const entries=Object.entries(sigs).sort((a,b)=>+a[0]-+b[0]);if(!entries.length){el.innerHTML=`<div class="empty">Kein ${prefix}</div>`;return;}el.innerHTML=entries.map(([idx,val])=>{const on=val===true||val==='TRUE'||val===1;return`<div class="sr"><div class="led ${on?'on':'off'}"></div><span class="sn">${prefix}[${idx}]</span><span class="sv ${on?'on':'off'}">${on?'TRUE':'FALSE'}</span></div>`;}).join('');}
 function renderAnalog(sigs){const el=document.getElementById('anout-list');const entries=Object.entries(sigs).sort((a,b)=>+a[0]-+b[0]);if(!entries.length){el.innerHTML='<div class="empty">Kein $ANOUT</div>';return;}el.innerHTML=entries.map(([idx,v])=>{const pct=Math.abs(v)/10*50;const fill=v>=0?`width:${pct}%;left:50%`:`width:${pct}%;left:${50-pct}%`;return`<div class="ar"><div class="ah"><span class="an">$ANOUT[${idx}]</span><span class="av">${v>=0?'+':''}${v.toFixed(2)} V</span></div><div class="atrack"><div class="amid"></div><div class="afill ${v>=0?'pos':'neg'}" style="${fill}"></div></div></div>`;}).join('');}
 
@@ -2848,7 +2848,7 @@ function clearTCPTrace() {
 
 
 function resetAll() {
-  if (!confirm('Alles zurücksetzen? Editor, Positionen und Roboterstellung werden auf Startwerte gesetzt.')) return;
+  if (!confirm(t('confirm_reset'))) return;
   // Roboter Heimstellung
   jointAngles = [0,-90,90,0,0,0];
   applyAngles(jointAngles);
