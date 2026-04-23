@@ -2564,7 +2564,7 @@ END
 
 
 // STL-Dateien werden per fetch aus ./stl/ geladen
-async async function loadDefaultSTLs() {
+async function loadDefaultSTLs() {
   const axes = ['A1','A2','A3','A4','A5','A6'];
   for (const ax of axes) {
     try {
