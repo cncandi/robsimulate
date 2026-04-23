@@ -2754,7 +2754,8 @@ function initSettings() {
 
 function toggleSettings() {
   var p = document.getElementById('settings-panel');
-  if (p) p.classList.toggle('visible');
+  if (!p) return;
+  p.style.display = (p.style.display === 'none' || p.style.display === '') ? 'block' : 'none';
 }
 
 
