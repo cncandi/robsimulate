@@ -48,6 +48,7 @@
   <button class="sbtn" id="btn-tcp-trace" title="TCP Trace">TCP Trace</button>
   <div class="sep"></div>
   <button class="sbtn" id="btn-bg" title="Hintergrund wechseln">◑ Hintergrund</button>
+    <button class="sbtn" onclick="toggleSettings()" title="Einstellungen">⚙ Einst.</button>
   <button class="sbtn" id="btn-steuer" onclick="toggleSteuerPanel()" title="Steuerungspanel">🖥 Status</button>
   <button class="sbtn" id="btn-axmap" onclick="toggleAxisMap()" title="Achsen-Karte">📊 Achsenkarte</button>
   <div class="sep"></div>
@@ -324,5 +325,64 @@
 </div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script src="./js/simulator.js"></script>
+
+<!-- ── Einstellungsfenster ───────────────────────────────── -->
+<div id="settings-panel">
+  <div class="sp-title" id="settings-drag-handle">
+    <span>⚙ Einstellungen</span>
+    <button class="sbtn" onclick="toggleSettings()" style="padding:1px 6px;font-size:.8em">✕</button>
+  </div>
+  <div class="sp-tabs">
+    <button class="sp-tab on" onclick="spTab(this,'tab-fonts')">Schrift</button>
+    <button class="sp-tab" onclick="spTab(this,'tab-view')">Ansicht</button>
+  </div>
+  <div class="sp-body">
+    <!-- Schrift -->
+    <div id="tab-fonts">
+      <div class="sp-group">
+        <div class="sp-group-title">Schriftgrössen</div>
+        <div class="sp-row">
+          <span class="sp-lbl">Editor (KRL-Code)</span>
+          <input class="sp-slider" type="range" min="9" max="22" step="1" id="fz-editor" oninput="applyFZ()">
+          <span class="sp-val" id="fz-editor-v">13px</span>
+        </div>
+        <div class="sp-row">
+          <span class="sp-lbl">Toolbar / Buttons</span>
+          <input class="sp-slider" type="range" min="8" max="18" step="1" id="fz-ui" oninput="applyFZ()">
+          <span class="sp-val" id="fz-ui-v">11px</span>
+        </div>
+        <div class="sp-row">
+          <span class="sp-lbl">Linker Randbereich</span>
+          <input class="sp-slider" type="range" min="8" max="18" step="1" id="fz-gutter" oninput="applyFZ()">
+          <span class="sp-val" id="fz-gutter-v">11px</span>
+        </div>
+        <div class="sp-row">
+          <span class="sp-lbl">Parameter rechts</span>
+          <input class="sp-slider" type="range" min="8" max="18" step="1" id="fz-panel" oninput="applyFZ()">
+          <span class="sp-val" id="fz-panel-v">11px</span>
+        </div>
+        <div class="sp-row">
+          <span class="sp-lbl">Statusleiste</span>
+          <input class="sp-slider" type="range" min="8" max="16" step="1" id="fz-status" oninput="applyFZ()">
+          <span class="sp-val" id="fz-status-v">10px</span>
+        </div>
+      </div>
+    </div>
+    <!-- Ansicht -->
+    <div id="tab-view" style="display:none">
+      <div class="sp-group">
+        <div class="sp-group-title">Weitere Einstellungen</div>
+        <div style="font-size:.75em;color:var(--txt3);padding:8px 0">
+          Hier können weitere Einstellungen ergänzt werden.
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="sp-footer">
+    <button class="sp-btn" onclick="resetSettings()">Zurücksetzen</button>
+    <button class="sp-btn primary" onclick="saveSettings()">✓ Speichern</button>
+  </div>
+</div>
+
 </body>
 </html>

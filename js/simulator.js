@@ -2664,6 +2664,130 @@ function togglePedestalMesh() {
   // Right handle: info-panel expands to the LEFT (-1)
   makeResizer('ip-resize-handle', function(){ return document.getElementById('info-panel'); }, function(){ return -1; });
 })();
+
+// ══════════════════════════════════════════════════════════
+// EINSTELLUNGSFENSTER — localStorage-Persistenz
+// ══════════════════════════════════════════════════════════
+var SETTINGS_KEY = 'robsim_settings';
+
+var defaultSettings = {
+  fzEditor:  13,
+  fzUi:      11,
+  fzGutter:  11,
+  fzPanel:   11,
+  fzStatus:  10
+};
+
+function loadSettings() {
+  try {
+    var s = localStorage.getItem(SETTINGS_KEY);
+    return s ? Object.assign({}, defaultSettings, JSON.parse(s)) : Object.assign({}, defaultSettings);
+  } catch(e) { return Object.assign({}, defaultSettings); }
+}
+
+function saveSettings() {
+  var s = {
+    fzEditor:  parseInt(document.getElementById('fz-editor').value),
+    fzUi:      parseInt(document.getElementById('fz-ui').value),
+    fzGutter:  parseInt(document.getElementById('fz-gutter').value),
+    fzPanel:   parseInt(document.getElementById('fz-panel').value),
+    fzStatus:  parseInt(document.getElementById('fz-status').value)
+  };
+  try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(s)); } catch(e) {}
+  applyFZ();
+}
+
+function resetSettings() {
+  try { localStorage.removeItem(SETTINGS_KEY); } catch(e) {}
+  applySettingsToUI(defaultSettings);
+  applyFZ();
+}
+
+function applySettingsToUI(s) {
+  var fields = {
+    'fz-editor': s.fzEditor, 'fz-ui': s.fzUi,
+    'fz-gutter': s.fzGutter, 'fz-panel': s.fzPanel, 'fz-status': s.fzStatus
+  };
+  Object.entries(fields).forEach(function(kv) {
+    var el = document.getElementById(kv[0]);
+    if (el) { el.value = kv[1]; }
+    var vEl = document.getElementById(kv[0]+'-v');
+    if (vEl) vEl.textContent = kv[1] + 'px';
+  });
+}
+
+function applyFZ() {
+  var fzE = parseInt(document.getElementById('fz-editor').value);
+  var fzU = parseInt(document.getElementById('fz-ui').value);
+  var fzG = parseInt(document.getElementById('fz-gutter').value);
+  var fzP = parseInt(document.getElementById('fz-panel').value);
+  var fzS = parseInt(document.getElementById('fz-status').value);
+
+  // Editor
+  var codeEl = document.getElementById('code-input');
+  if (codeEl) { codeEl.style.fontSize = fzE + 'px'; codeEl.style.lineHeight = Math.round(fzE * 1.6) + 'px'; }
+  // Gutter line height sync
+  var gut = document.getElementById('gutter');
+  if (gut) gut.style.fontSize = fzG + 'px';
+  // Toolbar + buttons
+  document.querySelectorAll('.tb,.sbtn,.slbl,.sv,.sstatus').forEach(function(el) { el.style.fontSize = fzU + 'px'; });
+  // Header
+  document.querySelectorAll('header,.htag').forEach(function(el) { el.style.fontSize = fzU + 'px'; });
+  // Right panel
+  document.querySelectorAll('.info-panel,.sec-t,.sec-b,.pt,.stl-lbl,.stl-inp,.stl-unit,.cfg-lbl,.cfg-row,.pc,.pf,.vr,.sr,.ar').forEach(function(el) { el.style.fontSize = fzP + 'px'; });
+  // Status bars + robot bar
+  document.querySelectorAll('#robot-bar,.rb-val,.rb-dim,.scene-hint,#marker-info').forEach(function(el) { el.style.fontSize = fzS + 'px'; });
+
+  // Update value displays
+  ['fz-editor','fz-ui','fz-gutter','fz-panel','fz-status'].forEach(function(id) {
+    var sl = document.getElementById(id);
+    var vl = document.getElementById(id+'-v');
+    if (sl && vl) vl.textContent = sl.value + 'px';
+  });
+}
+
+function initSettings() {
+  var s = loadSettings();
+  applySettingsToUI(s);
+  applyFZ();
+}
+
+function toggleSettings() {
+  var p = document.getElementById('settings-panel');
+  if (p) p.classList.toggle('visible');
+}
+
+function spTab(btn, tabId) {
+  document.querySelectorAll('.sp-tab').forEach(function(b) { b.classList.remove('on'); });
+  btn.classList.add('on');
+  document.querySelectorAll('#tab-fonts,#tab-view').forEach(function(el) { el.style.display = 'none'; });
+  var t = document.getElementById(tabId);
+  if (t) t.style.display = 'block';
+}
+
+// Drag for settings panel
+(function() {
+  var panel = document.getElementById('settings-panel');
+  var handle = document.getElementById('settings-drag-handle');
+  if (!panel || !handle) return;
+  var dragging = false, ox = 0, oy = 0;
+  handle.addEventListener('mousedown', function(e) {
+    dragging = true;
+    ox = e.clientX - panel.offsetLeft;
+    oy = e.clientY - panel.offsetTop;
+    panel.style.transform = 'none';
+    e.preventDefault();
+  });
+  window.addEventListener('mousemove', function(e) {
+    if (!dragging) return;
+    panel.style.left = (e.clientX - ox) + 'px';
+    panel.style.top  = (e.clientY - oy) + 'px';
+  });
+  window.addEventListener('mouseup', function() { dragging = false; });
+})();
+
+initSettings();
+
 parseAndLoad();
 loadDefaultSTLs();
 loadDefaultSceneSTLs();
