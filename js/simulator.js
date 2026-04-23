@@ -2840,10 +2840,46 @@ function toggleSettings() {
 
 initSettings();
 
+
+function clearTCPTrace() {
+  tcpTracePoints.length = 0;
+  tcpTraceGrp.clear();
+}
+
+
+function resetAll() {
+  if (!confirm('Alles zurücksetzen? Editor, Positionen und Roboterstellung werden auf Startwerte gesetzt.')) return;
+  // Roboter Heimstellung
+  jointAngles = [0,-90,90,0,0,0];
+  applyAngles(jointAngles);
+  // TCP Trace löschen
+  clearTCPTrace();
+  // Editor zurücksetzen
+  var ta = document.getElementById('code-input');
+  if (ta) {
+    ta.value = 'DEF NONAME()\n\nEND';
+    rebuildGutter();
+  }
+  // Simulation stoppen
+  pauseSim();
+  setStatus('stopped', 'STOPPED');
+  // Positionen leeren
+  parsedData = {positions:[], steps:[], finalState:{variables:{},digitalIn:{},digitalOut:{},analogOut:{}}};
+  ikTable = [];
+  trajectory = [];
+  trajMax = 0;
+  buildScene([]);
+  renderPositions([]);
+  renderVariables({});
+  renderDigital({}, '$OUT', 'dout-list');
+  renderDigital({}, '$IN',  'din-list');
+  renderAnalog({});
+  // Deselect
+  deselectPosition();
+  markerGrp.visible = false;
+}
+
 parseAndLoad();
 
 // STL nach vollständigem Laden der Seite (inkl. Three.js CDN)
-window.addEventListener('load', function() {
-  loadDefaultSTLs();
-  loadDefaultSceneSTLs();
-});
+// STL wird manuell per '↺ STL' Button geladen
