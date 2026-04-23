@@ -137,18 +137,18 @@ input[type=range].ss::-webkit-slider-thumb{-webkit-appearance:none;width:12px;he
 .amp-info{font-size:.72em;color:#3a6080;margin-top:6px;line-height:1.5}
 
 /* ── Steuerungspanel ── */
-#steuer-panel{position:absolute;top:44px;left:8px;width:300px;background:rgba(10,20,35,.97);
+#steuer-panel{position:absolute;top:44px;left:8px;width:380px;background:rgba(10,20,35,.97);
   border:1px solid var(--acc);border-radius:5px;z-index:20;font-family:'Consolas','Courier New',monospace;
   box-shadow:0 4px 20px rgba(0,0,0,.7);user-select:none;display:none}
 #steuer-panel.visible{display:block}
 .sp-hdr{background:#14243e;border-bottom:1px solid #1a3050;padding:5px 10px;
   display:flex;align-items:center;gap:8px;cursor:move;border-radius:4px 4px 0 0}
-.sp-hdr-title{font-size:.8em;color:#c8d8e8;font-weight:bold;flex:1}
+.sp-hdr-title{font-size:1em;color:#c8d8e8;font-weight:bold;flex:1}
 .sp-close{color:#2a4060;cursor:pointer;font-size:1.1em;line-height:1;margin-left:auto}
 .sp-close:hover{color:var(--acc)}
 .sp-body{padding:10px 12px}
-.sp-sec-title{font-size:.75em;font-weight:bold;color:#c8d8e8;margin-bottom:6px;margin-top:2px}
-.sp-axis-row{display:flex;align-items:center;gap:6px;margin-bottom:5px;font-size:.78em}
+.sp-sec-title{font-size:.9em;font-weight:bold;color:#c8d8e8;margin-bottom:6px;margin-top:2px}
+.sp-axis-row{display:flex;align-items:center;gap:6px;margin-bottom:7px;font-size:.95em}
 .sp-axis-lbl{width:26px;color:var(--acc);font-weight:bold;flex-shrink:0}
 .sp-axis-min{width:30px;color:#2a4060;text-align:right;flex-shrink:0;font-size:.85em}
 .sp-axis-max{width:30px;color:#2a4060;text-align:left;flex-shrink:0;font-size:.85em}
@@ -156,11 +156,11 @@ input[type=range].ss::-webkit-slider-thumb{-webkit-appearance:none;width:12px;he
 .sp-slider-fill{height:100%;background:var(--acc);border-radius:3px;transition:width .1s}
 .sp-slider-thumb{position:absolute;width:12px;height:12px;border-radius:50%;
   background:var(--acc);top:-3px;transform:translateX(-50%);transition:left .1s}
-.sp-axis-val{width:54px;text-align:right;color:#9ecfea;font-weight:bold;flex-shrink:0;font-size:.9em}
+.sp-axis-val{width:62px;text-align:right;color:#9ecfea;font-weight:bold;flex-shrink:0;font-size:1em}
 .sp-axis-val.active{color:var(--acc);background:rgba(240,85,0,.15);border-radius:2px;padding:0 3px}
 .sp-divider{border:none;border-top:1px solid #1a3050;margin:8px 0}
-.sp-tcp-grid{display:grid;grid-template-columns:28px 1fr 28px 1fr;gap:3px 8px;font-size:.78em}
-.sp-tcp-lbl{color:#2a4060;text-align:right;padding-top:2px}
+.sp-tcp-grid{display:grid;grid-template-columns:28px 1fr 28px 1fr;gap:3px 8px;font-size:.95em}
+.sp-tcp-lbl{color:#2a4060;text-align:right;padding-top:2px;font-size:.9em}
 .sp-tcp-val{color:#9ecfea;font-weight:bold;padding:1px 4px;background:#070d1a;
   border-radius:2px;text-align:right}
 .sp-tcp-row-full{grid-column:1/-1;display:flex;justify-content:space-between;

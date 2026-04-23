@@ -2718,7 +2718,6 @@ var SETTINGS_KEY = 'robsim_settings';
 var defaultSettings = {
   fzEditor:  13,
   fzUi:      11,
-  fzGutter:  11,
   fzPanel:   11,
   fzStatus:  10
 };
@@ -2734,8 +2733,7 @@ function saveSettings() {
   var s = {
     fzEditor:  parseInt(document.getElementById('fz-editor').value),
     fzUi:      parseInt(document.getElementById('fz-ui').value),
-    fzGutter:  parseInt(document.getElementById('fz-gutter').value),
-    fzPanel:   parseInt(document.getElementById('fz-panel').value),
+      fzPanel:   parseInt(document.getElementById('fz-panel').value),
     fzStatus:  parseInt(document.getElementById('fz-status').value)
   };
   try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(s)); } catch(e) {}
@@ -2764,16 +2762,12 @@ function applySettingsToUI(s) {
 function applyFZ() {
   var fzE = parseInt(document.getElementById('fz-editor').value);
   var fzU = parseInt(document.getElementById('fz-ui').value);
-  var fzG = parseInt(document.getElementById('fz-gutter').value);
   var fzP = parseInt(document.getElementById('fz-panel').value);
   var fzS = parseInt(document.getElementById('fz-status').value);
 
   // Editor
   var codeEl = document.getElementById('code-input');
   if (codeEl) { codeEl.style.fontSize = fzE + 'px'; codeEl.style.lineHeight = Math.round(fzE * 1.6) + 'px'; }
-  // Gutter line height sync
-  var gut = document.getElementById('gutter');
-  if (gut) gut.style.fontSize = fzG + 'px';
   // Toolbar + buttons
   document.querySelectorAll('.tb,.sbtn,.slbl,.sv,.sstatus').forEach(function(el) { el.style.fontSize = fzU + 'px'; });
   // Header
