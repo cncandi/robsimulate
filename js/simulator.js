@@ -2628,28 +2628,41 @@ function togglePedestalMesh() {
   if (pedestalMesh) pedestalMesh.visible = showPedestalMesh;
 }
 
-// ── Editor-Panel Resize ────────────────────────────────────
+// ── 3-Panel Resize (Editor | Viewport | Parameter) ────────
 (function(){
-  const ep = document.querySelector('.ep');
-  const handle = document.getElementById('ep-resize-handle');
-  if (!ep || !handle) return;
-  let dragging = false, startX = 0, startW = 0;
-  handle.addEventListener('mousedown', function(e){
-    dragging = true; startX = e.clientX; startW = ep.offsetWidth;
-    document.body.style.cursor = 'ew-resize';
-    document.body.style.userSelect = 'none';
-    e.preventDefault();
-  });
-  window.addEventListener('mousemove', function(e){
-    if (!dragging) return;
-    const w = Math.max(120, Math.min(800, startW + (e.clientX - startX)));
-    ep.style.width = w + 'px';
-  });
-  window.addEventListener('mouseup', function(){ 
-    dragging = false;
-    document.body.style.cursor = '';
-    document.body.style.userSelect = '';
-  });
+  function makeResizer(handleId, getPanel, getDir) {
+    var handle = document.getElementById(handleId);
+    if (!handle) return;
+    var dragging = false, startX = 0, startW = 0;
+    handle.addEventListener('mousedown', function(e){
+      var panel = getPanel();
+      if (!panel) return;
+      dragging = true; startX = e.clientX; startW = panel.offsetWidth;
+      document.body.style.cursor = 'ew-resize';
+      document.body.style.userSelect = 'none';
+      e.preventDefault();
+    });
+    window.addEventListener('mousemove', function(e){
+      if (!dragging) return;
+      var panel = getPanel();
+      if (!panel) return;
+      var delta = (e.clientX - startX) * getDir();
+      var w = Math.max(120, Math.min(800, startW + delta));
+      panel.style.width = w + 'px';
+      resize(); // update Three.js renderer
+    });
+    window.addEventListener('mouseup', function(){
+      if (!dragging) return;
+      dragging = false;
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+      resize();
+    });
+  }
+  // Left handle: editor expands to the RIGHT (+1)
+  makeResizer('ep-resize-handle', function(){ return document.querySelector('.ep'); }, function(){ return 1; });
+  // Right handle: info-panel expands to the LEFT (-1)
+  makeResizer('ip-resize-handle', function(){ return document.getElementById('info-panel'); }, function(){ return -1; });
 })();
 parseAndLoad();
 loadDefaultSTLs();

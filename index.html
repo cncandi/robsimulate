@@ -72,7 +72,7 @@
   </div>
 
   <!-- VIEWPORT -->
-  <div id="ep-resize-handle" style="width:5px;background:var(--acc);cursor:ew-resize;flex-shrink:0;opacity:.4;transition:opacity .2s" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=.4"></div>
+  <div id="ep-resize-handle" class="ep-resize-handle"></div>
   <div class="vp">
     <canvas id="c3d"></canvas>
     <div class="view-btns">
@@ -165,7 +165,8 @@
   </div>
 
   <!-- INFO PANEL -->
-  <div class="info-panel">
+  <div id="ip-resize-handle" class="ip-resize-handle"></div>
+  <div class="info-panel" id="info-panel">
     <!-- Kinematics -->
     <div class="sec">
       <div class="sec-t" onclick="toggleSec(this)"><span class="tog">▼</span>⚙ Kinematik</div>

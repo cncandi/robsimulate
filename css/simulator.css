@@ -294,3 +294,8 @@ input[type=range].ss::-webkit-slider-thumb{-webkit-appearance:none;width:12px;he
 .joint-cfg input{background:var(--bg1);color:#9ecfea;border:1px solid var(--bdr);border-radius:2px;padding:1px 3px;font-family:inherit;font-size:.9em;width:100%;outline:none;text-align:right}
 .joint-cfg input:focus{border-color:var(--acc)}
 .empty{color:var(--txt3);font-size:.72em;padding:7px;text-align:center}
+/* Resize handles */
+.ep-resize-handle{width:5px;background:var(--acc);cursor:ew-resize;flex-shrink:0;opacity:.3;transition:opacity .15s}
+.ep-resize-handle:hover{opacity:1}
+.ip-resize-handle{width:5px;background:var(--acc);cursor:ew-resize;flex-shrink:0;opacity:.3;transition:opacity .15s}
+.ip-resize-handle:hover{opacity:1}
