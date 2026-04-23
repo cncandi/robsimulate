@@ -60,6 +60,11 @@ var I18N = {
     amp_apply:'✓ Weg übernehmen',
     // Parse button
     parse_btn:'▶ PARSE & LOAD',
+    help_title:'? Hilfe · KUKA KR8 R1420 HW KRL Simulator',
+    help_tab_start:'Überblick',
+    help_tab_editor:'Editor',
+    help_tab_robot:'Roboter',
+    help_tab_keys:'Tastatur',
     // Confirm
     confirm_reset:'Alles zurücksetzen? Editor, Positionen und Roboterstellung werden auf Startwerte gesetzt.',
     confirm_new_kin:'Neue leere Kinematik erstellen? Aktuelle Einstellungen werden überschrieben.',
@@ -121,6 +126,16 @@ var I18N = {
     amp_apply:'✓ Apply Path',
     // Parse button
     parse_btn:'▶ PARSE & LOAD',
+    help_title:'? Hilfe · KUKA KR8 R1420 HW KRL Simulator',
+    help_tab_start:'Überblick',
+    help_tab_editor:'Editor',
+    help_tab_robot:'Roboter',
+    help_tab_keys:'Tastatur',
+    help_title:'? Help · KUKA KR8 R1420 HW KRL Simulator',
+    help_tab_start:'Overview',
+    help_tab_editor:'Editor',
+    help_tab_robot:'Robot',
+    help_tab_keys:'Keyboard',
     // Confirm
     confirm_reset:'Reset everything? Editor, positions and robot pose will be set to defaults.',
     confirm_new_kin:'Create new empty kinematics? Current settings will be overwritten.',

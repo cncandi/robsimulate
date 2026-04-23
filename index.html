@@ -371,5 +371,37 @@
     </div>
   </div>
 </div>
+
+<!-- Hilfefenster -->
+<div id="help-panel" style="position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);
+  width:640px;max-width:96vw;max-height:82vh;background:rgba(10,20,35,.98);
+  border:1px solid var(--acc);border-radius:5px;z-index:50;
+  font-family:'Consolas','Courier New',monospace;
+  box-shadow:0 8px 40px rgba(0,0,0,.8);display:none;flex-direction:column">
+  <div class="sp-hdr" id="help-drag-handle" style="cursor:move">
+    <span class="sp-hdr-title" data-i18n="help_title">? Hilfe · KUKA KR8 R1420 HW KRL Simulator</span>
+    <span class="sp-close" onclick="toggleHelp()">✕</span>
+  </div>
+  <!-- Tabs -->
+  <div style="display:flex;border-bottom:1px solid var(--bdr);flex-shrink:0">
+    <button class="sp-jog-btn" id="htab-0" onclick="helpTab(0)"
+      style="flex:1;border-radius:0;border:none;border-bottom:2px solid var(--acc);color:var(--acc)">
+      <span data-i18n="help_tab_start">Überblick</span></button>
+    <button class="sp-jog-btn" id="htab-1" onclick="helpTab(1)"
+      style="flex:1;border-radius:0;border:none">
+      <span data-i18n="help_tab_editor">Editor</span></button>
+    <button class="sp-jog-btn" id="htab-2" onclick="helpTab(2)"
+      style="flex:1;border-radius:0;border:none">
+      <span data-i18n="help_tab_robot">Roboter</span></button>
+    <button class="sp-jog-btn" id="htab-3" onclick="helpTab(3)"
+      style="flex:1;border-radius:0;border:none">
+      <span data-i18n="help_tab_keys">Tastatur</span></button>
+  </div>
+  <div id="help-body" style="overflow-y:auto;padding:14px 16px;flex:1;font-size:.82em;line-height:1.6;color:var(--txt)"></div>
+  <div style="padding:8px 14px;border-top:1px solid var(--bdr);font-size:.7em;color:var(--txt3);flex-shrink:0">
+    cnc-technik.de · Datentechnik Reitz GmbH &amp; Co. KG · Version 1.0
+  </div>
+</div>
+
 </body>
 </html>
