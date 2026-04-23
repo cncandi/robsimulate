@@ -326,99 +326,45 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script src="./js/simulator.js"></script>
 
-  <div class="sp-tabs">
-    <button class="sp-tab on" onclick="spTab(this,'tab-fonts')">Schrift</button>
-    <button class="sp-tab" onclick="spTab(this,'tab-view')">Ansicht</button>
-  </div>
-  <div class="sp-body">
-    <!-- Schrift -->
-    <div id="tab-fonts">
-      <div class="sp-group">
-        <div class="sp-group-title">Schriftgrössen</div>
-        <div class="sp-row">
-          <span class="sp-lbl">Editor (KRL-Code)</span>
-          <input class="sp-slider" type="range" min="9" max="22" step="1" id="fz-editor" oninput="applyFZ()">
-          <span class="sp-val" id="fz-editor-v">13px</span>
-        </div>
-        <div class="sp-row">
-          <span class="sp-lbl">Toolbar / Buttons</span>
-          <input class="sp-slider" type="range" min="8" max="18" step="1" id="fz-ui" oninput="applyFZ()">
-          <span class="sp-val" id="fz-ui-v">11px</span>
-        </div>
-        <div class="sp-row">
-          <span class="sp-lbl">Linker Randbereich</span>
-          <input class="sp-slider" type="range" min="8" max="18" step="1" id="fz-gutter" oninput="applyFZ()">
-          <span class="sp-val" id="fz-gutter-v">11px</span>
-        </div>
-        <div class="sp-row">
-          <span class="sp-lbl">Parameter rechts</span>
-          <input class="sp-slider" type="range" min="8" max="18" step="1" id="fz-panel" oninput="applyFZ()">
-          <span class="sp-val" id="fz-panel-v">11px</span>
-        </div>
-        <div class="sp-row">
-          <span class="sp-lbl">Statusleiste</span>
-          <input class="sp-slider" type="range" min="8" max="16" step="1" id="fz-status" oninput="applyFZ()">
-          <span class="sp-val" id="fz-status-v">10px</span>
-        </div>
-      </div>
-    </div>
-    <!-- Ansicht -->
-    <div id="tab-view" style="display:none">
-      <div class="sp-group">
-        <div class="sp-group-title">Weitere Einstellungen</div>
-        <div style="font-size:.75em;color:var(--txt3);padding:8px 0">
-          Hier können weitere Einstellungen ergänzt werden.
-        </div>
-      </div>
-    </div>
-  </div>
-  <div class="sp-footer">
-    <button class="sp-btn" onclick="resetSettings()">Zurücksetzen</button>
-    <button class="sp-btn primary" onclick="saveSettings()">✓ Speichern</button>
-  </div>
-</div>
-
-
-<!-- ── Einstellungsfenster ───────────────────────────────── -->
-<div id="settings-panel">
+<!-- Einstellungsfenster -->
+<div id="settings-panel" style="position:absolute;top:44px;right:8px;width:260px;background:rgba(10,20,35,.97);border:1px solid var(--acc);border-radius:5px;z-index:25;font-family:'Consolas','Courier New',monospace;box-shadow:0 4px 20px rgba(0,0,0,.7);user-select:none;display:none">
   <div class="sp-hdr" id="settings-drag-handle">
     <span class="sp-hdr-title">⚙ Einstellungen</span>
     <span class="sp-close" onclick="toggleSettings()">✕</span>
   </div>
   <div class="sp-body" style="overflow-y:auto;max-height:calc(90vh - 40px)">
     <div class="sp-sec-title">Schriftgrössen</div>
-    <div class="sett-row">
-      <span class="sett-lbl">Editor (KRL-Code)</span>
-      <input class="sett-slider" type="range" min="9" max="22" step="1" id="fz-editor" oninput="applyFZ()">
-      <span class="sett-val" id="fz-editor-v">13px</span>
+    <div class="sp-axis-row">
+      <span style="flex:1;color:#c8d8e8;font-size:.78em">Editor (Code)</span>
+      <input type="range" min="9" max="22" step="1" id="fz-editor" oninput="applyFZ()" style="width:80px;accent-color:var(--acc)">
+      <span class="sp-axis-val" id="fz-editor-v">13</span>
     </div>
-    <div class="sett-row">
-      <span class="sett-lbl">Toolbar / Buttons</span>
-      <input class="sett-slider" type="range" min="8" max="18" step="1" id="fz-ui" oninput="applyFZ()">
-      <span class="sett-val" id="fz-ui-v">11px</span>
+    <div class="sp-axis-row">
+      <span style="flex:1;color:#c8d8e8;font-size:.78em">Toolbar / Buttons</span>
+      <input type="range" min="8" max="18" step="1" id="fz-ui" oninput="applyFZ()" style="width:80px;accent-color:var(--acc)">
+      <span class="sp-axis-val" id="fz-ui-v">11</span>
     </div>
-    <div class="sett-row">
-      <span class="sett-lbl">Zeilennummern</span>
-      <input class="sett-slider" type="range" min="8" max="18" step="1" id="fz-gutter" oninput="applyFZ()">
-      <span class="sett-val" id="fz-gutter-v">11px</span>
+    <div class="sp-axis-row">
+      <span style="flex:1;color:#c8d8e8;font-size:.78em">Zeilennummern</span>
+      <input type="range" min="8" max="18" step="1" id="fz-gutter" oninput="applyFZ()" style="width:80px;accent-color:var(--acc)">
+      <span class="sp-axis-val" id="fz-gutter-v">11</span>
     </div>
-    <div class="sett-row">
-      <span class="sett-lbl">Parameter rechts</span>
-      <input class="sett-slider" type="range" min="8" max="18" step="1" id="fz-panel" oninput="applyFZ()">
-      <span class="sett-val" id="fz-panel-v">11px</span>
+    <div class="sp-axis-row">
+      <span style="flex:1;color:#c8d8e8;font-size:.78em">Parameter rechts</span>
+      <input type="range" min="8" max="18" step="1" id="fz-panel" oninput="applyFZ()" style="width:80px;accent-color:var(--acc)">
+      <span class="sp-axis-val" id="fz-panel-v">11</span>
     </div>
-    <div class="sett-row">
-      <span class="sett-lbl">Statusleiste</span>
-      <input class="sett-slider" type="range" min="8" max="16" step="1" id="fz-status" oninput="applyFZ()">
-      <span class="sett-val" id="fz-status-v">10px</span>
+    <div class="sp-axis-row">
+      <span style="flex:1;color:#c8d8e8;font-size:.78em">Statusleiste</span>
+      <input type="range" min="8" max="16" step="1" id="fz-status" oninput="applyFZ()" style="width:80px;accent-color:var(--acc)">
+      <span class="sp-axis-val" id="fz-status-v">10</span>
     </div>
     <hr class="sp-divider">
-    <div style="display:flex;gap:6px;margin-top:4px">
-      <button class="sp-jog-btn" onclick="resetSettings()" style="flex:1">↺ Zurücksetzen</button>
-      <button class="sp-jog-btn" onclick="saveSettings()" style="flex:1;background:rgba(240,85,0,.2);color:var(--acc);border-color:var(--acc)">✓ Speichern</button>
+    <div style="display:flex;gap:6px">
+      <button class="sp-jog-btn" onclick="resetSettings()" style="flex:1">↺ Reset</button>
+      <button class="sp-jog-btn" onclick="saveSettings()" style="flex:1;color:var(--acc);border-color:var(--acc)">✓ Speichern</button>
     </div>
   </div>
 </div>
-
 </body>
 </html>

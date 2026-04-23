@@ -551,7 +551,7 @@ function loadAxisSTLFromBase64(idx, b64, filename, rawBuffer) {
     if (axisSTLMeshes[idx]) { scene.remove(axisSTLMeshes[idx]); axisSTLMeshes[idx].geometry.dispose(); }
     axisSTLMeshes[idx] = new THREE.Mesh(geo, new THREE.MeshPhongMaterial({color:0xe8a020,shininess:80}));
     scene.add(axisSTLMeshes[idx]);
-    axisSTLBase64[idx] = b64;
+    if (b64) axisSTLBase64[idx] = b64;
     const nameEl = document.getElementById('asl-name'+idx);
     if (nameEl) nameEl.textContent = filename.replace(/\.stl$/i,'');
     const delEl = document.getElementById('asl-del'+idx);
