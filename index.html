@@ -72,6 +72,7 @@
   </div>
 
   <!-- VIEWPORT -->
+  <div id="ep-resize-handle" style="width:5px;background:var(--acc);cursor:ew-resize;flex-shrink:0;opacity:.4;transition:opacity .2s" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=.4"></div>
   <div class="vp">
     <canvas id="c3d"></canvas>
     <div class="view-btns">
@@ -195,7 +196,11 @@
         </div>
         <div style="display:flex;gap:4px;margin-top:4px">
           <button class="sbtn on" id="btn-show-skeleton" onclick="toggleSkeleton()" style="flex:1">Skelett</button>
-          <button class="sbtn on" id="btn-show-stl-robot" onclick="toggleSTLRobot()" style="flex:1">STL Modell</button>
+          <button class="sbtn on" id="btn-show-stl-robot" onclick="toggleSTLRobot()" style="flex:1">Achsen STL</button>
+        </div>
+        <div style="display:flex;gap:4px;margin-top:4px">
+          <button class="sbtn on" id="btn-show-tool" onclick="toggleToolMesh()" style="flex:1">Werkzeug STL</button>
+          <button class="sbtn on" id="btn-show-pedestal" onclick="togglePedestalMesh()" style="flex:1">Podest STL</button>
         </div>
       </div>
     </div>
@@ -229,7 +234,7 @@
           <span class="stl-lbl">Y</span><input class="stl-inp" id="tcp-y" type="number" value="0" step="0.1"><span class="stl-unit">mm</span>
           <span class="stl-lbl">Z</span><input class="stl-inp" id="tcp-z" type="number" value="46.5" step="1"><span class="stl-unit">mm</span>
           <span class="stl-lbl">A(Z)</span><input class="stl-inp" id="tcp-a" type="number" value="0" step="1"><span class="stl-unit">°</span>
-          <span class="stl-lbl">B(Y)</span><input class="stl-inp" id="tcp-b" type="number" value="-90" step="1"><span class="stl-unit">°</span>
+          <span class="stl-lbl">B(Y)</span><input class="stl-inp" id="tcp-b" type="number" value="90" step="1"><span class="stl-unit">°</span>
           <span class="stl-lbl">C(X)</span><input class="stl-inp" id="tcp-c" type="number" value="0" step="1"><span class="stl-unit">°</span>
         </div>
         <div style="margin-bottom:5px"><button class="sbtn on" onclick="updateTCPDef()" style="width:100%;background:var(--acc);color:#fff;border-color:#c04200;font-weight:bold">▶ Übernehmen</button></div>

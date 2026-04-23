@@ -13,7 +13,7 @@ const JOINTS_DEF = [
   {name:'A6',off:[0,0,0],     min:-360,max:360, axis:'Rx'}
 ];
 
-const TCP_DEF = {x:364.5, y:0, z:46.5, a:0, b:-90, c:0};
+const TCP_DEF = {x:364.5, y:0, z:46.5, a:0, b:90, c:0};
 const FK_SIGNS = [-1,1,1,-1,1,-1];
 
 // Current joint angles (degrees)
@@ -338,6 +338,8 @@ const axisPivots     = [];   // THREE.Group per axis (hierarchical chain)
 let pedestalMesh     = null;
 let showSkeleton     = true;
 let showSTLRobot     = true;
+let showToolMesh     = true;
+let showPedestalMesh = true;
 let stlRefAngles     = [0,-90,90,0,0,0];  // pose at which STL files are modelled
 
 // Build pivot chain once; re-build when JOINTS_DEF changes
@@ -422,7 +424,7 @@ function buildRobotModel(angles) {
 
   // Tool STL: origin at A6 flange center — follow A6 pose
   if (toolMesh) {
-    toolMesh.visible = showRobot3D;
+    toolMesh.visible = showRobot3D && showToolMesh;
     if (toolMesh.visible) {
       const fkC = fkAll(angles);
       const Rt0 = fkC.rots[6];
@@ -450,6 +452,9 @@ function buildRobotModel(angles) {
       toolMesh.position.set(fkC.pts[6][0], fkC.pts[6][1], fkC.pts[6][2]);
     }
   }
+
+  // Pedestal visibility
+  if (pedestalMesh) pedestalMesh.visible = showPedestalMesh;
 
   // ── Skeleton ──
   if (showSkeleton && showRobot3D) {
@@ -2611,6 +2616,41 @@ function loadDefaultSceneSTLs() {
     }).catch(function(e){ console.warn('Tool STL:', e); });
 }
 
+
+function toggleToolMesh() {
+  showToolMesh = !showToolMesh;
+  document.getElementById('btn-show-tool').classList.toggle('on', showToolMesh);
+  if (toolMesh) toolMesh.visible = showRobot3D && showToolMesh;
+}
+function togglePedestalMesh() {
+  showPedestalMesh = !showPedestalMesh;
+  document.getElementById('btn-show-pedestal').classList.toggle('on', showPedestalMesh);
+  if (pedestalMesh) pedestalMesh.visible = showPedestalMesh;
+}
+
+// ── Editor-Panel Resize ────────────────────────────────────
+(function(){
+  const ep = document.querySelector('.ep');
+  const handle = document.getElementById('ep-resize-handle');
+  if (!ep || !handle) return;
+  let dragging = false, startX = 0, startW = 0;
+  handle.addEventListener('mousedown', function(e){
+    dragging = true; startX = e.clientX; startW = ep.offsetWidth;
+    document.body.style.cursor = 'ew-resize';
+    document.body.style.userSelect = 'none';
+    e.preventDefault();
+  });
+  window.addEventListener('mousemove', function(e){
+    if (!dragging) return;
+    const w = Math.max(120, Math.min(800, startW + (e.clientX - startX)));
+    ep.style.width = w + 'px';
+  });
+  window.addEventListener('mouseup', function(){ 
+    dragging = false;
+    document.body.style.cursor = '';
+    document.body.style.userSelect = '';
+  });
+})();
 parseAndLoad();
 loadDefaultSTLs();
 loadDefaultSceneSTLs();
