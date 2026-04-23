@@ -2569,6 +2569,18 @@ END
 
 
 // STL-Dateien werden per fetch aus ./stl/ geladen
+function xhrSTL(url, onDone, onErr) {
+  var xhr = new XMLHttpRequest();
+  xhr.open('GET', url, true);
+  xhr.responseType = 'arraybuffer';
+  xhr.onload = function() {
+    if (xhr.status >= 200 && xhr.status < 300) { onDone(xhr.response); }
+    else { if(onErr) onErr(xhr.status); }
+  };
+  xhr.onerror = function() { if(onErr) onErr('network'); };
+  xhr.send();
+}
+
 function loadDefaultSTLs() {
   var axes = ['A1','A2','A3','A4','A5','A6'];
   var i = 0;
@@ -2576,13 +2588,8 @@ function loadDefaultSTLs() {
     if (i >= axes.length) return;
     var ax = axes[i++];
     var idx = parseInt(ax.replace('A','')) - 1;
-    fetch('./stl/' + ax.toLowerCase() + '.stl')
-      .then(function(r) {
-        if (!r.ok) { console.warn('STL nicht gefunden:', ax); next(); return null; }
-        return r.arrayBuffer();
-      })
-      .then(function(buf) {
-        if (!buf) return;
+    xhrSTL('./stl/' + ax.toLowerCase() + '.stl',
+      function(buf) {
         try {
           var geo = stlLoader.parse(buf);
           geo.computeVertexNormals();
@@ -2594,10 +2601,11 @@ function loadDefaultSTLs() {
           var delEl = document.getElementById('asl-del'+idx);
           if (delEl) delEl.style.display = '';
           buildRobotModel(jointAngles);
-        } catch(e) { console.error('STL parse error:', ax, e); }
+        } catch(e) { console.error('STL parse:', ax, e); }
         next();
-      })
-      .catch(function(e) { console.warn('STL fetch error:', ax, e); next(); });
+      },
+      function(e) { console.warn('STL load error:', ax, e); next(); }
+    );
   }
   next();
 }
@@ -2605,39 +2613,30 @@ function loadDefaultSTLs() {
 
 // Podest + Tool per fetch laden
 function loadDefaultSceneSTLs() {
-  function fetchSTL(url, onSuccess) {
-    fetch(url)
-      .then(function(r) {
-        if (!r.ok) { console.warn('Nicht gefunden:', url); return null; }
-        return r.arrayBuffer();
-      })
-      .then(function(buf) {
-        if (!buf) return;
-        try { onSuccess(buf); } catch(e) { console.error('STL parse:', url, e); }
-      })
-      .catch(function(e) { console.warn('Fetch:', url, e); });
-  }
+  xhrSTL('./stl/podest.stl', function(buf) {
+    try {
+      var geo = stlLoader.parse(buf); geo.computeVertexNormals();
+      if (pedestalMesh) { scene.remove(pedestalMesh); pedestalMesh.geometry.dispose(); }
+      pedestalMesh = new THREE.Mesh(geo, new THREE.MeshPhongMaterial({color:0x334455,shininess:40}));
+      scene.add(pedestalMesh);
+      var el = document.getElementById('pedestal-name');
+      if (el) el.textContent = 'podest';
+    } catch(e) { console.error('Podest parse:', e); }
+  }, function(e) { console.warn('Podest load:', e); });
 
-  fetchSTL('./stl/podest.stl', function(buf) {
-    var geo = stlLoader.parse(buf); geo.computeVertexNormals();
-    if (pedestalMesh) { scene.remove(pedestalMesh); pedestalMesh.geometry.dispose(); }
-    pedestalMesh = new THREE.Mesh(geo, new THREE.MeshPhongMaterial({color:0x334455,shininess:40}));
-    scene.add(pedestalMesh);
-    var el = document.getElementById('pedestal-name');
-    if (el) el.textContent = 'podest';
-  });
-
-  fetchSTL('./stl/tool1_tcp.stl', function(buf) {
-    var geo = stlLoader.parse(buf); geo.computeVertexNormals();
-    if (toolMesh) { scene.remove(toolMesh); toolMesh.geometry.dispose(); toolMesh.material.dispose(); }
-    var mat = new THREE.MeshPhongMaterial({color:0xdd9944,transparent:true,opacity:.85,
-      side:THREE.DoubleSide,specular:0x666666});
-    toolMesh = new THREE.Mesh(geo, mat);
-    scene.add(toolMesh);
-    document.getElementById('tool-filename').textContent = 'Tool1_TCP';
-    document.getElementById('tool-controls').style.display = 'block';
-    buildRobotModel(jointAngles);
-  });
+  xhrSTL('./stl/tool1_tcp.stl', function(buf) {
+    try {
+      var geo = stlLoader.parse(buf); geo.computeVertexNormals();
+      if (toolMesh) { scene.remove(toolMesh); toolMesh.geometry.dispose(); toolMesh.material.dispose(); }
+      var mat = new THREE.MeshPhongMaterial({color:0xdd9944,transparent:true,opacity:.85,
+        side:THREE.DoubleSide,specular:0x666666});
+      toolMesh = new THREE.Mesh(geo, mat);
+      scene.add(toolMesh);
+      document.getElementById('tool-filename').textContent = 'Tool1_TCP';
+      document.getElementById('tool-controls').style.display = 'block';
+      buildRobotModel(jointAngles);
+    } catch(e) { console.error('Tool parse:', e); }
+  }, function(e) { console.warn('Tool load:', e); });
 }
 
 
