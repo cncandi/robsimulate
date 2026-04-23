@@ -2573,11 +2573,15 @@ function xhrSTL(url, onDone, onErr) {
   var xhr = new XMLHttpRequest();
   xhr.open('GET', url, true);
   xhr.responseType = 'arraybuffer';
+  xhr.timeout = 30000;
   xhr.onload = function() {
-    if (xhr.status >= 200 && xhr.status < 300) { onDone(xhr.response); }
-    else { if(onErr) onErr(xhr.status); }
+    if ((xhr.status >= 200 && xhr.status < 300) || xhr.status === 0) {
+      if (xhr.response && xhr.response.byteLength > 0) { onDone(xhr.response); }
+      else { if(onErr) onErr('empty'); }
+    } else { if(onErr) onErr(xhr.status); }
   };
-  xhr.onerror = function() { if(onErr) onErr('network'); };
+  xhr.onerror   = function() { if(onErr) onErr('network'); };
+  xhr.ontimeout = function() { if(onErr) onErr('timeout'); };
   xhr.send();
 }
 
@@ -2806,5 +2810,9 @@ function toggleSettings() {
 initSettings();
 
 parseAndLoad();
-loadDefaultSTLs();
-loadDefaultSceneSTLs();
+
+// STL-Laden nach kurzem Delay (Edge benötigt Zeit für vollst. Initialisierung)
+setTimeout(function() {
+  loadDefaultSTLs();
+  loadDefaultSceneSTLs();
+}, 300);
