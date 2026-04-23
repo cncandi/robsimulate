@@ -284,7 +284,7 @@ function makeFrame(pos){
   const grp=new THREE.Group();
   for(const[d,c]of[[[1,0,0],0xff4444],[[0,1,0],0x44ff44],[[0,0,1],0x4488ff]])
     grp.add(new THREE.ArrowHelper(new THREE.Vector3(...d),new THREE.Vector3(),frameSize,c,frameSize*.2,frameSize*.1));
-  grp.add(new THREE.Mesh(new THREE.SphereGeometry(sphereSize,8,8),new THREE.MeshBasicMaterial({color:TYPE_COL[pos.type]??0xffffff})));
+  grp.add(new THREE.Mesh(new THREE.SphereGeometry(sphereSize,8,8),new THREE.MeshBasicMaterial({color:TYPE_COL[pos.type]!==undefined?TYPE_COL[pos.type]:0xffffff})));
   grp.position.set(pos.X,pos.Y,pos.Z);
   grp.setRotationFromEuler(kukaEuler(pos.A,pos.B,pos.C));
   grp.userData.posIdx=-1;return grp;
@@ -344,7 +344,7 @@ let stlRefAngles     = [0,-90,90,0,0,0];  // pose at which STL files are modelle
 
 // Build pivot chain once; re-build when JOINTS_DEF changes
 function buildPivotChain() {
-  axisPivots.forEach(g => g.parent?.remove(g));
+  axisPivots.forEach(function(g){ if(g.parent) g.parent.remove(g); });
   axisPivots.length = 0;
   let parent = robotGrp;
   for (let i = 0; i < 6; i++) {
@@ -650,14 +650,14 @@ function toggleProjection(){
     activeCam = orthoCam;
     if(currentView === 'iso') currentView = 'front';
     document.querySelectorAll('.vbtn').forEach(b=>b.classList.remove('on'));
-    document.getElementById('vb-'+currentView)?.classList.add('on');
+    (function(){var _e=document.getElementById('vb-'+currentView);if(_e)_e.classList.add('on');})();
     document.getElementById('btn-persp').textContent='⊞ Ortho';
     document.getElementById('btn-persp').classList.remove('on');
   } else {
     activeCam = perspCam;
     currentView = 'iso';
     document.querySelectorAll('.vbtn').forEach(b=>b.classList.remove('on'));
-    document.getElementById('vb-iso')?.classList.add('on');
+    (function(){var _e=document.getElementById('vb-iso');if(_e)_e.classList.add('on');})();
     document.getElementById('btn-persp').textContent='⊡ Perspektiv';
     document.getElementById('btn-persp').classList.add('on');
   }
@@ -681,7 +681,7 @@ function downloadFile(content, filename) {
 // ── Kinematik ──────────────────────────────────
 function getKinematicJSON() {
   const data = {
-    name: document.getElementById('kin-name')?.value || 'Kinematik',
+    name: (document.getElementById('kin-name')&&document.getElementById('kin-name').value) || 'Kinematik',
     joints: JOINTS_DEF.map(j => ({
       name: j.name, axis: j.axis,
       offset: {x: j.off[0], y: j.off[1], z: j.off[2]},
@@ -694,7 +694,7 @@ function getKinematicJSON() {
   for (let i = 0; i < 6; i++) {
     const mesh = axisSTLMeshes[i];
     if (!mesh) continue;
-    const name = document.getElementById('asl-name'+i)?.textContent;
+    const name = (document.getElementById('asl-name'+i)&&document.getElementById('asl-name'+i).textContent);
     if (name && name !== '—') {
       // Re-encode geometry to binary STL base64
       data.stlFiles['A'+(i+1)] = {
@@ -707,7 +707,7 @@ function getKinematicJSON() {
 }
 
 function saveKinematic() {
-  const name = (document.getElementById('kin-name')?.value || 'kinematik').replace(/\s+/g,'_');
+  const name = ((document.getElementById('kin-name')&&document.getElementById('kin-name').value) || 'kinematik').replace(/\s+/g,'_');
   downloadFile(getKinematicJSON(), name + '.json');
 }
 
@@ -736,14 +736,14 @@ function loadKinematic() {
 function parseKinematicXML(xml) {
   const parser = new DOMParser();
   const doc = parser.parseFromString(xml, 'text/xml');
-  const name = doc.querySelector('kinematik')?.getAttribute('name') || 'Kinematik';
+  const name = (function(){var _e=doc.querySelector('kinematik');return _e&&_e.getAttribute('name');})() || 'Kinematik';
   const joints = [...doc.querySelectorAll('joint')].map(j => ({
     name: j.getAttribute('name'),
     axis: j.getAttribute('axis'),
     offset: {
-      x: parseFloat(j.querySelector('offset')?.getAttribute('x') || 0),
-      y: parseFloat(j.querySelector('offset')?.getAttribute('y') || 0),
-      z: parseFloat(j.querySelector('offset')?.getAttribute('z') || 0)
+      x: parseFloat((function(){var _e=j.querySelector('offset');return _e&&_e.getAttribute('x');})() || 0),
+      y: parseFloat((function(){var _e=j.querySelector('offset');return _e&&_e.getAttribute('y');})() || 0),
+      z: parseFloat((function(){var _e=j.querySelector('offset');return _e&&_e.getAttribute('z');})() || 0)
     },
     min: parseFloat(j.getAttribute('min') || -180),
     max: parseFloat(j.getAttribute('max') || 180)
@@ -781,7 +781,7 @@ function applyKinematicData(data) {
   }
   if (data.stlFiles) {
     Object.entries(data.stlFiles).forEach(([key, val]) => {
-      if (!val?.data) return;
+      if (!(val&&val.data)) return;
       const idx = parseInt(key.replace('A','')) - 1;
       if (idx < 0 || idx > 5) return;
       loadAxisSTLFromBase64(idx, val.data, val.name || key+'.stl');
@@ -823,7 +823,7 @@ function loadTCP() {
         if (file.name.endsWith('.xml')) {
           const doc = new DOMParser().parseFromString(ev.target.result, 'text/xml');
           const t = doc.querySelector('tcp');
-          data = {tcp:{x:+t?.getAttribute('x'),y:+t?.getAttribute('y'),z:+t?.getAttribute('z'),a:+t?.getAttribute('a'),b:+t?.getAttribute('b'),c:+t?.getAttribute('c')}};
+          data = {tcp:{x:+(t&&t.getAttribute)('x'),y:+(t&&t.getAttribute)('y'),z:+(t&&t.getAttribute)('z'),a:+(t&&t.getAttribute)('a'),b:+(t&&t.getAttribute)('b'),c:+(t&&t.getAttribute)('c')}};
         } else {
           data = JSON.parse(ev.target.result);
         }
@@ -1012,7 +1012,7 @@ function ampDraw(canvas, W, H) {
       const deg = A6_MAX - (py / (H-1)) * (A6_MAX - A6_MIN);
       const row = Math.round((deg - A6_MIN) / (A6_MAX - A6_MIN) * (ampRows-1));
       const rowC = Math.max(0, Math.min(ampRows-1, row));
-      const status = ampMap[col * ampRows + rowC] || 0;
+      const status = (ampMap[col * ampRows + rowC]||0);
       const [r,g,b] = COLORS[status];
       const i = (py * W + px) * 4;
       d[i]=r; d[i+1]=g; d[i+2]=b; d[i+3]=255;
@@ -1041,7 +1041,7 @@ function ampDraw(canvas, W, H) {
   ctx.beginPath();
   for (let px = 0; px < W; px++) {
     const col = Math.round(px / Math.max(1,W-1) * (ampCols-1));
-    const deg = ampUserPath[col] ?? 0;
+    const deg = ampUserPath[col] || 0;
     const py  = H - ((deg - A6_MIN) / (A6_MAX - A6_MIN)) * H;
     px === 0 ? ctx.moveTo(px, py) : ctx.lineTo(px, py);
   }
@@ -1069,7 +1069,7 @@ function ampDraw(canvas, W, H) {
   ctx.setLineDash([]);
 
   function drawCtrlPt(col, color, label) {
-    const deg = ampUserPath[Math.max(0,Math.min(ampCols-1,col))] ?? 0;
+    const deg = ampUserPath[Math.max(0,Math.min(ampCols-1,col))] || 0;
     const px2 = col / Math.max(1,ampCols-1) * (W-1);
     const py2 = H - ((deg - A6_MIN) / (A6_MAX - A6_MIN)) * H;
     ctx.fillStyle=color; ctx.strokeStyle='#fff'; ctx.lineWidth=2;
@@ -1097,7 +1097,7 @@ function ampBuildXAxis(cols, totalDistMm) {
 function ampAutoOptimize() {
   if (!ampMap || !ampCols) return;
   const path = [];
-  let current = ampUserPath[0] ?? 0;
+  let current = ampUserPath[0] || 0;
 
   for (let col = 0; col < ampCols; col++) {
     // Find valid A6 nearest to current, prefer no singularity
@@ -1233,7 +1233,7 @@ function ampApplyPath() {
       dragMode = 'start';
       // Apply immediately on click
       const blend = Math.min(ampCols-1, Math.round(ampCols * 0.30));
-      const midVal = ampUserPath[blend] ?? clamped;
+      const midVal = ampUserPath[blend] || clamped;
       for (let i = 0; i <= blend; i++) {
         const f = blend > 0 ? i / blend : 1;
         ampUserPath[i] = Math.max(A6_MIN, Math.min(A6_MAX, clamped*(1-f) + midVal*f));
@@ -1242,7 +1242,7 @@ function ampApplyPath() {
       dragMode = 'end';
       // Apply immediately on click
       const blend = Math.max(0, Math.round(ampCols * 0.70));
-      const midVal = ampUserPath[blend] ?? clamped;
+      const midVal = ampUserPath[blend] || clamped;
       for (let i = blend; i < ampCols; i++) {
         const span = ampCols - 1 - blend || 1;
         const f = (i - blend) / span;
@@ -1261,7 +1261,7 @@ function ampApplyPath() {
     const tidx = Math.round(col / (ampCols-1) * (trajectory.length-1));
     const sample = trajectory[tidx];
     const axIdx = ['A1','A2','A3','A4','A5','A6'].indexOf(ampAxis);
-    const curVal = sample?.angles[axIdx]?.toFixed(1) ?? '—';
+    const curVal = (sample&&sample.angles&&sample.angles[axIdx]!==undefined?sample.angles[axIdx].toFixed(1):'—') || '—';
     const rowIdx = Math.round((deg - A6_MIN) / (A6_MAX - A6_MIN) * (ampRows-1));
     const status = ampMap ? ampMap[col * ampRows + Math.max(0,Math.min(ampRows-1,rowIdx))] : 0;
     const statusLbl = ['✓ Gültig','⚠ Endschalter','⚠ Singularität','✗ Nicht erreichbar'][status] || '';
@@ -1281,14 +1281,14 @@ function ampApplyPath() {
 
     if (dragMode === 'start') {
       const blend = Math.min(ampCols-1, Math.round(ampCols * 0.30));
-      const midVal = ampUserPath[blend] ?? clamped;
+      const midVal = ampUserPath[blend] || clamped;
       for (let i = 0; i <= blend; i++) {
         const f = blend > 0 ? i / blend : 1;
         ampUserPath[i] = Math.max(A6_MIN, Math.min(A6_MAX, clamped*(1-f) + midVal*f));
       }
     } else if (dragMode === 'end') {
       const blend = Math.max(0, Math.round(ampCols * 0.70));
-      const midVal = ampUserPath[blend] ?? clamped;
+      const midVal = ampUserPath[blend] || clamped;
       for (let i = blend; i < ampCols; i++) {
         const span = ampCols - 1 - blend || 1;
         const f = (i - blend) / span;
@@ -1396,7 +1396,7 @@ function spAxisChanged(i, val){
 }
 
 function spTCPChanged(){
-  const g=id=>{const el=document.getElementById(id);return parseFloat(el?.textContent||el?.value)||0;};
+  const g=id=>{const el=document.getElementById(id);return parseFloat((el&&el.textContent)||(el&&el.value))||0;};
   const x=g('sp-x'),y=g('sp-y'),z=g('sp-z'),a=g('sp-a'),b=g('sp-b'),cc=g('sp-c');
   const res=solveIK(x,y,z,a,b,cc);
   if(res.ok){
@@ -1409,7 +1409,7 @@ function spTCPChanged(){
 
 function updateSteuerPanel(){
   const p=document.getElementById('steuer-panel');
-  if(!p?.classList.contains('visible')) return;
+  if(!(p&&p.classList).contains('visible')) return;
   // Axes display
   JOINTS_DEF.forEach((j,i)=>{
     const ang=jointAngles[i];
@@ -1444,7 +1444,7 @@ function updateSteuerPanel(){
 // ── Insert PTP (axis angles) into program ──
 function insertPTP(){
   const a=jointAngles;
-  const velMmMin=parseFloat(document.getElementById('jog-feed')?.value)||250;
+  const velMmMin=parseFloat((document.getElementById('jog-feed')&&document.getElementById('jog-feed').value))||250;
   const krl=`PTP {A1 ${a[0].toFixed(3)}, A2 ${a[1].toFixed(3)}, A3 ${a[2].toFixed(3)}, A4 ${a[3].toFixed(3)}, A5 ${a[4].toFixed(3)}, A6 ${a[5].toFixed(3)}}`;
   appendToProgram(krl, velMmMin);
   document.getElementById('jog-status').textContent='✓ PTP eingefügt';
@@ -1459,7 +1459,7 @@ function insertLIN(){
   if(Math.abs(cb)>1e-6){A=Math.atan2(R[1][0]/cb,R[0][0]/cb);C=Math.atan2(R[2][1]/cb,R[2][2]/cb);}
   else{C=Math.atan2(-R[1][2],R[1][1]);}
   const nd=v=>{let d=v*180/Math.PI;while(d>180)d-=360;while(d<=-180)d+=360;return d;}
-  const vel=parseFloat(document.getElementById('jog-feed')?.value)||250; // mm/min
+  const vel=parseFloat((document.getElementById('jog-feed')&&document.getElementById('jog-feed').value))||250; // mm/min
   const krl=`LIN {X ${tcp[0].toFixed(3)}, Y ${tcp[1].toFixed(3)}, Z ${tcp[2].toFixed(3)}, A ${nd(A).toFixed(3)}, B ${nd(B).toFixed(3)}, C ${nd(C).toFixed(3)}}`;
   appendToProgram(krl, vel);
   document.getElementById('jog-status').textContent='✓ LIN eingefügt';
@@ -1537,7 +1537,7 @@ function computeIKTable(positions) {
   buildTrajectory(positions, ikTable);
   // Rebuild axis map if open
   const amp = document.getElementById('axis-map-panel');
-  if (amp?.classList.contains('visible')) setTimeout(ampBuild, 100);
+  if ((amp&&amp.classList).contains('visible')) setTimeout(ampBuild, 100);
 }
 
 // ═══════════════════════════════════════════════════
@@ -1572,7 +1572,7 @@ updateCamera();
 function setView(view){
   currentView=view;
   document.querySelectorAll('.vbtn').forEach(b=>b.classList.remove('on'));
-  document.getElementById('vb-'+view)?.classList.add('on');
+  (function(){var _e=document.getElementById('vb-'+view);if(_e)_e.classList.add('on');})();
   activeCam=(view==='iso')?perspCam:orthoCam;
   // sync projection button label
   const btn=document.getElementById('btn-persp');
@@ -1606,7 +1606,7 @@ function raycastPositions(e){
   if(!hits.length)return null;
   let grp=hits[0].object;
   while(grp.parent&&grp.parent!==posGrp)grp=grp.parent;
-  return grp.userData.posIdx??null;
+  return grp.userData.posIdx!==undefined?arguments[0]:null;
 }
 
 canvas.addEventListener('mousedown',e=>{
@@ -1681,7 +1681,7 @@ function selectPosition(idx){
   document.getElementById('edit-panel').style.display='block';
   document.querySelectorAll('.pc').forEach((el,i)=>el.classList.toggle('selected',i===idx));
   // Jump robot to this position's IK solution
-  if(ikTable[idx]?.ok){applyAngles(ikTable[idx].angles);}
+  if((ikTable[idx]&&ikTable[idx].ok)){applyAngles(ikTable[idx].angles);}
   // Show all IK variants for this position
   showEpIKSolutions(pos.X, pos.Y, pos.Z, pos.A, pos.B, pos.C);
 }
@@ -1852,8 +1852,8 @@ function renderSTLEntry(idx){
   for(const ax of['x','y','z','a','b','c'])document.getElementById(`sx${idx}-${ax}`).addEventListener('input',()=>updateSTL(idx));
 }
 
-function updateSTL(idx){const mesh=stlObjects[idx]?.mesh;if(!mesh)return;const g=ax=>parseFloat(document.getElementById(`sx${idx}-${ax}`).value)||0;mesh.position.set(g('x'),g('y'),g('z'));mesh.setRotationFromEuler(kukaEuler(g('a'),g('b'),g('c')));}
-function removeSTL(idx){const obj=stlObjects[idx];if(!obj)return;stlGrp.remove(obj.mesh);obj.mesh.geometry.dispose();obj.mesh.material.dispose();obj.el?.remove();stlObjects[idx]=null;if(document.getElementById('stl-list').children.length===0)document.getElementById('stl-list').innerHTML='<div class="empty">Keine STL Dateien geladen</div>';}
+function updateSTL(idx){const mesh=(stlObjects[idx]&&stlObjects[idx].mesh);if(!mesh)return;const g=ax=>parseFloat(document.getElementById(`sx${idx}-${ax}`).value)||0;mesh.position.set(g('x'),g('y'),g('z'));mesh.setRotationFromEuler(kukaEuler(g('a'),g('b'),g('c')));}
+function removeSTL(idx){const obj=stlObjects[idx];if(!obj)return;stlGrp.remove(obj.mesh);obj.mesh.geometry.dispose();obj.mesh.material.dispose();((obj&&obj.el)&&obj.el.remove());stlObjects[idx]=null;if(document.getElementById('stl-list').children.length===0)document.getElementById('stl-list').innerHTML='<div class="empty">Keine STL Dateien geladen</div>';}
 
 // ═══════════════════════════════════════════════════
 // SIMULATION ENGINE
@@ -1973,13 +1973,13 @@ function buildTrajectory(positions, ikTab) {
     trajectory.push({pos, angles, segIdx});
   }
 
-  pushSample(positions[0], ikTab[0]?.angles || [0,-90,90,0,0,0], 0);
+  pushSample(positions[0], (ikTab[0]&&ikTab[0].angles) || [0,-90,90,0,0,0], 0);
 
   for (let i = 1; i < N; i++) {
     const prev = positions[i-1];
     const curr = positions[i];
-    const angPrev = ikTab[i-1]?.angles || [0,-90,90,0,0,0];
-    const angCurr = ikTab[i]?.angles   || [0,-90,90,0,0,0];
+    const angPrev = (ikTab[i-1]&&ikTab[i-1].angles) || [0,-90,90,0,0,0];
+    const angCurr = (ikTab[i]&&ikTab[i].angles)   || [0,-90,90,0,0,0];
     const type = curr.type;
 
     if (type === 'CIRC_AUX') {
@@ -1987,14 +1987,14 @@ function buildTrajectory(positions, ikTab) {
       continue;
     }
 
-    if (type === 'CIRC' && i > 0 && positions[i-1]?.type === 'CIRC_AUX') {
+    if (type === 'CIRC' && i > 0 && (positions[i-1]&&positions[i-1].type) === 'CIRC_AUX') {
       const pStart = i >= 2 ? positions[i-2] : prev;
       const pAux   = prev;
       const pEnd   = curr;
       const arc    = circleFrom3(pStart, pAux, pEnd);
       if (!arc || arc.arcLen < 1) { pushSample(curr, angCurr, i); continue; }
       const steps = Math.max(4, Math.ceil(arc.arcLen / STEP_MM));
-      const angStart = ikTab[Math.max(0,i-2)]?.angles || angPrev;
+      const angStart = (ikTab[Math.max(0,i-2)]&&ikTab[Math.max(0,i-2)].angles) || angPrev;
       let warmAng = [...angStart];
       for (let s = 1; s <= steps; s++) {
         const f = s / steps;
@@ -2088,12 +2088,12 @@ function simTToTrajT(t) {
 
 function getIPos(t){
   const s = getTrajSample(simTToTrajT(t));
-  return s?.pos || null;
+  return (s&&s.pos) || null;
 }
 
 function getIKAngles(t) {
   const s = getTrajSample(simTToTrajT(t));
-  return s?.angles || null;
+  return (s&&s.angles) || null;
 }
 
 function updateMarkerPose(ipos){markerGrp.position.set(ipos.X,ipos.Y,ipos.Z);markerGrp.setRotationFromEuler(kukaEuler(ipos.A,ipos.B,ipos.C));markerGrp.visible=true;}
@@ -2168,12 +2168,12 @@ function applySimT(t){
 }
 
 function updateSignalsForStep(pos){
-  if(!pos?.snapshot)return;const s=pos.snapshot;
+  if(!(pos&&pos.snapshot))return;const s=pos.snapshot;
   renderVariables(s.variables);renderDigital(s.digitalIn,'$IN','din-list');renderDigital(s.digitalOut,'$OUT','dout-list');renderAnalog(s.analogOut);
 }
 
 function applyStep(idx){
-  const steps=parsedData.steps;if(!steps?.length)return;
+  const steps=parsedData.steps;if(!(steps&&steps.length))return;
   idx=Math.max(0,Math.min(steps.length-1,idx));sim.stepIdx=idx;const step=steps[idx];
   updateGutterActive(step.lineNum);
   if(step.snapshot){renderVariables(step.snapshot.variables);renderDigital(step.snapshot.digitalIn,'$IN','din-list');renderDigital(step.snapshot.digitalOut,'$OUT','dout-list');renderAnalog(step.snapshot.analogOut);}
@@ -2183,10 +2183,10 @@ function applyStep(idx){
     const pos=parsedData.positions[posIdx];updateMarkerPose(pos);markerGrp.visible=true;updatePosCards(posIdx);updateVisitedPath(posIdx);
     document.getElementById('pos-s').value=posIdx;document.getElementById('pos-v').textContent=`${posIdx+1} / ${N}`;
     document.getElementById('marker-info').style.display='block';document.getElementById('marker-info').textContent=`Z.${step.lineNum+1}  #${posIdx+1} ${pos.type}  X${pos.X.toFixed(1)} Y${pos.Y.toFixed(1)} Z${pos.Z.toFixed(1)}`;
-    if(ikTable[posIdx]?.ok)applyAngles(ikTable[posIdx].angles);
+    if((ikTable[posIdx]&&ikTable[posIdx].ok))applyAngles(ikTable[posIdx].angles);
   }else{document.getElementById('marker-info').style.display='none';if(N>0)document.getElementById('pos-v').textContent=`— / ${N}`;}
   const typeLabel={move:'MOVE',signal:'SIGNAL',var:'VARIABLE',other:'STATEMENT'};
-  setStatus('paused',`L.${step.lineNum+1}  ${typeLabel[step.type]??''}`);
+  setStatus('paused',`L.${step.lineNum+1}  ${typeLabel[step.type]||''}`);
 }
 
 function pauseSim(){sim.playing=false;sim.stepTarget=null;document.getElementById('b-playfwd').classList.remove('on');document.getElementById('b-playrev').classList.remove('on');}
@@ -2216,13 +2216,13 @@ function frame(ts){
 requestAnimationFrame(frame);
 
 // Buttons
-document.getElementById('b-start').onclick=()=>{pauseSim();applySimT(0);if(parsedData.steps?.length)applyStep(0);else setStatus('stopped','STOPPED');};
-document.getElementById('b-end').onclick=()=>{pauseSim();applySimT(Math.max(0,parsedData.positions.length-1));const last=(parsedData.steps?.length??1)-1;if(parsedData.steps?.length)applyStep(last);else setStatus('stopped','STOPPED');};
+document.getElementById('b-start').onclick=()=>{pauseSim();applySimT(0);if((parsedData.steps&&parsedData.steps.length))applyStep(0);else setStatus('stopped','STOPPED');};
+document.getElementById('b-end').onclick=()=>{pauseSim();applySimT(Math.max(0,parsedData.positions.length-1));const last=((parsedData.steps&&parsedData.steps.length)||1)-1;if((parsedData.steps&&parsedData.steps.length))applyStep(last);else setStatus('stopped','STOPPED');};
 document.getElementById('b-stop').onclick=()=>{pauseSim();setStatus('paused','PAUSED');};
 document.getElementById('b-playfwd').onclick=()=>{if(sim.playing&&sim.dir===1){pauseSim();setStatus('paused','PAUSED');}else{if(!parsedData.positions.length)return;if(sim.t>=parsedData.positions.length-1)applySimT(0);sim.playing=true;sim.dir=1;sim.stepTarget=null;document.getElementById('b-playfwd').classList.add('on');document.getElementById('b-playrev').classList.remove('on');setStatus('playing','▶ FORWARD');}};
 document.getElementById('b-playrev').onclick=()=>{if(sim.playing&&sim.dir===-1){pauseSim();setStatus('paused','PAUSED');}else{if(!parsedData.positions.length)return;if(sim.t<=0)applySimT(parsedData.positions.length-1);sim.playing=true;sim.dir=-1;sim.stepTarget=null;document.getElementById('b-playrev').classList.add('on');document.getElementById('b-playfwd').classList.remove('on');setStatus('playing','◀ BACKWARD');}};
-document.getElementById('b-stepfwd').onclick=()=>{if(!parsedData.steps?.length)return;pauseSim();applyStep(sim.stepIdx+1);};
-document.getElementById('b-steprev').onclick=()=>{if(!parsedData.steps?.length)return;pauseSim();applyStep(sim.stepIdx-1);};
+document.getElementById('b-stepfwd').onclick=()=>{if(!(parsedData.steps&&parsedData.steps.length))return;pauseSim();applyStep(sim.stepIdx+1);};
+document.getElementById('b-steprev').onclick=()=>{if(!(parsedData.steps&&parsedData.steps.length))return;pauseSim();applyStep(sim.stepIdx-1);};
 document.getElementById('spd-s').addEventListener('input',function(){document.getElementById('spd-v').textContent=this.value+'%';});
 document.getElementById('pos-s').addEventListener('mousedown',()=>{if(sim.playing){pauseSim();setStatus('paused','PAUSED');}});
 document.getElementById('pos-s').addEventListener('input',function(){const posIdx=Math.round(parseFloat(this.value));applySimT(posIdx);if(parsedData.steps){const si=parsedData.steps.findIndex(s=>s.type==='move'&&s.posIdx===posIdx);if(si>=0)applyStep(si);}});
@@ -2292,8 +2292,8 @@ function updateIKBadge(idx, res) {
   if (!card) return;
   const badge = card.querySelector('.ik-reach');
   if (!badge) return;
-  badge.className = 'ik-reach' + (res?.ok ? '' : ' err');
-  badge.textContent = res?.ok ? `IK ✓  Δ${res.score.toFixed(1)}` : 'IK ✗ nicht erreichbar';
+  badge.className = 'ik-reach' + ((res&&res.ok) ? '' : ' err');
+  badge.textContent = (res&&res.ok) ? `IK ✓  Δ${res.score.toFixed(1)}` : 'IK ✗ nicht erreichbar';
 }
 
 function renderPositions(positions){
@@ -2304,7 +2304,7 @@ function renderPositions(positions){
     const ik=ikTable[i];
     const ikHtml=ik?`<div class="psep"></div><div class="ik-reach${ik.ok?'':' err'}">${ik.ok?`IK ✓  Δ${ik.score.toFixed(1)}`:'IK ✗ nicht erreichbar'}</div>`:'';
     return`<div class="pc ${tc}" id="pcard-${i}">
-      <div class="pc-type ${tc}">#${i+1} &nbsp;${TYPE_LBL[p.type]??p.type}${p.lineNum!==undefined?`<span style="color:var(--txt3);font-weight:normal;font-size:.85em"> L.${p.lineNum+1}</span>`:''}
+      <div class="pc-type ${tc}">#${i+1} &nbsp;${TYPE_LBL[p.type]||p.type}${p.lineNum!==undefined?`<span style="color:var(--txt3);font-weight:normal;font-size:.85em"> L.${p.lineNum+1}</span>`:''}
       </div>
       <div class="pc-grid">
         <div class="pf"><span>X</span> ${ff(p.X)} mm</div><div class="pf"><span>Y</span> ${ff(p.Y)} mm</div><div class="pf"><span>Z</span> ${ff(p.Z)} mm</div>
@@ -2313,10 +2313,10 @@ function renderPositions(positions){
         ${ikHtml}
       </div></div>`;
   }).join('');
-  positions.forEach((_,i)=>{document.getElementById('pcard-'+i)?.addEventListener('click',()=>{selectPosition(i);pauseSim();applySimT(i);setStatus('paused','PAUSED');});});
+  positions.forEach((_,i)=>{(function(){var _e=document.getElementById('pcard-'+i);if(_e)_e.addEventListener('click',function(){selectPosition(i);pauseSim();applySimT(i);setStatus('paused','PAUSED');});})();;});
 }
 
-function updatePosCards(activeIdx){document.querySelectorAll('.pc').forEach((el,i)=>el.classList.toggle('sim-cur',i===activeIdx));document.getElementById('pcard-'+activeIdx)?.scrollIntoView({block:'nearest',behavior:'smooth'});}
+function updatePosCards(activeIdx){document.querySelectorAll('.pc').forEach((el,i)=>el.classList.toggle('sim-cur',i===activeIdx));(function(){var _e=document.getElementById('pcard-'+activeIdx);if(_e)_e.scrollIntoView({block:'nearest',behavior:'smooth'});})();;}
 function renderVariables(vars){const el=document.getElementById('var-list');const entries=Object.entries(vars);if(!entries.length){el.innerHTML='<div class="empty">Keine Variablen</div>';return;}el.innerHTML=entries.map(([n,v])=>{const d=typeof v==='boolean'?(v?'TRUE':'FALSE'):String(v);return`<div class="vr"><span class="vn">${n}</span><span class="vv">${d}</span></div>`;}).join('');}
 function renderDigital(sigs,prefix,elId){const el=document.getElementById(elId);const entries=Object.entries(sigs).sort((a,b)=>+a[0]-+b[0]);if(!entries.length){el.innerHTML=`<div class="empty">Kein ${prefix}</div>`;return;}el.innerHTML=entries.map(([idx,val])=>{const on=val===true||val==='TRUE'||val===1;return`<div class="sr"><div class="led ${on?'on':'off'}"></div><span class="sn">${prefix}[${idx}]</span><span class="sv ${on?'on':'off'}">${on?'TRUE':'FALSE'}</span></div>`;}).join('');}
 function renderAnalog(sigs){const el=document.getElementById('anout-list');const entries=Object.entries(sigs).sort((a,b)=>+a[0]-+b[0]);if(!entries.length){el.innerHTML='<div class="empty">Kein $ANOUT</div>';return;}el.innerHTML=entries.map(([idx,v])=>{const pct=Math.abs(v)/10*50;const fill=v>=0?`width:${pct}%;left:50%`:`width:${pct}%;left:${50-pct}%`;return`<div class="ar"><div class="ah"><span class="an">$ANOUT[${idx}]</span><span class="av">${v>=0?'+':''}${v.toFixed(2)} V</span></div><div class="atrack"><div class="amid"></div><div class="afill ${v>=0?'pos':'neg'}" style="${fill}"></div></div></div>`;}).join('');}
@@ -2447,9 +2447,9 @@ function applyKinematicConfig(){
   JOINTS_DEF.forEach((j,i)=>{
     j.min=parseFloat(document.getElementById('jmin'+i).value)||j.min;
     j.max=parseFloat(document.getElementById('jmax'+i).value)||j.max;
-    const ox=parseFloat(document.getElementById('jox'+i)?.value);
-    const oy=parseFloat(document.getElementById('joy'+i)?.value);
-    const oz=parseFloat(document.getElementById('joz'+i)?.value);
+    const ox=parseFloat((document.getElementById('jox'+i)&&document.getElementById('jox'+i).value));
+    const oy=parseFloat((document.getElementById('joy'+i)&&document.getElementById('joy'+i).value));
+    const oz=parseFloat((document.getElementById('joz'+i)&&document.getElementById('joz'+i).value));
     if(!isNaN(ox))j.off[0]=ox;
     if(!isNaN(oy))j.off[1]=oy;
     if(!isNaN(oz))j.off[2]=oz;
@@ -2518,7 +2518,7 @@ function parseAndLoad(){
     computeIKTable(parsedData.positions);
     renderPositions(parsedData.positions);
     renderVariables(parsedData.finalState.variables);renderDigital(parsedData.finalState.digitalIn,'$IN','din-list');renderDigital(parsedData.finalState.digitalOut,'$OUT','dout-list');renderAnalog(parsedData.finalState.analogOut);
-    if(N>0){applySimT(0);sim.stepIdx=0;if(parsedData.steps?.length)applyStep(0);else setStatus('paused','BEREIT');}
+    if(N>0){applySimT(0);sim.stepIdx=0;if((parsedData.steps&&parsedData.steps.length))applyStep(0);else setStatus('paused','BEREIT');}
     else setStatus('stopped','STOPPED');
   },10);
 }
@@ -2749,7 +2749,7 @@ function resetSettings() {
 function applySettingsToUI(s) {
   var fields = {
     'fz-editor': s.fzEditor, 'fz-ui': s.fzUi,
-    'fz-gutter': s.fzGutter, 'fz-panel': s.fzPanel, 'fz-status': s.fzStatus
+    'fz-panel': s.fzPanel, 'fz-status': s.fzStatus
   };
   Object.entries(fields).forEach(function(kv) {
     var el = document.getElementById(kv[0]);
