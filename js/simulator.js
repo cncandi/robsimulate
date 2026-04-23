@@ -2390,23 +2390,42 @@ function showEpIKSolutions(x,y,z,a,b,cv) {
   if(!listEl){return;}
   secEl.style.display=solutions.length?'block':'none';
 
-  listEl.innerHTML=solutions.map((sol,i)=>{
-    const badge=sol.inLimit?`<span class="ep-sol-ok ok">${sol.isBest?'★ ':''}OK</span>`:`<span class="ep-sol-ok lim">Limit</span>`;
-    const angleStr=sol.angles.map((v,i)=>`A${i+1}:${v.toFixed(0)}°`).join(' ');
-    return`<div class="ep-sol${sol.isBest?' best':''}" onclick="applyEpSolution(${JSON.stringify(sol.angles)})">
-      <span class="ep-sol-lbl">${sol.label}</span>
-      <span class="ep-sol-cost">${sol.cost.toFixed(0)}°</span>
-      ${badge}
-      <div style="font-size:.7em;color:var(--txt3);width:100%;margin-top:2px">${angleStr}</div>
-    </div>`;
+  // Store solutions globally for safe index-based access
+  window._epSolutions = solutions;
+
+  listEl.innerHTML = solutions.map(function(sol, i) {
+    var badge = sol.inLimit
+      ? '<span class="ep-sol-ok ok">' + (sol.isBest ? '★ ' : '') + 'OK</span>'
+      : '<span class="ep-sol-ok lim">Limit</span>';
+    var angleStr = sol.angles.map(function(v, j) {
+      return 'A'+(j+1)+':'+v.toFixed(0)+'°';
+    }).join(' ');
+    return '<div class="ep-sol' + (sol.isBest ? ' best' : '') + '" data-sol-idx="' + i + '">'
+      + '<span class="ep-sol-lbl">' + sol.label + '</span>'
+      + '<span class="ep-sol-cost">' + sol.cost.toFixed(0) + '°</span>'
+      + badge
+      + '<div style="font-size:.7em;color:var(--txt3);width:100%;margin-top:2px">' + angleStr + '</div>'
+      + '</div>';
   }).join('');
+
+  // Attach click handlers directly (no inline JSON)
+  listEl.querySelectorAll('.ep-sol').forEach(function(el) {
+    el.addEventListener('click', function() {
+      var idx = parseInt(this.getAttribute('data-sol-idx'));
+      var sols = window._epSolutions;
+      if (!sols || idx < 0 || idx >= sols.length) return;
+      applyAngles(sols[idx].angles);
+      // Highlight selected
+      listEl.querySelectorAll('.ep-sol').forEach(function(e) {
+        e.style.outline = 'none';
+      });
+      this.style.outline = '2px solid var(--acc)';
+    });
+  });
 }
 
 function applyEpSolution(angles) {
   applyAngles(angles);
-  // highlight selected
-  document.querySelectorAll('.ep-sol').forEach(el=>el.style.outline='none');
-  event.currentTarget.style.outline='1px solid var(--acc)';
 }
 
 function toggleSec(titleEl){titleEl.closest('.sec').classList.toggle('collapsed');}
