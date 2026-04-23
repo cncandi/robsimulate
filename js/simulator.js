@@ -2576,16 +2576,6 @@ async function loadDefaultSTLs() {
     } catch(e) { console.warn('STL fetch error', ax, e); }
   }
 }
-      axisSTLMeshes[idx] = new THREE.Mesh(geo, new THREE.MeshPhongMaterial({color:0xe8a020,shininess:80}));
-      scene.add(axisSTLMeshes[idx]);
-      const nameEl = document.getElementById('asl-name'+idx);
-      if (nameEl) nameEl.textContent = ax.toLowerCase();
-      const delEl = document.getElementById('asl-del'+idx);
-      if (delEl) delEl.style.display = '';
-      buildRobotModel(jointAngles);
-    } catch(e) { console.warn('STL fetch error', ax, e); }
-  }
-}
 
 
 // Podest + Tool per fetch laden
