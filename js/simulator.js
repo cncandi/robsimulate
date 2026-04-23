@@ -2757,13 +2757,6 @@ function toggleSettings() {
   if (p) p.classList.toggle('visible');
 }
 
-function spTab(btn, tabId) {
-  document.querySelectorAll('.sp-tab').forEach(function(b) { b.classList.remove('on'); });
-  btn.classList.add('on');
-  document.querySelectorAll('#tab-fonts,#tab-view').forEach(function(el) { el.style.display = 'none'; });
-  var t = document.getElementById(tabId);
-  if (t) t.style.display = 'block';
-}
 
 // Drag for settings panel
 (function() {
