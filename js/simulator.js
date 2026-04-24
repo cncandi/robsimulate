@@ -1440,25 +1440,39 @@ function ampApplyPath() {
     const ta = document.getElementById('code-input');
     const lines = ta.value.split(/\r?\n/);
 
+    // Normierungs-Hilfsfunktion
+    const nd = v => { let d=v*180/Math.PI; while(d>180)d-=360; while(d<=-180)d+=360; return d; };
+
     parsedData.positions.forEach((pos, posIdx) => {
       const trajIdx = Math.round(posIdx / Math.max(1,parsedData.positions.length-1) * (trajectory.length-1));
       const tStep = trajectory[Math.min(trajIdx, trajectory.length-1)];
       if (!tStep || pos.lineNum === undefined) return;
+
+      // FK mit neuen Gelenkwinkeln → neue Euler-Winkel A,B,C
       const fk = fkAll(tStep.angles);
       const R = fk.tcp_rot;
-      const B2 = -Math.asin(Math.max(-1,Math.min(1,R[2][0])));
+      const B2 = -Math.asin(Math.max(-1, Math.min(1, R[2][0])));
       const cb2 = Math.cos(B2);
       let A2, C2;
-      if (Math.abs(cb2)>1e-6) { A2=Math.atan2(R[1][0]/cb2,R[0][0]/cb2); C2=Math.atan2(R[2][1]/cb2,R[2][2]/cb2); }
-      else { A2=0; C2=Math.atan2(-R[1][2],R[1][1]); }
-      const nd = v => { let d=v*180/Math.PI; while(d>180)d-=360; while(d<=-180)d+=360; return d; };
+      if (Math.abs(cb2) > 1e-6) {
+        A2 = Math.atan2(R[1][0]/cb2, R[0][0]/cb2);
+        C2 = Math.atan2(R[2][1]/cb2, R[2][2]/cb2);
+      } else {
+        A2 = 0;
+        C2 = Math.atan2(-R[1][2], R[1][1]);
+      }
+      const newA = nd(A2).toFixed(3);
+      const newB = nd(B2).toFixed(3);
+      const newC = nd(C2).toFixed(3);
+
       if (lines[pos.lineNum]) {
-        lines[pos.lineNum] = (function(line, newA) {
-          // Ersetze A-Wert NUR innerhalb des {}-Blocks
-          return line.replace(/(\{[^}]+\})/, function(block) {
-            return block.replace(/\bA\s+([-+]?[0-9]+(?:\.[0-9]+)?)/, 'A ' + newA);
-          });
-        })(lines[pos.lineNum], nd(A2).toFixed(3));
+        lines[pos.lineNum] = lines[pos.lineNum].replace(/(\{[^}]+\})/, function(block) {
+          // Alle drei Euler-Winkel A, B, C ersetzen
+          return block
+            .replace(/A\s+([-+]?[0-9]+(?:\.[0-9]+)?)/, 'A ' + newA)
+            .replace(/B\s+([-+]?[0-9]+(?:\.[0-9]+)?)/, 'B ' + newB)
+            .replace(/C\s+([-+]?[0-9]+(?:\.[0-9]+)?)/, 'C ' + newC);
+        });
       }
     });
 
