@@ -1012,7 +1012,7 @@ function loadTCP() {
 
 // ── Programm ────────────────────────────────
 function saveProgram() {
-  const code = document.getElementById('code-input').value;
+  const code = (monacoGetValue());
   downloadFile(code, 'programm.src');
 }
 
@@ -1022,8 +1022,8 @@ function loadProgram() {
     const file = e.target.files[0]; if (!file) return;
     const reader = new FileReader();
     reader.onload = ev => {
-      document.getElementById('code-input').value = ev.target.result;
-      rebuildGutter();
+      (monacoGetValue()) = ev.target.result;
+      /* rebuildGutter: Monaco */
       setStatus('paused', 'Programm geladen: ' + file.name);
     };
     reader.readAsText(file);
@@ -1361,7 +1361,7 @@ function ampApplyPath() {
     });
 
     ta.value = lines.join('\n');
-    rebuildGutter();
+    /* rebuildGutter: Monaco */
 
     const msg = errCount > 0
       ? `✓ Pfad übernommen (${errCount} Schritte ohne IK-Konvergenz)`
@@ -1651,7 +1651,7 @@ function appendToProgram(krlLine, vel){
   insLines.push(krlLine);
   lines.splice(endIdx,0,...insLines);
   ta.value=lines.join('\n');
-  rebuildGutter();
+  /* rebuildGutter: Monaco */
 }
 
 // Drag steuerungspanel
@@ -2443,7 +2443,7 @@ function buildGutter(count){
   }
 }
 function toggleBP(ln,row){if(!posLineNums.has(ln))return;if(breakpoints.has(ln)){breakpoints.delete(ln);row.classList.remove('has-bp');}else{breakpoints.add(ln);row.classList.add('has-bp');}}
-function rebuildGutter(){const lines=document.getElementById('code-input').value.split(/\r?\n/);buildGutter(lines.length);}
+function rebuildGutter(){const lines=(monacoGetValue()).split(/\r?\n/);buildGutter(lines.length);}
 document.getElementById('code-input').addEventListener('scroll',function(){document.getElementById('gutter').scrollTop=this.scrollTop;});
 function updateGutterActive(lineNum){document.querySelectorAll('#gutter .gl').forEach(r=>r.classList.remove('active'));const t=document.querySelector(`#gutter .gl[data-line="${lineNum}"]`);if(!t)return;t.classList.add('active');const ta=document.getElementById('code-input');const lh=20,pv=10;const top=lineNum*lh+pv;if(top<ta.scrollTop||top>ta.scrollTop+ta.clientHeight-lh)ta.scrollTop=Math.max(0,top-ta.clientHeight/2);}
 
@@ -2617,8 +2617,7 @@ function writeBackPosition(idx, x, y, z, a, b, c) {
   var pos = parsedData.positions[idx];
   if (!pos) return;
   // Update KRL editor
-  var ta = document.getElementById('code-input');
-  if (!ta) return;
+  var ta = { value: monacoGetValue() };
   var lines = ta.value.split('\n');
   var lineNum = pos.lineNum - 1;
   if (lineNum < 0 || lineNum >= lines.length) return;
@@ -2632,7 +2631,7 @@ function writeBackPosition(idx, x, y, z, a, b, c) {
     newCoords
   );
   ta.value = lines.join('\n');
-  rebuildGutter();
+  /* rebuildGutter: Monaco */
 }
 
 function toggleSec(titleEl){titleEl.closest('.sec').classList.toggle('collapsed');}
@@ -2729,7 +2728,7 @@ function updateTCPDef(){
 // PARSE & LOAD
 // ═══════════════════════════════════════════════════
 function parseAndLoad(){
-  const code=document.getElementById('code-input').value;
+  const code=(monacoGetValue());
   parsedData=parseKRL(code);const N=parsedData.positions.length;
   posLineNums=new Set(parsedData.positions.map(p=>p.lineNum).filter(n=>n!==undefined));
   for(const bp of[...breakpoints])if(!posLineNums.has(bp))breakpoints.delete(bp);
@@ -2759,7 +2758,7 @@ buildSteuerAxes();
 buildAxisSTLUI();
 buildRobotModel([0,-90,90,0,0,0]);  // show robot at home position
 
-document.getElementById('code-input').value=`DEF NONAME()
+(monacoGetValue())=`DEF NONAME()
 GLOBAL INTERRUPT DECL 3 WHEN $STOPMESS==TRUE DO IR_STOPM ( )
 INTERRUPT ON 3
 BAS (#INITMOV,0)
@@ -3029,11 +3028,8 @@ function applyFZ() {
   var fzP = parseInt(document.getElementById('fz-panel').value)  || 17;
   var fzS = parseInt(document.getElementById('fz-status').value) || 17;
 
-  // Editor + Gutter
-  var codeEl = document.getElementById('code-input');
-  if (codeEl) { codeEl.style.fontSize = fzE + 'px'; codeEl.style.lineHeight = Math.round(fzE * 1.6) + 'px'; }
-  var gut = document.getElementById('gutter');
-  if (gut) { gut.style.fontSize = fzE + 'px'; gut.style.lineHeight = Math.round(fzE * 1.6) + 'px'; }
+  // Monaco Editor Font
+  if (typeof monacoFontSize === 'function') monacoFontSize(fzE);
 
   // Alles mit fontSize setzen via universellen Ansatz:
   // Toolbar, Buttons, Header, alle Labels
