@@ -1479,7 +1479,11 @@ function ampApplyPath() {
       }
     });
 
-    ta.value = lines.join('\n');
+    var newCode = lines.join('\n');
+    ta.value = newCode;
+
+    // Textarea-Anzeige explizit refreshen
+    ta.dispatchEvent(new Event('input', {bubbles:true}));
 
     // Nur parsen (liest neue A/B/C Werte), dann IK NICHT neu berechnen
     // (trajectory wurde bereits mit neuen Winkeln aktualisiert)
@@ -1488,6 +1492,7 @@ function ampApplyPath() {
     renderPositions(parsedData.positions);
     renderVariables(parsedData.finalState.variables || {});
 
+    console.log('[ampApply] Written, ta.value now starts:', ta.value.substring(0, 200));
     const msg = errCount > 0
       ? '✓ Pfad übernommen (' + errCount + ' Schritte ohne IK-Konvergenz)'
       : '✓ Pfad übernommen · X/Y/Z-Endpunkte exakt erhalten';
