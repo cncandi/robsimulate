@@ -2032,30 +2032,15 @@ function computeIKTable(positions) {
     var qStart = jointAngles.slice();
     var result = DPSolver.plan(targetPts, qStart);
 
-    // Fill ikTable from raw path
+    // ikTable aus DP raw path (Konfigurationswahl)
     for (var pi2 = 0; pi2 < N; pi2++) {
       var rp = result.rawPath[pi2] || result.rawPath[result.rawPath.length-1];
       ikTable.push({ angles: rp.q.slice(), ok: true, score: 0 });
     }
 
-    // Build trajectory from smoothed path
-    trajectory = [];
-    for (var si = 0; si < result.smoothedPath.length; si++) {
-      var sp = result.smoothedPath[si];
-      // Map s → position via interpolation
-      var s = sp.s;
-      var total = arcS[arcS.length-1] || 1;
-      var frac = s / total;
-      var posIdx = Math.min(Math.floor(frac * (N-1)), N-1);
-      trajectory.push({ pos: positions[posIdx], angles: sp.q.slice(), segIdx: posIdx });
-    }
-    trajMax = Math.max(0, trajectory.length-1);
-    trajectoryRef = trajectory.map(function(t){ return {pos:t.pos, angles:t.angles.slice()}; });
-
-    // Path line
-    pathGrp.clear();
-    var pts3 = positions.map(function(p){ return new THREE.Vector3(p.X,p.Y,p.Z); });
-    if(pts3.length>1) pathGrp.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts3), new THREE.LineBasicMaterial({color:0x1a3050})));
+    // Trajektorie: lineare Interpolation im kartesischen Raum (LIN-Semantik!)
+    // Gelenkwinkel werden zwischen den DP-Konfigurationen interpoliert
+    buildTrajectory(positions, ikTable);
     return;
 
   } catch(e) {
