@@ -957,7 +957,7 @@ function applyKinematicData(data, stlBuffers) {
         window._toolSTLBuffer = tbuf;
         var tgeo = stlLoader.parse(tbuf); tgeo.computeVertexNormals();
         if (toolMesh) { scene.remove(toolMesh); toolMesh.geometry.dispose(); toolMesh.material.dispose(); }
-        var mat = new THREE.MeshPhongMaterial({color:0xdd9944,transparent:true,opacity:.85,side:THREE.DoubleSide,specular:0x666666});
+        var mat = new THREE.MeshPhongMaterial({color:0xdd9944,transparent:false,opacity:1.0,side:THREE.DoubleSide,specular:0x666666});
         toolMesh = new THREE.Mesh(tgeo, mat);
         scene.add(toolMesh);
         document.getElementById('tool-filename').textContent = tname;
@@ -2234,7 +2234,7 @@ function loadToolSTL(file){
   reader.onload=e=>{
     if(toolMesh){markerGrp.remove(toolMesh);toolMesh.geometry.dispose();toolMesh.material.dispose();toolMesh=null;}
     const geo=stlLoader.parse(e.target.result);geo.computeVertexNormals();
-    const mat=new THREE.MeshPhongMaterial({color:0xdd9944,transparent:true,opacity:.75,side:THREE.DoubleSide,specular:0x666666});
+    const mat=new THREE.MeshPhongMaterial({color:0xdd9944,transparent:false,opacity:1.0,side:THREE.DoubleSide,specular:0x666666});
     toolMesh=new THREE.Mesh(geo,mat);scene.add(toolMesh);
     buildRobotModel(jointAngles);
     document.getElementById('tool-controls').style.display='block';
@@ -3304,8 +3304,7 @@ function loadDefaultSceneSTLs() {
       window._toolSTLBuffer = buf;
       var geo = stlLoader.parse(buf); geo.computeVertexNormals();
       if (toolMesh) { scene.remove(toolMesh); toolMesh.geometry.dispose(); toolMesh.material.dispose(); }
-      var mat = new THREE.MeshPhongMaterial({color:0xdd9944,transparent:true,opacity:.85,
-        side:THREE.DoubleSide,specular:0x666666});
+      var mat = new THREE.MeshPhongMaterial({color:0xdd9944,transparent:false,opacity:1.0,side:THREE.DoubleSide,specular:0x666666});
       toolMesh = new THREE.Mesh(geo, mat);
       scene.add(toolMesh);
       document.getElementById('tool-filename').textContent = 'Tool1_TCP';
