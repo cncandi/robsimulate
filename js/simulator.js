@@ -2261,8 +2261,13 @@ function selectPosition(idx){
   ['x','y','z','a','b','c'].forEach(k=>document.getElementById('ep-'+k).value=pos[k.toUpperCase()].toFixed(3));
   document.getElementById('edit-panel').style.display='block';
   document.querySelectorAll('.pc').forEach((el,i)=>el.classList.toggle('selected',i===idx));
-  // Interpolate robot to this position's IK solution
+  // Hochpräzisions-IK für exakte Zielposition
   if(ikTable[idx]&&ikTable[idx].ok){
+    var initAngles = ikTable[idx].angles.slice();
+    var precise = solveIKPrecise(pos.X, pos.Y, pos.Z, pos.A, pos.B, pos.C, initAngles);
+    if (precise.ok) {
+      ikTable[idx].angles = precise.angles;
+    }
     tweenToAngles(ikTable[idx].angles, 500);
   }
   // Show all IK variants for this position
@@ -3836,6 +3841,48 @@ function dpSolverApplySettings() {
     if (ampPanel && ampPanel.classList.contains('visible')) ampBuild();
     document.getElementById('amp-info').textContent = 'DP-Solver: Parameter aktualisiert, Plan neu berechnet.';
   }
+}
+
+
+// ── Hochpräzisions IK (mehr Iterationen, kleiner Schritt) ────
+function solveIKPrecise(tx, ty, tz, ta, tb, tc, initAngles) {
+  var clamp = function(v,lo,hi){ return Math.max(lo,Math.min(hi,v)); };
+  var tp = [tx, ty, tz];
+  var Rt = rotZYX(ta, tb, tc);
+  var dt = 0.2, lam = 0.5, tolP = 0.05, tolO = 0.05;
+  var q = initAngles ? initAngles.slice() : jointAngles.slice();
+  var bestScore = Infinity, bestQ = q.slice();
+  for (var iter = 0; iter < 500; iter++) {
+    var e = err6(q, tp, Rt);
+    var eP = Math.sqrt(e[0]*e[0]+e[1]*e[1]+e[2]*e[2]);
+    var eO = Math.sqrt(e[3]*e[3]+e[4]*e[4]+e[5]*e[5]);
+    var score = eP + eO;
+    if (score < bestScore) { bestScore = score; bestQ = q.slice(); }
+    if (eP < tolP && eO < tolO) break;
+    var J = [];
+    for (var i = 0; i < 6; i++) {
+      var q1 = q.slice(); q1[i] += dt;
+      var e1 = err6(q1, tp, Rt);
+      J.push([(e1[0]-e[0])/dt,(e1[1]-e[1])/dt,(e1[2]-e[2])/dt,
+               (e1[3]-e[3])/dt,(e1[4]-e[4])/dt,(e1[5]-e[5])/dt]);
+    }
+    var JtJ = Array.from({length:6}, function(){ return Array(6).fill(0); });
+    var Jte = Array(6).fill(0);
+    for (var i = 0; i < 6; i++) {
+      for (var r = 0; r < 6; r++) {
+        Jte[i] += J[i][r] * e[r];
+        for (var j = 0; j < 6; j++) JtJ[i][j] += J[i][r] * J[j][r];
+      }
+      JtJ[i][i] += lam;
+    }
+    var dq = solve6x6(JtJ, Jte);
+    var step = Math.min(0.5, 3.0 / Math.max(1, bestScore));
+    for (var i = 0; i < 6; i++) {
+      if (!isFinite(dq[i])) continue;
+      q[i] = clamp(q[i] - step*dq[i], JOINTS_DEF[i].min, JOINTS_DEF[i].max);
+    }
+  }
+  return { angles: bestQ, score: bestScore, ok: bestScore < 5 };
 }
 
 parseAndLoad();
