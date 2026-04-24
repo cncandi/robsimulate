@@ -521,6 +521,8 @@ function loadAxisSTL(idx, file) {
     // Store raw base64 for later save
     axisSTLBase64[idx] = btoa(String.fromCharCode.apply(null, new Uint8Array(e.target.result)));
   window['_axisSTLBuffer'+idx] = e.target.result;
+  if (!window._axisSTLBuffers) window._axisSTLBuffers = {};
+  window._axisSTLBuffers[idx] = e.target.result;
     document.getElementById('asl-name'+idx).textContent = file.name.replace(/\.stl$/i,'');
     document.getElementById('asl-del'+idx).style.display = '';
   };
@@ -739,20 +741,30 @@ function saveKinematic() {
   // JSON config (no STL data embedded)
   zip.file(kinName + '.json', JSON.stringify(data, null, 2));
 
-  // Axis STLs
+  // Axis STLs — direkt aus ArrayBuffer (kein Base64-Umweg)
+  var axisAdded = 0;
   for (var i = 0; i < 6; i++) {
-    if (axisSTLBase64[i]) {
+    var buf = window['_axisSTLBuffer'+i];
+    if (!buf) buf = window._axisSTLBuffers && window._axisSTLBuffers[i];
+    if (buf) {
       var stlName = (data.stlFiles['A'+(i+1)] && data.stlFiles['A'+(i+1)].name) || ('a'+(i+1));
-      if (!stlName.endsWith('.stl')) stlName += '.stl';
-      // Convert base64 to binary
+      if (stlName.toLowerCase().indexOf('.stl') === -1) stlName += '.stl';
+      zip.file(stlName, new Uint8Array(buf));
+      axisAdded++;
+    } else if (axisSTLBase64[i]) {
+      // Fallback: base64 → binary
+      var stlName2 = (data.stlFiles['A'+(i+1)] && data.stlFiles['A'+(i+1)].name) || ('a'+(i+1));
+      if (stlName2.toLowerCase().indexOf('.stl') === -1) stlName2 += '.stl';
       try {
         var bin = atob(axisSTLBase64[i]);
         var arr = new Uint8Array(bin.length);
         for (var k = 0; k < bin.length; k++) arr[k] = bin.charCodeAt(k);
-        zip.file(stlName, arr);
-      } catch(e) { console.warn('ZIP: STL encode error A'+(i+1), e); }
+        zip.file(stlName2, arr);
+        axisAdded++;
+      } catch(ex) { console.warn('ZIP: STL base64 error A'+(i+1), ex); }
     }
   }
+  console.log('ZIP: ' + axisAdded + ' Achsen-STLs hinzugefügt');
 
   // Pedestal STL
   if (window._pedestalSTLBuffer) {
@@ -2827,7 +2839,9 @@ function loadDefaultSTLs() {
       function(buf) {
         try {
           window['_axisSTLBuffer'+idx] = buf;
-          axisSTLBase64[idx] = (function(b){var s='';var a=new Uint8Array(b);var c=a.length;for(var j=0;j<c;j+=8192)s+=String.fromCharCode.apply(null,a.subarray(j,j+8192));return btoa(s);})(buf);
+          // Also keep a copy in the array for safe access
+          if (!window._axisSTLBuffers) window._axisSTLBuffers = {};
+          window._axisSTLBuffers[idx] = buf;
           var geo = stlLoader.parse(buf);
           geo.computeVertexNormals();
           if (axisSTLMeshes[idx]) { scene.remove(axisSTLMeshes[idx]); axisSTLMeshes[idx].geometry.dispose(); }
