@@ -3094,12 +3094,11 @@ function showEpIKSolutions(x,y,z,a,b,cv) {
       var idx = parseInt(this.getAttribute('data-sol-idx'));
       var sols = window._epSolutions;
       if (!sols || idx < 0 || idx >= sols.length) return;
-      applyAngles(sols[idx].angles);
       // Highlight selected
-      listEl.querySelectorAll('.ep-sol').forEach(function(e) {
-        e.style.outline = 'none';
-      });
+      listEl.querySelectorAll('.ep-sol').forEach(function(e) { e.style.outline = 'none'; });
       this.style.outline = '2px solid var(--acc)';
+      // FK → XYZABC → Editor schreiben
+      applyEpSolution(sols[idx].angles);
     });
   });
 }
