@@ -1156,28 +1156,32 @@ function ampBuild() {
   window._ampArcLen = [0];
   var arcLen = window._ampArcLen;
   arcLen.length = 0; arcLen.push(0);
-  for (var _ti = 1; _ti < trajectory.length; _ti++) {
-    var _p0 = trajectory[_ti-1].pos;
-    var _p1 = trajectory[_ti].pos;
+  var _refT = trajectoryRef.length ? trajectoryRef : trajectory;
+  for (var _ti = 1; _ti < _refT.length; _ti++) {
+    var _p0 = _refT[_ti-1].pos;
+    var _p1 = _refT[_ti].pos;
     var _dx = _p1[0]-_p0[0], _dy = _p1[1]-_p0[1], _dz = _p1[2]-_p0[2];
     arcLen.push(arcLen[_ti-1] + Math.sqrt(_dx*_dx+_dy*_dy+_dz*_dz));
   }
   var totalArc = arcLen[arcLen.length-1] || 1;
+  var TLEN = _refT.length;
 
   function arcToTidx(col) {
     var s = (col / Math.max(1, COLS-1)) * totalArc;
-    // Binary search
     var lo = 0, hi = arcLen.length - 1;
     while (lo < hi) {
       var mid = (lo + hi) >> 1;
       if (arcLen[mid] < s) lo = mid + 1; else hi = mid;
     }
-    return Math.min(lo, trajectory.length-1);
+    var refLen = (trajectoryRef.length ? trajectoryRef : trajectory).length;
+    return Math.min(lo, refLen - 1);
   }
 
   for (let col=0; col<COLS; col++) {
     const tidx = arcToTidx(col);
-    const ang  = trajectory[tidx].angles;
+    // Referenz-Trajektorie für Map (nicht durch Weg-Übernahme geändert)
+    var refTraj = trajectoryRef.length ? trajectoryRef : trajectory;
+    const ang  = refTraj[Math.min(tidx, refTraj.length-1)].angles;
     const a4   = ang[3];
     const a5   = ang[4];
     const a6   = ang[5];
@@ -2430,6 +2434,7 @@ function lerpAngles(a, b, f) {
 // Each entry: {pos:{X,Y,Z,A,B,C}, angles:[6], segIdx:int}
 // segIdx = index in parsedData.positions of destination point
 let trajectory = [];   // built once on parseAndLoad
+let trajectoryRef = [];  // Referenz-Trajektorie für Map (unveränderlich)
 let trajMax = 0;       // trajectory.length - 1
 
 // ── Geometric helpers ─────────────────────────────────────
@@ -2620,6 +2625,10 @@ function buildTrajectory(positions, ikTab) {
   }
 
   trajMax = Math.max(0, trajectory.length - 1);
+  // Referenz-Trajektorie für Map (tief kopieren)
+  trajectoryRef = trajectory.map(function(t) {
+    return { pos: t.pos, angles: t.angles ? t.angles.slice() : [] };
+  });
 
   // Rebuild path line from actual Cartesian trajectory
   pathGrp.clear();
