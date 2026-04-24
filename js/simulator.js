@@ -2810,8 +2810,13 @@ function applySimT(t){ _tween = null;
   document.getElementById('pos-v').textContent=`${idx+1} / ${N}` + (trajSamples>N?` (${trajSamples} Schritte)`:'');
   updateVisitedPath(sim.t);updateGutterActive(pos[idx].lineNum);updatePosCards(idx);updateSignalsForStep(pos[idx]);
   if(parsedData.steps){const si=parsedData.steps.findIndex(s=>s.type==='move'&&s.posIdx===idx);if(si>=0)sim.stepIdx=si;}
-  // Apply IK angles → robot model
-  const angles=getIKAngles(sim.t);
+  // Bei exaktem Positionsindex: präzise ikTable-Winkel verwenden
+  let angles;
+  if(Number.isInteger(sim.t) && ikTable[idx] && ikTable[idx].ok) {
+    angles = ikTable[idx].angles;
+  } else {
+    angles = getIKAngles(sim.t);
+  }
   if(angles){
     applyAngles(angles);
     // Place simulation marker at actual FK TCP (not stored pos) → always consistent
