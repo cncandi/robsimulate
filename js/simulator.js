@@ -3157,6 +3157,9 @@ function applyEpSolution(angles) {
 
   // FK-Fehler anzeigen
   document.getElementById('rb-fk').textContent = '0.00';
+
+  // Sofort ins KRL-Programm schreiben (kein Apply-Button nötig)
+  syncPositionToCode(selectedPosIdx);
 }
 
 function writeBackPosition(idx, x, y, z, a, b, c) {
