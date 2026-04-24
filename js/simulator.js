@@ -1376,18 +1376,25 @@ function ampApplyPath() {
       else { A2=0; C2=Math.atan2(-R[1][2],R[1][1]); }
       const nd = v => { let d=v*180/Math.PI; while(d>180)d-=360; while(d<=-180)d+=360; return d; };
       if (lines[pos.lineNum]) {
-        lines[pos.lineNum] = (function(line, val) {
-          const m = line.match(/A ([-+]?[0-9]+(?:\.[0-9]+)?)/);
-          return m ? line.replace(m[0], 'A ' + val) : line;
+        lines[pos.lineNum] = (function(line, newA) {
+          // Ersetze A-Wert NUR innerhalb des {}-Blocks
+          return line.replace(/(\{[^}]+\})/, function(block) {
+            return block.replace(/\bA\s+([-+]?[0-9]+(?:\.[0-9]+)?)/, 'A ' + newA);
+          });
         })(lines[pos.lineNum], nd(A2).toFixed(3));
       }
     });
 
     ta.value = lines.join('\n');
-    rebuildGutter();
+
+    // Neu parsen damit Simulation die neuen Werte kennt
+    parsedData = parseKRL(ta.value);
+    computeIKTable(parsedData.positions);
+    buildScene(parsedData.positions);
+    renderPositions(parsedData.positions);
 
     const msg = errCount > 0
-      ? `✓ Pfad übernommen (${errCount} Schritte ohne IK-Konvergenz)`
+      ? '✓ Pfad übernommen (' + errCount + ' Schritte ohne IK-Konvergenz)'
       : '✓ Pfad übernommen · X/Y/Z-Endpunkte exakt erhalten';
     setStatus('paused', 'A6-Pfad übernommen');
     document.getElementById('amp-info').textContent = msg;
@@ -2895,7 +2902,7 @@ function writeBackPosition(idx, x, y, z, a, b, c) {
   var ta = document.getElementById('code-input');
   if (!ta) return;
   var lines = ta.value.split('\n');
-  var lineNum = pos.lineNum - 1;
+  var lineNum = pos.lineNum;  // lineNum ist 0-basiert
   if (lineNum < 0 || lineNum >= lines.length) return;
   var line = lines[lineNum];
   // Replace coordinate values in the line
