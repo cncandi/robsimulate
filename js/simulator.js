@@ -1846,8 +1846,10 @@ function selectPosition(idx){
   ['x','y','z','a','b','c'].forEach(k=>document.getElementById('ep-'+k).value=pos[k.toUpperCase()].toFixed(3));
   document.getElementById('edit-panel').style.display='block';
   document.querySelectorAll('.pc').forEach((el,i)=>el.classList.toggle('selected',i===idx));
-  // Jump robot to this position's IK solution
-  if((ikTable[idx]&&ikTable[idx].ok)){applyAngles(ikTable[idx].angles);}
+  // Interpolate robot to this position's IK solution
+  if(ikTable[idx]&&ikTable[idx].ok){
+    tweenToAngles(ikTable[idx].angles, 500);
+  }
   // Show all IK variants for this position
   showEpIKSolutions(pos.X, pos.Y, pos.Z, pos.A, pos.B, pos.C);
 }
@@ -2286,7 +2288,7 @@ function checkBP(prevT,newT,dir){
   return null;
 }
 
-function applySimT(t){
+function applySimT(t){ _tween = null;
   const pos=parsedData.positions,N=pos.length;if(!N)return;
   sim.t=Math.max(0,Math.min(N-1,t));
   document.getElementById('pos-s').value=sim.t;
@@ -2358,10 +2360,38 @@ function applyStep(idx){
 function pauseSim(){sim.playing=false;sim.stepTarget=null;document.getElementById('b-playfwd').classList.remove('on');document.getElementById('b-playrev').classList.remove('on');}
 function stopSim(goTo){pauseSim();if(goTo!==undefined)applySimT(goTo);}
 
+
+// ── Achsen-Interpolation (Tween) ──────────────────────────────
+var _tween = null;  // { from, to, t, duration }
+
+function tweenToAngles(targetAngles, durationMs) {
+  durationMs = durationMs || 600;
+  _tween = {
+    from: jointAngles.slice(),
+    to:   targetAngles.slice(),
+    t:    0,
+    duration: durationMs / 1000
+  };
+}
+
+function updateTween(dt) {
+  if (!_tween) return;
+  _tween.t += dt;
+  var f = Math.min(_tween.t / _tween.duration, 1);
+  // Ease in-out
+  f = f < 0.5 ? 2*f*f : -1 + (4 - 2*f)*f;
+  var angles = _tween.from.map(function(v, i) {
+    return v + (_tween.to[i] - v) * f;
+  });
+  applyAngles(angles);
+  if (_tween.t >= _tween.duration) _tween = null;
+}
+
 let lastTs=null;
 function frame(ts){
   requestAnimationFrame(frame);
   const dt=lastTs!==null?Math.min((ts-lastTs)/1000,.1):0;lastTs=ts;
+  updateTween(dt);
   const N=parsedData.positions.length;
   if(N>0&&(sim.playing||sim.stepTarget!==null)){
     const speed=simSpeed(),prevT=sim.t;let newT;
