@@ -1410,105 +1410,125 @@ function ampApplyPath() {
   }
 }
 
-// Mouse interaction on canvas
+// Mouse interaction on canvas — Gummiband: nur Zielpunkte ziehbar
 (function() {
   const canvas = document.getElementById('amp-canvas');
   if (!canvas) return;
   const tooltip = document.getElementById('amp-tooltip');
 
-  function getColRow(e) {
-    const r = canvas.getBoundingClientRect();
-    const px = e.clientX - r.left, py = e.clientY - r.top;
-    const col = Math.round(px / (canvas.width-1) * (ampCols-1));
-    const deg = A6_MIN + (1 - py/canvas.height) * (A6_MAX - A6_MIN);
-    return {col: Math.max(0,Math.min(ampCols-1,col)), deg};
+  var dragWptIdx = -1;  // Index des gezogenen Zielpunkts (-1 = keiner)
+
+  function getDeg(e) {
+    var r = canvas.getBoundingClientRect();
+    var py = e.clientY - r.top;
+    var deg = A6_MIN + (1 - py / canvas.height) * (A6_MAX - A6_MIN);
+    return Math.max(A6_MIN, Math.min(A6_MAX, deg));
   }
 
-  // dragMode: 'start' | 'end' | 'mid'
-  let dragMode = 'mid';
-
-  canvas.addEventListener('mousedown', e => {
-    if (!ampCols) return;
-    ampDragging = true;
-    const {col, deg} = getColRow(e);
-    const clamped = Math.max(A6_MIN, Math.min(A6_MAX, deg));
-    // Drag zones: first 15% = start, last 15% = end
-    const zone = Math.max(15, Math.round(ampCols * 0.15));
-    if (col <= zone) {
-      dragMode = 'start';
-      // Apply immediately on click
-      const blend = Math.min(ampCols-1, Math.round(ampCols * 0.30));
-      const midVal = ampUserPath[blend] || clamped;
-      for (let i = 0; i <= blend; i++) {
-        const f = blend > 0 ? i / blend : 1;
-        ampUserPath[i] = Math.max(A6_MIN, Math.min(A6_MAX, clamped*(1-f) + midVal*f));
-      }
-    } else if (col >= ampCols - 1 - zone) {
-      dragMode = 'end';
-      // Apply immediately on click
-      const blend = Math.max(0, Math.round(ampCols * 0.70));
-      const midVal = ampUserPath[blend] || clamped;
-      for (let i = blend; i < ampCols; i++) {
-        const span = ampCols - 1 - blend || 1;
-        const f = (i - blend) / span;
-        ampUserPath[i] = Math.max(A6_MIN, Math.min(A6_MAX, midVal*(1-f) + clamped*f));
-      }
-    } else {
-      dragMode = 'mid';
-      ampUserPath[col] = clamped;
+  // Welcher Zielpunkt liegt am nächsten zur Mausposition?
+  function nearestWaypoint(e) {
+    var r = canvas.getBoundingClientRect();
+    var mx = e.clientX - r.left;
+    var my = e.clientY - r.top;
+    var N = parsedData.positions.length;
+    if (N < 1 || !ampUserPath.length) return -1;
+    var bestIdx = -1, bestDist = 20; // max 20px Fangradius
+    for (var pi = 0; pi < N; pi++) {
+      var pxP = (pi / Math.max(1, N-1)) * (canvas.width - 1);
+      var col = Math.round(pi / Math.max(1, N-1) * (ampCols-1));
+      col = Math.max(0, Math.min(ampCols-1, col));
+      var a6 = ampUserPath[col] !== undefined ? ampUserPath[col] : 0;
+      var pyP = canvas.height - ((a6 - A6_MIN) / (A6_MAX - A6_MIN)) * canvas.height;
+      var dist = Math.sqrt((mx-pxP)*(mx-pxP) + (my-pyP)*(my-pyP));
+      if (dist < bestDist) { bestDist = dist; bestIdx = pi; }
     }
-    ampDraw(canvas, canvas.width, canvas.height);
+    return bestIdx;
+  }
+
+  // Gummiband-Interpolation: bewege Punkt pi auf Wert newDeg,
+  // interpoliere linear zu den Nachbarn
+  function rubberBand(pi, newDeg) {
+    var N = parsedData.positions.length;
+    if (N < 1) return;
+    // Setze diesen Punkt
+    var col = Math.round(pi / Math.max(1, N-1) * (ampCols-1));
+    col = Math.max(0, Math.min(ampCols-1, col));
+    ampUserPath[col] = newDeg;
+
+    // Interpoliere von vorherigem Zielpunkt bis zu diesem
+    if (pi > 0) {
+      var colPrev = Math.round((pi-1) / Math.max(1, N-1) * (ampCols-1));
+      var valPrev = ampUserPath[colPrev];
+      var colCurr = col;
+      for (var c = colPrev+1; c < colCurr; c++) {
+        var f = (c - colPrev) / Math.max(1, colCurr - colPrev);
+        ampUserPath[c] = valPrev + (newDeg - valPrev) * f;
+      }
+    }
+    // Interpoliere von diesem bis zum nächsten Zielpunkt
+    if (pi < N-1) {
+      var colNext = Math.round((pi+1) / Math.max(1, N-1) * (ampCols-1));
+      var valNext = ampUserPath[colNext];
+      for (var c = col+1; c < colNext; c++) {
+        var f = (c - col) / Math.max(1, colNext - col);
+        ampUserPath[c] = newDeg + (valNext - newDeg) * f;
+      }
+    }
+  }
+
+  canvas.addEventListener('mousedown', function(e) {
+    if (!ampCols) return;
+    var idx = nearestWaypoint(e);
+    if (idx >= 0) {
+      dragWptIdx = idx;
+      ampDragging = true;
+      rubberBand(idx, getDeg(e));
+      ampDraw(canvas, canvas.width, canvas.height);
+    }
   });
 
-  canvas.addEventListener('mousemove', e => {
+  canvas.addEventListener('mousemove', function(e) {
     if (!ampCols) return;
-    const {col, deg} = getColRow(e);
-    const tidx = Math.round(col / (ampCols-1) * (trajectory.length-1));
-    const sample = trajectory[tidx];
-    const axIdx = ['A1','A2','A3','A4','A5','A6'].indexOf(ampAxis);
-    const curVal = (sample&&sample.angles&&sample.angles[axIdx]!==undefined?sample.angles[axIdx].toFixed(1):'—') || '—';
-    const rowIdx = Math.round((deg - A6_MIN) / (A6_MAX - A6_MIN) * (ampRows-1));
-    const status = ampMap ? ampMap[col * ampRows + Math.max(0,Math.min(ampRows-1,rowIdx))] : 0;
-    const statusLbl = ['✓ Gültig','⚠ Endschalter','⚠ Singularität','✗ Nicht erreichbar'][status] || '';
-
-    // Cursor hint
-    const nearStart = col <= Math.max(8, ampCols*0.08);
-    const nearEnd   = col >= ampCols - 1 - Math.max(8, ampCols*0.08);
-    canvas.style.cursor = (nearStart||nearEnd) ? 'ns-resize' : 'crosshair';
-
+    // Tooltip
+    var r = canvas.getBoundingClientRect();
+    var px = e.clientX - r.left;
+    var col = Math.round(px / (canvas.width-1) * (ampCols-1));
+    col = Math.max(0, Math.min(ampCols-1, col));
+    var deg = getDeg(e);
+    var tidx = Math.round(col / (ampCols-1) * (trajectory.length-1));
+    var sample = trajectory[tidx];
+    var curVal = (sample&&sample.angles&&sample.angles[5]!==undefined) ? sample.angles[5].toFixed(1) : '—';
+    var rowIdx = Math.round((deg - A6_MIN) / (A6_MAX - A6_MIN) * (ampRows-1));
+    rowIdx = Math.max(0, Math.min(ampRows-1, rowIdx));
+    var status = ampMap ? (ampMap[col * ampRows + rowIdx]||0) : 0;
+    var statusLbl = ['✓ Gültig','⚠ Endschalter','⚠ Singularität','✗ Nicht erreichbar'][status] || '';
     tooltip.style.display = 'block';
     tooltip.style.left = (e.offsetX+10)+'px';
     tooltip.style.top  = (e.offsetY-28)+'px';
-    tooltip.textContent = `Schritt ${col+1}/${ampCols} · A6=${deg.toFixed(1)}° (aktuell: ${curVal}°) · ${statusLbl}`;
 
-    if (!ampDragging) return;
-    const clamped = Math.max(A6_MIN, Math.min(A6_MAX, deg));
+    // Cursor: Zeiger wenn nahe an Zielpunkt
+    var near = nearestWaypoint(e);
+    canvas.style.cursor = near >= 0 ? 'ns-resize' : 'default';
 
-    if (dragMode === 'start') {
-      const blend = Math.min(ampCols-1, Math.round(ampCols * 0.30));
-      const midVal = ampUserPath[blend] || clamped;
-      for (let i = 0; i <= blend; i++) {
-        const f = blend > 0 ? i / blend : 1;
-        ampUserPath[i] = Math.max(A6_MIN, Math.min(A6_MAX, clamped*(1-f) + midVal*f));
-      }
-    } else if (dragMode === 'end') {
-      const blend = Math.max(0, Math.round(ampCols * 0.70));
-      const midVal = ampUserPath[blend] || clamped;
-      for (let i = blend; i < ampCols; i++) {
-        const span = ampCols - 1 - blend || 1;
-        const f = (i - blend) / span;
-        ampUserPath[i] = Math.max(A6_MIN, Math.min(A6_MAX, midVal*(1-f) + clamped*f));
-      }
+    if (near >= 0 && !ampDragging) {
+      tooltip.textContent = '#' + (near+1) + ' ziehen · A6 aktuell: ' + curVal + '° · ' + statusLbl;
     } else {
-      ampUserPath[col] = clamped;
+      tooltip.textContent = 'Schritt ' + (col+1) + '/' + ampCols + ' · A6=' + deg.toFixed(1) + '° · ' + statusLbl;
     }
+
+    if (!ampDragging || dragWptIdx < 0) return;
+    rubberBand(dragWptIdx, getDeg(e));
     ampDraw(canvas, canvas.width, canvas.height);
   });
 
-  canvas.addEventListener('mouseup', () => { ampDragging = false; });
-  canvas.addEventListener('mouseleave', () => {
+  canvas.addEventListener('mouseup', function() {
     ampDragging = false;
-    canvas.style.cursor = 'crosshair';
+    dragWptIdx = -1;
+  });
+  canvas.addEventListener('mouseleave', function() {
+    ampDragging = false;
+    dragWptIdx = -1;
+    canvas.style.cursor = 'default';
     if (tooltip) tooltip.style.display = 'none';
   });
 })();
