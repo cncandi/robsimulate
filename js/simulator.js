@@ -1152,13 +1152,36 @@ function ampBuild() {
   //   2 = singularity: |A5| < SING_THRESH (orange)
   //   3 = limit + singularity (red)
 
+  // Bogenlängen-Synchronisation: col → tidx über gleichmäßige Bogenlänge
+  window._ampArcLen = [0];
+  var arcLen = window._ampArcLen;
+  arcLen.length = 0; arcLen.push(0);
+  for (var _ti = 1; _ti < trajectory.length; _ti++) {
+    var _p0 = trajectory[_ti-1].pos;
+    var _p1 = trajectory[_ti].pos;
+    var _dx = _p1[0]-_p0[0], _dy = _p1[1]-_p0[1], _dz = _p1[2]-_p0[2];
+    arcLen.push(arcLen[_ti-1] + Math.sqrt(_dx*_dx+_dy*_dy+_dz*_dz));
+  }
+  var totalArc = arcLen[arcLen.length-1] || 1;
+
+  function arcToTidx(col) {
+    var s = (col / Math.max(1, COLS-1)) * totalArc;
+    // Binary search
+    var lo = 0, hi = arcLen.length - 1;
+    while (lo < hi) {
+      var mid = (lo + hi) >> 1;
+      if (arcLen[mid] < s) lo = mid + 1; else hi = mid;
+    }
+    return Math.min(lo, trajectory.length-1);
+  }
+
   for (let col=0; col<COLS; col++) {
-    const tidx = Math.round(col / (COLS-1) * (trajectory.length-1));
+    const tidx = arcToTidx(col);
     const ang  = trajectory[tidx].angles;
     const a4   = ang[3];
     const a5   = ang[4];
     const a6   = ang[5];
-    const isSing = Math.abs(a5) < SING_THRESH;
+    const isSing = isSingular(ang);
 
     for (let row=0; row<ROWS; row++) {
       const a6t  = A6_MIN + (row / (ROWS-1)) * (A6_MAX - A6_MIN);
@@ -1832,6 +1855,56 @@ function solveIKFast(tx, ty, tz, ta, tb, tc, initAngles) {
     }
   }
   return { angles: bestQ, score: bestScore, ok: bestScore < 25 };
+}
+
+
+// ── Jacobi-Singularitätserkennung (PDF Punkt 2) ───────────────
+// Berechne numerischen Jacobi J(6x6), dann kleinsten Singulärwert via
+// J^T * J Eigenwert-Approximation (Frobenius-Norm Vereinfachung)
+function computeManipulability(angles_deg) {
+  var dt = 0.5;  // 0.5° Perturbation
+  var e0 = fkTCP_full(angles_deg);
+  var J = [];
+  for (var i = 0; i < 6; i++) {
+    var q1 = angles_deg.slice();
+    q1[i] += dt;
+    var e1 = fkTCP_full(q1);
+    // Positions-Spalte
+    var col = [
+      (e1.pos[0] - e0.pos[0]) / dt,
+      (e1.pos[1] - e0.pos[1]) / dt,
+      (e1.pos[2] - e0.pos[2]) / dt,
+      // Orientierungs-Ableitung (vereinfacht)
+      (e1.rot[0][0] - e0.rot[0][0]) / dt,
+      (e1.rot[1][0] - e0.rot[1][0]) / dt,
+      (e1.rot[2][0] - e0.rot[2][0]) / dt,
+    ];
+    J.push(col);
+  }
+  // Kleinsten Singulärwert approximieren via kleinsten Eigenwert von J^T*J
+  // Schneller Proxy: det(J^T*J) ≈ Produkt der Diagonale von J^T*J
+  // Für Praxis: Konditionszahl = max/min Diagonalelement
+  var JtJ_diag = Array(6).fill(0);
+  for (var i = 0; i < 6; i++) {
+    for (var r = 0; r < 6; r++) {
+      JtJ_diag[i] += J[i][r] * J[i][r];
+    }
+  }
+  var minEig = Math.min.apply(null, JtJ_diag);
+  var maxEig = Math.max.apply(null, JtJ_diag);
+  // Manipulierbarkeit: kleiner Wert = Singularität näher
+  return { manipulability: minEig, condition: maxEig / Math.max(minEig, 1e-9) };
+}
+
+var SING_MANIP_THRESH = 0.001;   // Unter diesem Wert = Singularität
+var SING_COND_THRESH  = 500;     // Konditionszahl > Schwellwert = Singularität
+
+function isSingular(angles_deg) {
+  // Schneller A5-Check als Vorfilter (A5 nahe 0° = Wrist-Singularität garantiert)
+  if (Math.abs(angles_deg[4]) < 8) return true;
+  // Jacobi-basierte Prüfung
+  var m = computeManipulability(angles_deg);
+  return (m.manipulability < SING_MANIP_THRESH || m.condition > SING_COND_THRESH);
 }
 
 // ── Globaler DP-Planer (nach Redundanzoptimierung-PDF) ────────
@@ -2736,7 +2809,16 @@ function ampUpdateCursor() {
 
   // Aktuellen Zielpunkt auf Planlinie hervorheben
   if (ampUserPath.length > 0 && N > 1) {
-    var planCol2 = Math.round(idx / Math.max(1,N-1) * (ampCols-1));
+    // Bogenlänge: idx → planCol
+    var planCol2 = 0;
+    var _arcRef = window._ampArcLen || [];
+    if (_arcRef.length > 0 && trajectory.length > 1) {
+      var _s2 = _arcRef[Math.min(idx, _arcRef.length-1)] || 0;
+      var _tot2 = _arcRef[_arcRef.length-1] || 1;
+      planCol2 = Math.round((_s2 / _tot2) * (ampCols-1));
+    } else {
+      planCol2 = Math.round(idx / Math.max(1,N-1) * (ampCols-1));
+    }
     planCol2 = Math.max(0, Math.min(ampCols-1, planCol2));
     var a6plan2 = ampUserPath[planCol2] !== undefined ? ampUserPath[planCol2] : 0;
     var pyCur = H - ((a6plan2 - A6_MIN) / (A6_MAX - A6_MIN)) * H;
