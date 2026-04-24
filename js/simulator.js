@@ -1438,7 +1438,9 @@ function ampApplyPath() {
 
     // KRL-Programm aktualisieren: A-Winkel neu berechnen und eintragen
     const ta = document.getElementById('code-input');
+    console.log('[ampApply] ta.value length:', ta.value.length, 'positions:', parsedData.positions.length);
     const lines = ta.value.split(/\r?\n/);
+    console.log('[ampApply] lines count:', lines.length);
 
     // Normierungs-Hilfsfunktion
     const nd = v => { let d=v*180/Math.PI; while(d>180)d-=360; while(d<=-180)d+=360; return d; };
@@ -1465,6 +1467,7 @@ function ampApplyPath() {
       const newB = nd(B2).toFixed(3);
       const newC = nd(C2).toFixed(3);
 
+      console.log('[ampApply] pos', posIdx, 'lineNum:', pos.lineNum, 'line:', lines[pos.lineNum] ? lines[pos.lineNum].substring(0,60) : 'UNDEFINED');
       if (lines[pos.lineNum]) {
         lines[pos.lineNum] = lines[pos.lineNum].replace(/(\{[^}]+\})/, function(block) {
           // Alle drei Euler-Winkel A, B, C ersetzen
