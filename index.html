@@ -198,6 +198,7 @@
         <input type="file" id="axis-stl-file" accept=".stl" style="display:none">
         <div style="display:flex;gap:4px;margin-top:5px">
           <button class="sbtn" onclick="loadPedestalSTL()" style="flex:1">+ Podest STL</button>
+          <button class="stl-vis-btn" id="vis-pedestal" onclick="cycleSTLMode('pedestal')" title="Sichtbarkeit wechseln"></button>
           <span id="pedestal-name" style="font-size:.7em;color:var(--txt3);align-self:center;overflow:hidden;white-space:nowrap;flex:2"></span>
           <input type="file" id="pedestal-stl-file" accept=".stl" style="display:none">
         </div>
@@ -250,7 +251,7 @@
           <button class="sbtn" onclick="loadToolFile()" style="width:100%;margin-top:3px">+ STL Werkzeug laden</button>
           <input type="file" id="tool-file" accept=".stl">
           <div id="tool-controls" style="display:none;margin-top:4px">
-            <div class="stl-name"><span id="tool-filename"></span><span class="del" onclick="removeToolSTL()">✕</span></div>
+            <div class="stl-name"><button class="stl-vis-btn" id="vis-tool" onclick="cycleSTLMode('tool')" title="Sichtbarkeit wechseln"></button><span id="tool-filename"></span><span class="del" onclick="removeToolSTL()">✕</span></div>
           </div>
         </div>
       </div>

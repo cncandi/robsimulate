@@ -278,6 +278,15 @@ selSphere.visible=false;scene.add(selSphere);
 const TYPE_COL={LIN:0xf05500,PTP:0xffaa00,SLIN:0x00aaff,CIRC:0xaa44ff,CIRC_AUX:0x445566};
 let frameSize=120,sphereSize=18;
 let traceLineWidth=2, pathLineWidth=2;  // Linienstärken
+// SVG Icons für Visibility-Zustände
+var svgIconSolid  = '<svg viewBox="0 0 24 24" width="16" height="16"><circle cx="12" cy="12" r="10" fill="#f58220"/></svg>';
+var svgIconTransp = '<svg viewBox="0 0 24 24" width="16" height="16"><circle cx="12" cy="12" r="9" fill="none" stroke="#f58220" stroke-width="3"/></svg>';
+var svgIconHidden = '<svg viewBox="0 0 24 24" width="16" height="16"><circle cx="12" cy="12" r="9" fill="none" stroke="#f58220" stroke-width="3"/><line x1="4" y1="20" x2="20" y2="4" stroke="#f58220" stroke-width="3" stroke-linecap="round"/></svg>';
+var sceneSTLMode = { pedestal:'solid', tool:'solid' };
+function getSTLVisIcon(m){return m==='solid'?svgIconSolid:m==='transparent'?svgIconTransp:svgIconHidden;}
+function applyMeshMode(mesh,mode){if(!mesh)return;if(mode==='hidden'){mesh.visible=false;}else if(mode==='transparent'){mesh.visible=true;mesh.material.transparent=true;mesh.material.opacity=0.3;mesh.material.depthWrite=false;mesh.material.needsUpdate=true;}else{mesh.visible=true;mesh.material.transparent=false;mesh.material.opacity=1;mesh.material.depthWrite=true;mesh.material.needsUpdate=true;}}
+function cycleSTLMode(type,idx){var c={solid:'transparent',transparent:'hidden',hidden:'solid'};var btn,mode;if(type==='axis'){axisSTLMode[idx]=c[axisSTLMode[idx]]||'solid';mode=axisSTLMode[idx];btn=document.getElementById('asl-vis'+idx);if(btn)btn.innerHTML=getSTLVisIcon(mode);applyMeshMode(axisSTLMeshes[idx],mode);}else if(type==='pedestal'){sceneSTLMode.pedestal=c[sceneSTLMode.pedestal]||'solid';mode=sceneSTLMode.pedestal;btn=document.getElementById('vis-pedestal');if(btn)btn.innerHTML=getSTLVisIcon(mode);applyMeshMode(pedestalMesh,mode);}else if(type==='tool'){sceneSTLMode.tool=c[sceneSTLMode.tool]||'solid';mode=sceneSTLMode.tool;btn=document.getElementById('vis-tool');if(btn)btn.innerHTML=getSTLVisIcon(mode);applyMeshMode(toolMesh,mode);}}
+function setAxisSTLMode(idx,mode){axisSTLMode[idx]=mode;var btn=document.getElementById('asl-vis'+idx);if(btn)btn.innerHTML=getSTLVisIcon(mode);applyMeshMode(axisSTLMeshes[idx],mode);}
 var axisSTLMode = ['solid','solid','solid','solid','solid','solid']; // solid|transparent|hidden
 
 function kukaEuler(A,B,C){const r=THREE.MathUtils.degToRad;return new THREE.Euler(r(C),r(B),r(A),'ZYX');}
@@ -478,11 +487,7 @@ function buildAxisSTLUI() {
     `<div class="axis-stl-row">
       <span class="axis-stl-lbl">A${i+1}</span>
       <span class="axis-stl-name" id="asl-name${i}">—</span>
-      <span class="stl-mode-btns" id="asl-mode${i}">
-        <button class="stl-mode-btn on" id="asl-m0-${i}" onclick="setAxisSTLMode(${i},'solid')"       title="Sichtbar">●</button>
-        <button class="stl-mode-btn"    id="asl-m1-${i}" onclick="setAxisSTLMode(${i},'transparent')" title="Transparent">○</button>
-        <button class="stl-mode-btn"    id="asl-m2-${i}" onclick="setAxisSTLMode(${i},'hidden')"      title="Ausgeblendet">⊘</button>
-      </span>
+      <button class="stl-vis-btn" id="asl-vis${i}" onclick="cycleSTLMode('axis',${i})" title="Klicken zum Wechseln">${svgIconSolid}</button>
       <button class="axis-stl-btn" onclick="pickAxisSTL(${i})">+ STL</button>
       <button class="axis-stl-btn" id="asl-del${i}" style="display:none;color:var(--err)" onclick="removeAxisSTL(${i})">✕</button>
     </div>`
@@ -3260,7 +3265,8 @@ function loadDefaultSTLs() {
           axisSTLMeshes[idx] = new THREE.Mesh(geo, new THREE.MeshPhongMaterial({color:0xe8a020,shininess:80}));
           scene.add(axisSTLMeshes[idx]);
           // Mode anwenden falls schon gesetzt
-          setAxisSTLMode(idx, axisSTLMode[idx] || 'solid');
+          if (!axisSTLMode[idx]) axisSTLMode[idx] = 'solid';
+          setAxisSTLMode(idx, axisSTLMode[idx]);
           var nameEl = document.getElementById('asl-name'+idx);
           if (nameEl) nameEl.textContent = ax.toLowerCase();
           var delEl = document.getElementById('asl-del'+idx);
@@ -3288,6 +3294,8 @@ function loadDefaultSceneSTLs() {
       scene.add(pedestalMesh);
       var el = document.getElementById('pedestal-name');
       if (el) el.textContent = 'podest';
+      var vb = document.getElementById('vis-pedestal');
+      if (vb) vb.innerHTML = svgIconSolid;
     } catch(e) { console.error('Podest parse:', e); }
   }, function(e) { console.warn('Podest load:', e); });
 
@@ -3301,6 +3309,8 @@ function loadDefaultSceneSTLs() {
       toolMesh = new THREE.Mesh(geo, mat);
       scene.add(toolMesh);
       document.getElementById('tool-filename').textContent = 'Tool1_TCP';
+      var tvb = document.getElementById('vis-tool');
+      if (tvb) tvb.innerHTML = svgIconSolid;
       document.getElementById('tool-controls').style.display = 'block';
       buildRobotModel(jointAngles);
     } catch(e) { console.error('Tool parse:', e); }
