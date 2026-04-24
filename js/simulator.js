@@ -2654,12 +2654,31 @@ function buildTrajectory(positions, ikTab) {
     if (type === 'LIN') {
       const dist = v3len(v3sub(vec3(curr), vec3(prev)));
       const steps = Math.max(4, Math.ceil(dist / STEP_MM));
+      // Normalize angCurr to closest path from angPrev (keine 360°-Sprünge)
+      const angCurrLin = angCurr.map(function(v, j) {
+        return angPrev[j] + shortestAngleDiff(angPrev[j], v);
+      });
       let warmAng = [...angPrev];
       for (let s = 1; s <= steps; s++) {
         const f = s / steps;
         const pos = lerpPos(prev, curr, f);
-        // IK at each linear point → exact straight line in Cartesian space
-        warmAng = ikWarm(pos, warmAng);
+        if (dist < 20) {
+          // Sehr kurze LIN: direkt zwischen ikTable-Winkeln interpolieren
+          // (IK würde falsche Konfiguration finden)
+          warmAng = lerpAngles(angPrev, angCurrLin, f);
+        } else {
+          const res = solveIK(pos.X, pos.Y, pos.Z, pos.A, pos.B, pos.C, warmAng);
+          // Nur übernehmen wenn nah an der erwarteten Konfiguration
+          if (res.ok) {
+            const resN = res.angles.map(function(v, j) {
+              return warmAng[j] + shortestAngleDiff(warmAng[j], v);
+            });
+            const totalDelta = resN.reduce(function(s, v, j) { return s + Math.abs(v - warmAng[j]); }, 0);
+            warmAng = (totalDelta < 90) ? resN : lerpAngles(angPrev, angCurrLin, f);
+          } else {
+            warmAng = lerpAngles(angPrev, angCurrLin, f);
+          }
+        }
         pushSample(pos, warmAng, i);
       }
       continue;
