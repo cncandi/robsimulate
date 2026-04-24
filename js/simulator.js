@@ -1446,9 +1446,7 @@ function ampApplyPath() {
 
     // KRL-Programm aktualisieren: A-Winkel neu berechnen und eintragen
     const ta = document.getElementById('code-input');
-    console.log('[ampApply] ta.value length:', ta.value.length, 'positions:', parsedData.positions.length);
     const lines = ta.value.split(/\r?\n/);
-    console.log('[ampApply] lines count:', lines.length);
 
     // Normierungs-Hilfsfunktion
     const nd = v => { let d=v*180/Math.PI; while(d>180)d-=360; while(d<=-180)d+=360; return d; };
@@ -1475,9 +1473,6 @@ function ampApplyPath() {
       const newB = nd(B2).toFixed(3);
       const newC = nd(C2).toFixed(3);
       console.log('  → FK A6='+tStep.angles[5].toFixed(1)+' → A='+newA+' B='+newB+' C='+newC);
-
-      const _tidx2 = Math.round(posIdx / Math.max(1,parsedData.positions.length-1) * (trajectory.length-1));
-      const _t2 = trajectory[Math.min(_tidx2, trajectory.length-1)];
       console.log('[ampApply] pos', posIdx, 'lineNum:', pos.lineNum,
         'A6_traj:', _t2 ? _t2.angles[5].toFixed(1) : '?',
         'line:', lines[pos.lineNum] ? lines[pos.lineNum].substring(0,60) : 'UNDEFINED');
