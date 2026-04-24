@@ -2908,7 +2908,7 @@ window.addEventListener('keydown',e=>{
   if(e.key==='F9'){e.preventDefault();document.getElementById('parse-btn').click();return;}
   if(e.key==='F10'){e.preventDefault();toggleAxisMap();return;}
   if(e.key==='F11'){e.preventDefault();toggleSteuerPanel();return;}
-  if(e.key==='F12'){e.preventDefault();toggleGrid();return;}
+  if(e.key==='F11'){e.preventDefault();toggleGrid();return;}
   if(inEditor)return;
   if(e.key===' '){e.preventDefault();document.getElementById('b-stop').click();}
   if(e.key==='ArrowRight'){e.preventDefault();document.getElementById('b-stepfwd').click();}
