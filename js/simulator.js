@@ -1474,8 +1474,13 @@ function ampApplyPath() {
       const newA = nd(A2).toFixed(3);
       const newB = nd(B2).toFixed(3);
       const newC = nd(C2).toFixed(3);
+      console.log('  → FK A6='+tStep.angles[5].toFixed(1)+' → A='+newA+' B='+newB+' C='+newC);
 
-      console.log('[ampApply] pos', posIdx, 'lineNum:', pos.lineNum, 'line:', lines[pos.lineNum] ? lines[pos.lineNum].substring(0,60) : 'UNDEFINED');
+      const _tidx2 = Math.round(posIdx / Math.max(1,parsedData.positions.length-1) * (trajectory.length-1));
+      const _t2 = trajectory[Math.min(_tidx2, trajectory.length-1)];
+      console.log('[ampApply] pos', posIdx, 'lineNum:', pos.lineNum,
+        'A6_traj:', _t2 ? _t2.angles[5].toFixed(1) : '?',
+        'line:', lines[pos.lineNum] ? lines[pos.lineNum].substring(0,60) : 'UNDEFINED');
       if (lines[pos.lineNum]) {
         lines[pos.lineNum] = lines[pos.lineNum].replace(/(\{[^}]+\})/, function(block) {
           // Alle drei Euler-Winkel A, B, C ersetzen
