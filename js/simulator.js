@@ -1693,9 +1693,16 @@ let ikTable = []; // [{angles, ok, score}] per position
 
 function computeIKTable(positions) {
   ikTable = [];
-  let prevAngles = [0,-90,90,0,0,0];
+  let prevAngles = jointAngles.slice();  // start from current robot pose
   for (const pos of positions) {
     const res = solveIK(pos.X, pos.Y, pos.Z, pos.A, pos.B, pos.C, prevAngles);
+    // Normalize angles to minimize total joint travel from previous pose
+    if (res.ok) {
+      res.angles = res.angles.map(function(v, i) {
+        var diff = shortestAngleDiff(prevAngles[i], v);
+        return prevAngles[i] + diff;
+      });
+    }
     ikTable.push(res);
     if (res.ok) prevAngles = res.angles.slice();
   }
@@ -2031,7 +2038,16 @@ const breakpoints=new Set();
 
 function simSpeed(){return(parseInt(document.getElementById('spd-s').value)/100)*3.0;}
 function lerpPos(a,b,f){return{X:a.X+(b.X-a.X)*f,Y:a.Y+(b.Y-a.Y)*f,Z:a.Z+(b.Z-a.Z)*f,A:a.A+(b.A-a.A)*f,B:a.B+(b.B-a.B)*f,C:a.C+(b.C-a.C)*f};}
-function lerpAngles(a,b,f){return a.map((v,i)=>v+(b[i]-v)*f);}
+function shortestAngleDiff(from, to) {
+  // Returns smallest signed difference (always <= 180°)
+  var d = ((to - from) % 360 + 540) % 360 - 180;
+  return d;
+}
+function lerpAngles(a, b, f) {
+  return a.map(function(v, i) {
+    return v + shortestAngleDiff(v, b[i]) * f;
+  });
+}
 
 // ── Trajectory: pre-computed fine-grained path ────────────
 // Each entry: {pos:{X,Y,Z,A,B,C}, angles:[6], segIdx:int}
@@ -2210,13 +2226,18 @@ function buildTrajectory(positions, ikTab) {
       continue;
     }
 
-    // PTP: joint-space interpolation (Bahn egal)
+    // PTP: joint-space interpolation mit kürzestem Winkelweg
     const dist = v3len(v3sub(vec3(curr), vec3(prev)));
     const steps = Math.max(2, Math.ceil(dist / (STEP_MM*3)));
+    // Normalize angCurr to be closest to angPrev (no 360° flips)
+    const angCurrN = angCurr.map(function(v, j) {
+      var diff = shortestAngleDiff(angPrev[j], v);
+      return angPrev[j] + diff;
+    });
     for (let s = 1; s <= steps; s++) {
       const f = s / steps;
       const pos = lerpPos(prev, curr, f);
-      const angles = lerpAngles(angPrev, angCurr, f);
+      const angles = lerpAngles(angPrev, angCurrN, f);
       pushSample(pos, angles, i);
     }
   }
