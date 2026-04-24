@@ -278,6 +278,7 @@ selSphere.visible=false;scene.add(selSphere);
 const TYPE_COL={LIN:0xf05500,PTP:0xffaa00,SLIN:0x00aaff,CIRC:0xaa44ff,CIRC_AUX:0x445566};
 let frameSize=120,sphereSize=18;
 let traceLineWidth=2, pathLineWidth=2;  // Linienstärken
+var axisSTLMode = ['solid','solid','solid','solid','solid','solid']; // solid|transparent|hidden
 
 function kukaEuler(A,B,C){const r=THREE.MathUtils.degToRad;return new THREE.Euler(r(C),r(B),r(A),'ZYX');}
 
@@ -477,6 +478,11 @@ function buildAxisSTLUI() {
     `<div class="axis-stl-row">
       <span class="axis-stl-lbl">A${i+1}</span>
       <span class="axis-stl-name" id="asl-name${i}">—</span>
+      <span class="stl-mode-btns" id="asl-mode${i}">
+        <button class="stl-mode-btn on" id="asl-m0-${i}" onclick="setAxisSTLMode(${i},'solid')"       title="Sichtbar">●</button>
+        <button class="stl-mode-btn"    id="asl-m1-${i}" onclick="setAxisSTLMode(${i},'transparent')" title="Transparent">○</button>
+        <button class="stl-mode-btn"    id="asl-m2-${i}" onclick="setAxisSTLMode(${i},'hidden')"      title="Ausgeblendet">⊘</button>
+      </span>
       <button class="axis-stl-btn" onclick="pickAxisSTL(${i})">+ STL</button>
       <button class="axis-stl-btn" id="asl-del${i}" style="display:none;color:var(--err)" onclick="removeAxisSTL(${i})">✕</button>
     </div>`
@@ -3253,6 +3259,8 @@ function loadDefaultSTLs() {
           if (axisSTLMeshes[idx]) { scene.remove(axisSTLMeshes[idx]); axisSTLMeshes[idx].geometry.dispose(); }
           axisSTLMeshes[idx] = new THREE.Mesh(geo, new THREE.MeshPhongMaterial({color:0xe8a020,shininess:80}));
           scene.add(axisSTLMeshes[idx]);
+          // Mode anwenden falls schon gesetzt
+          setAxisSTLMode(idx, axisSTLMode[idx] || 'solid');
           var nameEl = document.getElementById('asl-name'+idx);
           if (nameEl) nameEl.textContent = ax.toLowerCase();
           var delEl = document.getElementById('asl-del'+idx);
