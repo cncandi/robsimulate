@@ -3112,11 +3112,9 @@ function applyEpSolution(angles) {
   var pos = parsedData.positions[selectedPosIdx];
   if (!pos) return;
 
-  // FK berechnen um neue A,B,C Orientierung zu ermitteln
+  // FK → XYZABC berechnen
   var fkResult = fkAll(angles);
   var R = fkResult.tcp_rot;
-
-  // ZYX Euler aus Rotationsmatrix (KUKA-Konvention)
   var B2 = -Math.asin(Math.max(-1, Math.min(1, R[2][0])));
   var cb2 = Math.cos(B2);
   var A2, C2;
@@ -3129,17 +3127,15 @@ function applyEpSolution(angles) {
   }
   function toDeg(v) {
     var d = v * 180 / Math.PI;
-    while (d >  180) d -= 360;
+    while (d > 180)  d -= 360;
     while (d <= -180) d += 360;
     return d;
   }
   var newA = toDeg(A2), newB = toDeg(B2), newC = toDeg(C2);
-
-  // TCP-Position aus FK (X,Y,Z bleiben so erhalten)
   var tcp = fkResult.pts[7];
   var newX = tcp[0], newY = tcp[1], newZ = tcp[2];
 
-  // Edit-Panel Felder aktualisieren
+  // ep-Felder aktualisieren
   document.getElementById('ep-x').value = newX.toFixed(3);
   document.getElementById('ep-y').value = newY.toFixed(3);
   document.getElementById('ep-z').value = newZ.toFixed(3);
@@ -3147,19 +3143,29 @@ function applyEpSolution(angles) {
   document.getElementById('ep-b').value = newB.toFixed(3);
   document.getElementById('ep-c').value = newC.toFixed(3);
 
-  // Gespeicherte Position aktualisieren
+  // parsedData aktualisieren
   parsedData.positions[selectedPosIdx] = Object.assign({}, pos, {
     X: newX, Y: newY, Z: newZ, A: newA, B: newB, C: newC
   });
-
-  // IK-Tabelle für diese Position aktualisieren
   ikTable[selectedPosIdx] = { angles: angles, score: 0, ok: true };
-
-  // FK-Fehler anzeigen
   document.getElementById('rb-fk').textContent = '0.00';
 
-  // Sofort ins KRL-Programm schreiben (kein Apply-Button nötig)
-  syncPositionToCode(selectedPosIdx);
+  // Direkt ins KRL schreiben (kein Apply nötig)
+  var lineNum = pos.lineNum;
+  if (lineNum === undefined) return;
+  var ta = document.getElementById('code-input');
+  var lines = ta.value.split(/\r?\n/)
+  if (!lines[lineNum]) return;
+
+  var newStr = '{X ' + newX.toFixed(3) + ', Y ' + newY.toFixed(3) +
+               ', Z ' + newZ.toFixed(3) + ', A ' + newA.toFixed(3) +
+               ', B ' + newB.toFixed(3) + ', C ' + newC.toFixed(3) +
+               (pos.S !== null && pos.S !== undefined ? ', S ' + pos.S : '') +
+               (pos.T !== null && pos.T !== undefined ? ', T ' + pos.T : '') + '}';
+
+  lines[lineNum] = lines[lineNum].replace(/\{[^}]+\}/, newStr);
+  ta.value = lines.join('\n');
+  rebuildGutter();
 }
 
 function writeBackPosition(idx, x, y, z, a, b, c) {
