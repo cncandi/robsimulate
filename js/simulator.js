@@ -1494,16 +1494,12 @@ function ampApplyPath() {
 
     var newCode = lines.join('\n');
     ta.value = newCode;
+    rebuildGutter();
 
-    // Textarea-Anzeige explizit refreshen
-    ta.dispatchEvent(new Event('input', {bubbles:true}));
-
-    // Nur parsen (liest neue A/B/C Werte), dann IK NICHT neu berechnen
-    // (trajectory wurde bereits mit neuen Winkeln aktualisiert)
+    // Positionen neu parsen — aber IK NICHT neu berechnen
     parsedData = parseKRL(ta.value);
-    buildScene(parsedData.positions);
+    // Nur Positions-Karten updaten, keine 3D-Neuberechnung
     renderPositions(parsedData.positions);
-    renderVariables(parsedData.finalState.variables || {});
 
     console.log('[ampApply] Written, ta.value now starts:', ta.value.substring(0, 200));
     const msg = errCount > 0
