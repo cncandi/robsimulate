@@ -1239,6 +1239,34 @@ function ampDraw(canvas, W, H) {
     ctx.fillStyle='#fff'; ctx.font='bold 11px monospace';
     ctx.fillText(label, px2+13, py2+4);
   }
+  // Alle Zielpunkte als Punkte in der Map
+  if (ikTable.length > 0 && parsedData.positions.length > 1) {
+    var N_pts = parsedData.positions.length;
+    for (var pi = 0; pi < N_pts; pi++) {
+      var ik = ikTable[pi];
+      if (!ik || !ik.ok) continue;
+      var a6 = ik.angles[5];
+      var pxP = (pi / (N_pts - 1)) * (W - 1);
+      var pyP = H - ((a6 - A6_MIN) / (A6_MAX - A6_MIN)) * H;
+      pyP = Math.max(3, Math.min(H-3, pyP));
+      // Farbe je nach Status
+      var col_idx = Math.round(pi / Math.max(1, N_pts-1) * (ampCols-1));
+      var row_idx = Math.round((a6 - A6_MIN) / (A6_MAX - A6_MIN) * (ampRows-1));
+      row_idx = Math.max(0, Math.min(ampRows-1, row_idx));
+      var status = ampMap ? (ampMap[col_idx * ampRows + row_idx] || 0) : 0;
+      var dotColor = status === 0 ? '#00ddaa' : status === 1 ? '#ff60c0' : status === 2 ? '#ff8800' : '#ff3030';
+      ctx.fillStyle = dotColor;
+      ctx.strokeStyle = 'rgba(0,0,0,0.6)';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.arc(pxP, pyP, 4, 0, Math.PI * 2);
+      ctx.fill(); ctx.stroke();
+      // Positionsnummer als kleines Label
+      ctx.fillStyle = 'rgba(255,255,255,0.7)';
+      ctx.font = '8px monospace';
+      ctx.fillText(pi + 1, pxP + 5, pyP - 3);
+    }
+  }
   drawCtrlPt(0,           '#00ff88', 'P1 ↕');
   drawCtrlPt(ampCols-1,   '#00aaff', 'Pn ↕');
   ampUpdateCursor();
@@ -2570,6 +2598,19 @@ function ampUpdateCursor() {
   var label = '#' + (idx+1) + '/' + N;
   var tx = Math.min(px + 4, W - ctx.measureText(label).width - 2);
   ctx.fillText(label, tx, 11);
+
+  // Aktuellen Zielpunkt hervorheben
+  if (ikTable[idx] && ikTable[idx].ok) {
+    var a6cur = ikTable[idx].angles[5];
+    var pyCur = H - ((a6cur - A6_MIN) / (A6_MAX - A6_MIN)) * H;
+    pyCur = Math.max(6, Math.min(H-6, pyCur));
+    ctx.fillStyle = 'rgba(255,240,0,0.3)';
+    ctx.strokeStyle = '#ffee00';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(px, pyCur, 8, 0, Math.PI * 2);
+    ctx.fill(); ctx.stroke();
+  }
 }
 
 let lastTs=null;
