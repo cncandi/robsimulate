@@ -630,10 +630,11 @@ function addTCPTracePoint(tcp) {
 function rebuildTCPTrace() {
   tcpTraceGrp.clear();
   if (tcpTracePoints.length < 2) return;
-  const geo = new THREE.BufferGeometry().setFromPoints(tcpTracePoints);
-  const col = hexToInt(document.getElementById('cfg-path-col').value);
-  const mat = new THREE.LineBasicMaterial({color: col, opacity:.5, transparent:true, linewidth: traceLineWidth});
-  tcpTraceGrp.add(new THREE.Line(geo, mat));
+  var col = hexToInt(document.getElementById('cfg-path-col').value);
+  if (traceLineWidth <= 0) return;
+  var pts = tcpTracePoints.map(function(p){ return [p.x||p[0]||0, p.y||p[1]||0, p.z||p[2]||0]; });
+  var line = makeLine2(pts, col, traceLineWidth, 0.85);
+  tcpTraceGrp.add(line);
 }
 
 // Color update
@@ -2008,6 +2009,7 @@ function setView(view){
 
 function resize(){
   ampAlignToViewport();
+  updateLine2Resolution();
   const vp=canvas.parentElement;const w=vp.clientWidth,h=vp.clientHeight;
   renderer.setSize(w,h);perspCam.aspect=w/h;perspCam.updateProjectionMatrix();
   const asp=w/h;orthoCam.left=-orthoHalfSize*asp;orthoCam.right=orthoHalfSize*asp;
@@ -2548,7 +2550,13 @@ function updateVisitedPath(t){
   const cutIdx=Math.floor(tf*trajMax);
   if(cutIdx<1)return;
   const pts=trajectory.slice(0,cutIdx+1).map(s=>new THREE.Vector3(s.pos.X,s.pos.Y,s.pos.Z));
-  if(pts.length>1){visitedLine=new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts),new THREE.LineBasicMaterial({color:pathCol,linewidth:pathLineWidth}));pathGrp.add(visitedLine);}
+  if(pts.length>1){
+  if(pathLineWidth>0){
+    var vpts=pts.map(function(p){return[p.x,p.y,p.z];});
+    visitedLine=makeLine2(vpts,pathCol,pathLineWidth,0.9);
+    pathGrp.add(visitedLine);
+  }
+}
 }
 
 function setStatus(cls,txt){const el=document.getElementById('sim-status');el.className='sstatus '+cls;el.textContent=txt;}
@@ -2800,7 +2808,10 @@ function buildScene(positions){
   visitedLine=null;markerGrp.visible=false;selSphere.visible=false;
   if(!positions.length)return;
   const pts=positions.map(p=>new THREE.Vector3(p.X,p.Y,p.Z));
-  if(pts.length>1)pathGrp.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts),new THREE.LineBasicMaterial({color:0x1a3050,linewidth:pathLineWidth})));
+  if(pts.length>1&&pathLineWidth>0){
+  var spts=pts.map(function(p){return[p.x,p.y,p.z];});
+  pathGrp.add(makeLine2(spts,0x1a3050,pathLineWidth,0.7));
+}
   positions.forEach((pos,i)=>{const g=makeFrame(pos);g.userData.posIdx=i;posGrp.add(g);});
   const box=new THREE.Box3();pts.forEach(p=>box.expandByPoint(p));
   const ctr=new THREE.Vector3();box.getCenter(ctr);const span=box.getSize(new THREE.Vector3()).length();
