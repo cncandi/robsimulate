@@ -1012,7 +1012,7 @@ function loadTCP() {
 
 // ── Programm ────────────────────────────────
 function saveProgram() {
-  const code = (monacoGetValue());
+  const code = document.getElementById('code-input').value;
   downloadFile(code, 'programm.src');
 }
 
@@ -1022,8 +1022,8 @@ function loadProgram() {
     const file = e.target.files[0]; if (!file) return;
     const reader = new FileReader();
     reader.onload = ev => {
-      (monacoGetValue()) = ev.target.result;
-      /* rebuildGutter: Monaco */
+      document.getElementById('code-input').value = ev.target.result;
+      rebuildGutter();
       setStatus('paused', 'Programm geladen: ' + file.name);
     };
     reader.readAsText(file);
@@ -1361,7 +1361,7 @@ function ampApplyPath() {
     });
 
     ta.value = lines.join('\n');
-    /* rebuildGutter: Monaco */
+    rebuildGutter();
 
     const msg = errCount > 0
       ? `✓ Pfad übernommen (${errCount} Schritte ohne IK-Konvergenz)`
@@ -1651,7 +1651,7 @@ function appendToProgram(krlLine, vel){
   insLines.push(krlLine);
   lines.splice(endIdx,0,...insLines);
   ta.value=lines.join('\n');
-  /* rebuildGutter: Monaco */
+  rebuildGutter();
 }
 
 // Drag steuerungspanel
@@ -1772,7 +1772,7 @@ function raycastPositions(e){
   if(!hits.length)return null;
   let grp=hits[0].object;
   while(grp.parent&&grp.parent!==posGrp)grp=grp.parent;
-  return grp.userData.posIdx!==undefined?grp.userData.posIdx:null;
+  return grp.userData.posIdx!==undefined?arguments[0]:null;
 }
 
 canvas.addEventListener('mousedown',e=>{
@@ -1886,7 +1886,7 @@ function applyDraggedPos(idx,newPos,syncCode){
 
 function syncPositionToCode(idx){
   const pos=parsedData.positions[idx];if(pos.lineNum===undefined)return;
-  var _mv = monacoGetValue(); const lines=_mv.split(/\r?\n/);const old=lines[pos.lineNum];
+  const ta=document.getElementById('code-input');const lines=ta.value.split(/\r?\n/);const old=lines[pos.lineNum];
   const str=`{X ${pos.X.toFixed(3)},Y ${pos.Y.toFixed(3)},Z ${pos.Z.toFixed(3)},A ${pos.A.toFixed(3)},B ${pos.B.toFixed(3)},C ${pos.C.toFixed(3)}${pos.S!==null&&pos.S!==undefined?',S '+pos.S:''}${pos.T!==null&&pos.T!==undefined?',T '+pos.T:''}}`;
   lines[pos.lineNum]=old.replace(/\{[^}]+\}/,str);ta.value=lines.join('\n');
 }
@@ -2443,7 +2443,7 @@ function buildGutter(count){
   }
 }
 function toggleBP(ln,row){if(!posLineNums.has(ln))return;if(breakpoints.has(ln)){breakpoints.delete(ln);row.classList.remove('has-bp');}else{breakpoints.add(ln);row.classList.add('has-bp');}}
-function rebuildGutter(){const lines=(monacoGetValue()).split(/\r?\n/);buildGutter(lines.length);}
+function rebuildGutter(){const lines=document.getElementById('code-input').value.split(/\r?\n/);buildGutter(lines.length);}
 document.getElementById('code-input').addEventListener('scroll',function(){document.getElementById('gutter').scrollTop=this.scrollTop;});
 function updateGutterActive(lineNum){document.querySelectorAll('#gutter .gl').forEach(r=>r.classList.remove('active'));const t=document.querySelector(`#gutter .gl[data-line="${lineNum}"]`);if(!t)return;t.classList.add('active');const ta=document.getElementById('code-input');const lh=20,pv=10;const top=lineNum*lh+pv;if(top<ta.scrollTop||top>ta.scrollTop+ta.clientHeight-lh)ta.scrollTop=Math.max(0,top-ta.clientHeight/2);}
 
@@ -2617,7 +2617,9 @@ function writeBackPosition(idx, x, y, z, a, b, c) {
   var pos = parsedData.positions[idx];
   if (!pos) return;
   // Update KRL editor
-  var lines = monacoGetValue().split('\n');
+  var ta = document.getElementById('code-input');
+  if (!ta) return;
+  var lines = ta.value.split('\n');
   var lineNum = pos.lineNum - 1;
   if (lineNum < 0 || lineNum >= lines.length) return;
   var line = lines[lineNum];
@@ -2630,7 +2632,7 @@ function writeBackPosition(idx, x, y, z, a, b, c) {
     newCoords
   );
   ta.value = lines.join('\n');
-  /* rebuildGutter: Monaco */
+  rebuildGutter();
 }
 
 function toggleSec(titleEl){titleEl.closest('.sec').classList.toggle('collapsed');}
@@ -2727,7 +2729,7 @@ function updateTCPDef(){
 // PARSE & LOAD
 // ═══════════════════════════════════════════════════
 function parseAndLoad(){
-  const code=(monacoGetValue());
+  const code=document.getElementById('code-input').value;
   parsedData=parseKRL(code);const N=parsedData.positions.length;
   posLineNums=new Set(parsedData.positions.map(p=>p.lineNum).filter(n=>n!==undefined));
   for(const bp of[...breakpoints])if(!posLineNums.has(bp))breakpoints.delete(bp);
@@ -2757,7 +2759,7 @@ buildSteuerAxes();
 buildAxisSTLUI();
 buildRobotModel([0,-90,90,0,0,0]);  // show robot at home position
 
-var _defaultKRL = `DEF NONAME()
+document.getElementById('code-input').value=`DEF NONAME()
 GLOBAL INTERRUPT DECL 3 WHEN $STOPMESS==TRUE DO IR_STOPM ( )
 INTERRUPT ON 3
 BAS (#INITMOV,0)
@@ -2791,8 +2793,6 @@ LIN {X 1200, Y -200, Z 810, A 180, B 0, C 180} C_DIS
 END
 `;
 
-monacoSetValue(_defaultKRL);
-document.getElementById('code-input').value = _defaultKRL;
 
 // STL-Dateien werden per fetch aus ./stl/ geladen
 function xhrSTL(url, onDone, onErr) {
@@ -3029,8 +3029,11 @@ function applyFZ() {
   var fzP = parseInt(document.getElementById('fz-panel').value)  || 17;
   var fzS = parseInt(document.getElementById('fz-status').value) || 17;
 
-  // Monaco Editor Font
-  if (typeof monacoFontSize === 'function') monacoFontSize(fzE);
+  // Editor + Gutter
+  var codeEl = document.getElementById('code-input');
+  if (codeEl) { codeEl.style.fontSize = fzE + 'px'; codeEl.style.lineHeight = Math.round(fzE * 1.6) + 'px'; }
+  var gut = document.getElementById('gutter');
+  if (gut) { gut.style.fontSize = fzE + 'px'; gut.style.lineHeight = Math.round(fzE * 1.6) + 'px'; }
 
   // Alles mit fontSize setzen via universellen Ansatz:
   // Toolbar, Buttons, Header, alle Labels
@@ -3141,27 +3144,11 @@ function resetAll() {
   updateCamera();
 }
 
-// ── Monaco Editor initialisieren ─────────────────────────────
-function onMonacoReady() {
-  var ta = document.getElementById('code-input');
-  var content = (ta && ta.value) ? ta.value : (typeof _defaultKRL !== 'undefined' ? _defaultKRL : '');
-  if (content) monacoSetValue(content);
-  var fzE = parseInt((document.getElementById('fz-editor') && document.getElementById('fz-editor').value) || 17);
-  monacoFontSize(fzE);
-  setTimeout(function(){ monacoLayout(); }, 100);
-}
+parseAndLoad();
 
+// STL nach vollständigem Laden der Seite (inkl. Three.js CDN)
+// STL wird manuell per '↺ STL' Button geladen
+// Settings nach vollständigem DOM-Load anwenden
 window.addEventListener('load', function() {
   initSettings();
-  initMonacoEditor('monaco-container',
-    typeof _defaultKRL !== 'undefined' ? _defaultKRL : '',
-    function(v) {
-      var ta = document.getElementById('code-input');
-      if (ta) ta.value = v;
-    },
-    function(line, col) { /* cursor */ }
-  );
 });
-
-parseAndLoad();
-applyLang();
