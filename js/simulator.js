@@ -519,7 +519,8 @@ function loadAxisSTL(idx, file) {
       new THREE.MeshPhongMaterial({color:0xe8a020, shininess:80}));
     scene.add(axisSTLMeshes[idx]);
     // Store raw base64 for later save
-    axisSTLBase64[idx] = btoa(String.fromCharCode(...new Uint8Array(e.target.result)));
+    axisSTLBase64[idx] = btoa(String.fromCharCode.apply(null, new Uint8Array(e.target.result)));
+  window['_axisSTLBuffer'+idx] = e.target.result;
     document.getElementById('asl-name'+idx).textContent = file.name.replace(/\.stl$/i,'');
     document.getElementById('asl-del'+idx).style.display = '';
   };
@@ -677,58 +678,165 @@ function downloadFile(content, filename) {
 }
 
 // ── Kinematik ──────────────────────────────────
-function getKinematicJSON() {
-  const data = {
+// STL offset/rotation per axis (set via UI, default 0)
+var axisSTLOffsets = [
+  {px:0,py:0,pz:0,rx:0,ry:0,rz:0},
+  {px:0,py:0,pz:0,rx:0,ry:0,rz:0},
+  {px:0,py:0,pz:0,rx:0,ry:0,rz:0},
+  {px:0,py:0,pz:0,rx:0,ry:0,rz:0},
+  {px:0,py:0,pz:0,rx:0,ry:0,rz:0},
+  {px:0,py:0,pz:0,rx:0,ry:0,rz:0}
+];
+// Scene STL offsets (pedestal, tool)
+var sceneSTLOffsets = {
+  pedestal: {px:0,py:0,pz:0,rx:0,ry:0,rz:0, name:'podest'},
+  tool:     {px:0,py:0,pz:0,rx:0,ry:0,rz:0, name:'tool1_tcp'}
+};
+
+function getKinematicData() {
+  var data = {
     name: (document.getElementById('kin-name')&&document.getElementById('kin-name').value) || 'Kinematik',
-    joints: JOINTS_DEF.map(j => ({
-      name: j.name, axis: j.axis,
-      offset: {x: j.off[0], y: j.off[1], z: j.off[2]},
-      min: j.min, max: j.max
-    })),
+    joints: JOINTS_DEF.map(function(j) {
+      return {name:j.name, axis:j.axis, offset:{x:j.off[0],y:j.off[1],z:j.off[2]}, min:j.min, max:j.max};
+    }),
     stlRefAngles: stlRefAngles,
     stlFiles: {}
   };
-  // Embed STL data as base64
-  for (let i = 0; i < 6; i++) {
-    const mesh = axisSTLMeshes[i];
-    if (!mesh) continue;
-    const name = (document.getElementById('asl-name'+i)&&document.getElementById('asl-name'+i).textContent);
-    if (name && name !== '—') {
-      // Re-encode geometry to binary STL base64
-      data.stlFiles['A'+(i+1)] = {
-        name: name,
-        data: axisSTLBase64[i] || null
-      };
-    }
+  for (var i = 0; i < 6; i++) {
+    var name = (document.getElementById('asl-name'+i)&&document.getElementById('asl-name'+i).textContent) || '';
+    var off = axisSTLOffsets[i];
+    data.stlFiles['A'+(i+1)] = {
+      name: name || ('a'+(i+1)),
+      posx: off.px, posy: off.py, posz: off.pz,
+      posrx: off.rx, posry: off.ry, posrz: off.rz,
+      color: (axisSTLMeshes[i] && axisSTLMeshes[i].material)
+        ? '#' + axisSTLMeshes[i].material.color.getHexString() : '#e8a020'
+    };
   }
-  return JSON.stringify(data, null, 2);
+  // Scene models
+  data.sceneModels = {
+    pedestal: Object.assign({}, sceneSTLOffsets.pedestal),
+    tool:     Object.assign({}, sceneSTLOffsets.tool)
+  };
+  return data;
+}
+
+function getKinematicJSON() {
+  return JSON.stringify(getKinematicData(), null, 2);
 }
 
 function saveKinematic() {
-  const name = ((document.getElementById('kin-name')&&document.getElementById('kin-name').value) || 'kinematik').replace(/\s+/g,'_');
-  downloadFile(getKinematicJSON(), name + '.json');
+  var kinName = ((document.getElementById('kin-name')&&document.getElementById('kin-name').value) || 'kinematik').replace(/\s+/g,'_');
+  var data = getKinematicData();
+
+  if (typeof JSZip === 'undefined') {
+    // Fallback: JSON only
+    downloadFile(JSON.stringify(data, null, 2), kinName + '.json');
+    return;
+  }
+
+  var zip = new JSZip();
+  // JSON config (no STL data embedded)
+  zip.file(kinName + '.json', JSON.stringify(data, null, 2));
+
+  // Axis STLs
+  for (var i = 0; i < 6; i++) {
+    if (axisSTLBase64[i]) {
+      var stlName = (data.stlFiles['A'+(i+1)] && data.stlFiles['A'+(i+1)].name) || ('a'+(i+1));
+      if (!stlName.endsWith('.stl')) stlName += '.stl';
+      // Convert base64 to binary
+      try {
+        var bin = atob(axisSTLBase64[i]);
+        var arr = new Uint8Array(bin.length);
+        for (var k = 0; k < bin.length; k++) arr[k] = bin.charCodeAt(k);
+        zip.file(stlName, arr);
+      } catch(e) { console.warn('ZIP: STL encode error A'+(i+1), e); }
+    }
+  }
+
+  // Pedestal STL
+  if (window._pedestalSTLBuffer) {
+    var pName = (sceneSTLOffsets.pedestal.name || 'podest') + '.stl';
+    zip.file(pName, new Uint8Array(window._pedestalSTLBuffer));
+  }
+
+  // Tool STL
+  if (window._toolSTLBuffer) {
+    var tName = (sceneSTLOffsets.tool.name || 'tool1_tcp') + '.stl';
+    zip.file(tName, new Uint8Array(window._toolSTLBuffer));
+  }
+
+  zip.generateAsync({type:'blob', compression:'DEFLATE', compressionOptions:{level:6}})
+    .then(function(blob) {
+      var url = URL.createObjectURL(blob);
+      var a = document.createElement('a');
+      a.href = url; a.download = kinName + '.zip';
+      document.body.appendChild(a); a.click();
+      document.body.removeChild(a);
+      setTimeout(function(){ URL.revokeObjectURL(url); }, 2000);
+    });
 }
 
 function loadKinematic() {
-  const inp = document.getElementById('kin-file-in');
-  inp.onchange = e => {
-    const file = e.target.files[0]; if (!file) return;
-    const reader = new FileReader();
-    reader.onload = ev => {
-      try {
-        let data;
-        if (file.name.endsWith('.xml')) {
-          data = parseKinematicXML(ev.target.result);
-        } else {
-          data = JSON.parse(ev.target.result);
-        }
-        applyKinematicData(data);
-      } catch(err) { alert('Fehler beim Laden: ' + err.message); }
-      inp.value = '';
-    };
-    reader.readAsText(file);
+  var inp = document.getElementById('kin-file-in');
+  inp.onchange = function(e) {
+    var file = e.target.files[0]; if (!file) return;
+    if (file.name.endsWith('.zip')) {
+      loadKinematicZIP(file);
+    } else {
+      var reader = new FileReader();
+      reader.onload = function(ev) {
+        try {
+          var data = file.name.endsWith('.xml')
+            ? parseKinematicXML(ev.target.result)
+            : JSON.parse(ev.target.result);
+          applyKinematicData(data, {});
+        } catch(err) { alert('Fehler beim Laden: ' + err.message); }
+        inp.value = '';
+      };
+      reader.readAsText(file);
+    }
+    inp.value = '';
   };
   inp.click();
+}
+
+function loadKinematicZIP(file) {
+  if (typeof JSZip === 'undefined') {
+    alert('JSZip nicht geladen');
+    return;
+  }
+  JSZip.loadAsync(file).then(function(zip) {
+    // Find JSON config
+    var jsonFile = null;
+    zip.forEach(function(path, entry) {
+      if (!entry.dir && path.endsWith('.json')) jsonFile = entry;
+    });
+    if (!jsonFile) { alert('Keine JSON-Konfiguration in ZIP gefunden'); return; }
+
+    jsonFile.async('string').then(function(jsonStr) {
+      var data;
+      try { data = JSON.parse(jsonStr); } catch(e) { alert('JSON Fehler: ' + e.message); return; }
+
+      // Collect STL buffers from ZIP
+      var stlBuffers = {};
+      var stlPromises = [];
+      zip.forEach(function(path, entry) {
+        if (!entry.dir && path.toLowerCase().endsWith('.stl')) {
+          var fname = path.replace(/.*\//, '').replace(/\.stl$/i, '').toLowerCase();
+          stlPromises.push(
+            entry.async('arraybuffer').then(function(buf) {
+              stlBuffers[fname] = buf;
+            })
+          );
+        }
+      });
+
+      Promise.all(stlPromises).then(function() {
+        applyKinematicData(data, stlBuffers);
+      });
+    });
+  }).catch(function(e) { alert('ZIP Fehler: ' + e.message); });
 }
 
 function parseKinematicXML(xml) {
@@ -749,7 +857,8 @@ function parseKinematicXML(xml) {
   return {name, joints};
 }
 
-function applyKinematicData(data) {
+function applyKinematicData(data, stlBuffers) {
+  stlBuffers = stlBuffers || {};
   if (data.name) {
     const el = document.getElementById('kin-name');
     if (el) el.value = data.name;
@@ -778,12 +887,59 @@ function applyKinematicData(data) {
     if (inp) inp.value = stlRefAngles.join(',');
   }
   if (data.stlFiles) {
-    Object.entries(data.stlFiles).forEach(([key, val]) => {
-      if (!(val&&val.data)) return;
-      const idx = parseInt(key.replace('A','')) - 1;
+    Object.entries(data.stlFiles).forEach(function(entry) {
+      var key = entry[0]; var val = entry[1];
+      if (!val) return;
+      var idx = parseInt(key.replace('A','')) - 1;
       if (idx < 0 || idx > 5) return;
-      loadAxisSTLFromBase64(idx, val.data, val.name || key+'.stl');
+      // Store offset/rotation
+      if (axisSTLOffsets[idx]) {
+        axisSTLOffsets[idx] = {
+          px: val.posx||0, py: val.posy||0, pz: val.posz||0,
+          rx: val.posrx||0, ry: val.posry||0, rz: val.posrz||0
+        };
+      }
+      // Try ZIP buffer first, then embedded base64
+      var fname = (val.name || key.toLowerCase()).replace(/\.stl$/i,'').toLowerCase();
+      if (stlBuffers[fname]) {
+        loadAxisSTLFromBase64(idx, null, (val.name||key)+'.stl', stlBuffers[fname]);
+      } else if (val.data) {
+        loadAxisSTLFromBase64(idx, val.data, val.name || key+'.stl');
+      }
     });
+  }
+  // Scene models from ZIP
+  if (data.sceneModels) {
+    var sm = data.sceneModels;
+    if (sm.pedestal) {
+      sceneSTLOffsets.pedestal = Object.assign(sceneSTLOffsets.pedestal, sm.pedestal);
+      var pname = (sm.pedestal.name || 'podest').toLowerCase();
+      if (stlBuffers[pname]) {
+        var buf = stlBuffers[pname];
+        window._pedestalSTLBuffer = buf;
+        var geo = stlLoader.parse(buf); geo.computeVertexNormals();
+        if (pedestalMesh) { scene.remove(pedestalMesh); pedestalMesh.geometry.dispose(); }
+        pedestalMesh = new THREE.Mesh(geo, new THREE.MeshPhongMaterial({color:0x334455,shininess:40}));
+        scene.add(pedestalMesh);
+        var el = document.getElementById('pedestal-name');
+        if (el) el.textContent = pname;
+      }
+    }
+    if (sm.tool) {
+      sceneSTLOffsets.tool = Object.assign(sceneSTLOffsets.tool, sm.tool);
+      var tname = (sm.tool.name || 'tool1_tcp').toLowerCase();
+      if (stlBuffers[tname]) {
+        var tbuf = stlBuffers[tname];
+        window._toolSTLBuffer = tbuf;
+        var tgeo = stlLoader.parse(tbuf); tgeo.computeVertexNormals();
+        if (toolMesh) { scene.remove(toolMesh); toolMesh.geometry.dispose(); toolMesh.material.dispose(); }
+        var mat = new THREE.MeshPhongMaterial({color:0xdd9944,transparent:true,opacity:.85,side:THREE.DoubleSide,specular:0x666666});
+        toolMesh = new THREE.Mesh(tgeo, mat);
+        scene.add(toolMesh);
+        document.getElementById('tool-filename').textContent = tname;
+        document.getElementById('tool-controls').style.display = 'block';
+      }
+    }
   }
   buildRobotModel(jointAngles);
   setStatus('paused', 'Kinematik geladen');
@@ -2670,6 +2826,8 @@ function loadDefaultSTLs() {
     xhrSTL('./stl/' + ax.toLowerCase() + '.stl',
       function(buf) {
         try {
+          window['_axisSTLBuffer'+idx] = buf;
+          axisSTLBase64[idx] = (function(b){var s='';var a=new Uint8Array(b);var c=a.length;for(var j=0;j<c;j+=8192)s+=String.fromCharCode.apply(null,a.subarray(j,j+8192));return btoa(s);})(buf);
           var geo = stlLoader.parse(buf);
           geo.computeVertexNormals();
           if (axisSTLMeshes[idx]) { scene.remove(axisSTLMeshes[idx]); axisSTLMeshes[idx].geometry.dispose(); }
@@ -2695,6 +2853,7 @@ function loadDefaultSTLs() {
 function loadDefaultSceneSTLs() {
   xhrSTL('./stl/podest.stl', function(buf) {
     try {
+      window._pedestalSTLBuffer = buf;
       var geo = stlLoader.parse(buf); geo.computeVertexNormals();
       if (pedestalMesh) { scene.remove(pedestalMesh); pedestalMesh.geometry.dispose(); }
       pedestalMesh = new THREE.Mesh(geo, new THREE.MeshPhongMaterial({color:0x334455,shininess:40}));
@@ -2706,6 +2865,7 @@ function loadDefaultSceneSTLs() {
 
   xhrSTL('./stl/tool1_tcp.stl', function(buf) {
     try {
+      window._toolSTLBuffer = buf;
       var geo = stlLoader.parse(buf); geo.computeVertexNormals();
       if (toolMesh) { scene.remove(toolMesh); toolMesh.geometry.dispose(); toolMesh.material.dispose(); }
       var mat = new THREE.MeshPhongMaterial({color:0xdd9944,transparent:true,opacity:.85,

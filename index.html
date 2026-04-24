@@ -182,7 +182,7 @@
         <div style="display:flex;gap:4px;margin-bottom:6px">
           <button class="sbtn" onclick="saveKinematic()" style="flex:1" data-i18n="save">💾 Speichern</button>
           <button class="sbtn" onclick="loadKinematic()" style="flex:1" data-i18n="load">📂 Laden</button>
-          <input type="file" id="kin-file-in" accept=".json,.xml" style="display:none">
+          <input type="file" id="kin-file-in" accept=".zip,.json,.xml" style="display:none">
         </div>
         <div style="display:flex;gap:4px;margin-bottom:8px">
           <button class="sbtn" onclick="loadDefaultSTLs();loadDefaultSceneSTLs();" style="flex:1;background:rgba(240,85,0,.15);border-color:var(--acc)" data-i18n="stlload">↺ STL laden</button>
@@ -246,7 +246,7 @@
         </div>
         <div style="margin-bottom:5px"><button class="sbtn on" onclick="updateTCPDef()" style="width:100%;background:var(--acc);color:#fff;border-color:#c04200;font-weight:bold" data-i18n="overnahme">▶ Übernehmen</button></div>
         <div style="font-size:.7em;color:var(--txt3)">
-          <div style="display:flex;gap:4px;margin-bottom:4px"><button class="sbtn" onclick="saveTCP()" style="flex:1">💾 TCP speichern</button><button class="sbtn" onclick="loadTCP()" style="flex:1">📂 TCP laden</button><input type="file" id="tcp-file-in" accept=".json,.xml" style="display:none"></div>
+          <div style="display:flex;gap:4px;margin-bottom:4px"><button class="sbtn" onclick="saveTCP()" style="flex:1">💾 TCP speichern</button><button class="sbtn" onclick="loadTCP()" style="flex:1">📂 TCP laden</button><input type="file" id="tcp-file-in" accept=".zip,.json,.xml" style="display:none"></div>
           <button class="sbtn" onclick="loadToolFile()" style="width:100%;margin-top:3px">+ STL Werkzeug laden</button>
           <input type="file" id="tool-file" accept=".stl">
           <div id="tool-controls" style="display:none;margin-top:4px">
@@ -329,6 +329,7 @@
   </div>
 </div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <script src="./js/i18n.js"></script>
 <script src="./js/simulator.js"></script>
 
