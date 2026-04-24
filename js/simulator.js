@@ -1989,14 +1989,43 @@ function setView(view){
   currentView=view;
   document.querySelectorAll('.vbtn').forEach(b=>b.classList.remove('on'));
   (function(){var _e=document.getElementById('vb-'+view);if(_e)_e.classList.add('on');})();
-  activeCam=(view==='iso')?perspCam:orthoCam;
-  // sync projection button label
-  const btn=document.getElementById('btn-persp');
-  if(btn){
-    if(activeCam===perspCam){btn.textContent='⊡ Perspektiv';btn.classList.add('on');}
-    else{btn.textContent='⊞ Ortho';btn.classList.remove('on');}
+  // Kamera je nach Settings: Perspektiv oder Ortho
+  var usePersp = document.getElementById('cfg-show-persp');
+  activeCam = (usePersp && !usePersp.checked) ? orthoCam : perspCam;
+  tweenCameraToView(view);
+  resize();
+}
+
+function tweenCameraToView(v) {
+  var d = Math.max(500, orbitTarget.distanceTo(activeCam.position));
+  var ot = orbitTarget;
+  var targets = {
+    iso:    {x:ot.x+d*.55, y:ot.y+d*.45, z:ot.z+d*.65},
+    top:    {x:ot.x,       y:ot.y+d,     z:ot.z+1},
+    bottom: {x:ot.x,       y:ot.y-d,     z:ot.z+1},
+    front:  {x:ot.x,       y:ot.y,       z:ot.z+d},
+    back:   {x:ot.x,       y:ot.y,       z:ot.z-d},
+    left:   {x:ot.x-d,     y:ot.y,       z:ot.z},
+    right:  {x:ot.x+d,     y:ot.y,       z:ot.z},
+  };
+  var to = targets[v];
+  if (!to) { updateCamera(); return; }
+  var from = {x:activeCam.position.x, y:activeCam.position.y, z:activeCam.position.z};
+  var t0 = null, dur = 350;
+  function step(ts){
+    if (!t0) t0 = ts;
+    var f = Math.min((ts-t0)/dur, 1);
+    f = f<.5 ? 2*f*f : -1+(4-2*f)*f;  // ease in-out
+    activeCam.position.set(
+      from.x+(to.x-from.x)*f,
+      from.y+(to.y-from.y)*f,
+      from.z+(to.z-from.z)*f
+    );
+    activeCam.lookAt(orbitTarget);
+    renderer.render(scene, activeCam);
+    if (f<1) requestAnimationFrame(step); else updateCamera();
   }
-  updateCamera();resize();
+  requestAnimationFrame(step);
 }
 
 function resize(){
@@ -3377,10 +3406,14 @@ function togglePedestalMesh() {
 var SETTINGS_KEY = 'robsim_settings';
 
 var defaultSettings = {
-  fzEditor: 17,
-  fzUi:     17,
-  fzPanel:  17,
-  fzStatus: 17
+  fzEditor: 17, fzUi: 17, fzPanel: 17, fzStatus: 17,
+  frameSize: 120, sphereSize: 18,
+  traceWidth: 2, pathWidth: 2,
+  baseFSz: 150, tcpFSz: 100,
+  speedDefault: 40,
+  showTrace: true, showGrid: true, showPersp: true,
+  toolMode: 'solid',
+  linkCol: '#cc4400', jointCol: '#e8a020', tcpCol: '#ffee00', pathCol: '#f05500'
 };
 
 function loadSettings() {
@@ -3391,14 +3424,31 @@ function loadSettings() {
 }
 
 function saveSettings() {
+  var g = function(id, def) { var e=document.getElementById(id); return e?(e.type==='checkbox'?e.checked:(e.value||def)):def; };
   var s = {
-    fzEditor: parseInt(document.getElementById('fz-editor').value) || 17,
-    fzUi:     parseInt(document.getElementById('fz-ui').value)     || 17,
-    fzPanel:  parseInt(document.getElementById('fz-panel').value)  || 17,
-    fzStatus: parseInt(document.getElementById('fz-status').value) || 17
+    fzEditor: parseInt(g('fz-editor',17))||17,
+    fzUi:     parseInt(g('fz-ui',17))||17,
+    fzPanel:  parseInt(g('fz-panel',17))||17,
+    fzStatus: parseInt(g('fz-status',17))||17,
+    frameSize: parseInt(g('cfg-frame-size',120))||120,
+    sphereSize: parseInt(g('cfg-sphere-size',18))||18,
+    traceWidth: parseInt(g('cfg-trace-width',2))||2,
+    pathWidth:  parseInt(g('cfg-path-width',2))||2,
+    baseFSz:    parseInt(g('cfg-base-frame-size',150))||150,
+    tcpFSz:     parseInt(g('cfg-tcp-frame-size',100))||100,
+    speedDefault: parseInt(g('cfg-speed-default',40))||40,
+    showTrace: g('cfg-show-trace',true),
+    showGrid:  g('cfg-show-grid',true),
+    showPersp: g('cfg-show-persp',true),
+    toolMode:  g('cfg-tool-mode','solid'),
+    linkCol:   g('cfg-link-col','#cc4400'),
+    jointCol:  g('cfg-joint-col','#e8a020'),
+    tcpCol:    g('cfg-tcp-col','#ffee00'),
+    pathCol:   g('cfg-path-col','#f05500'),
   };
   try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(s)); } catch(e) {}
   applyFZ();
+  applyVisualSettings();
 }
 
 function resetSettings() {
@@ -3408,14 +3458,19 @@ function resetSettings() {
 }
 
 function applySettingsToUI(s) {
-  var fields = {
-    'fz-editor': s.fzEditor, 'fz-ui': s.fzUi,
-    'fz-panel': s.fzPanel, 'fz-status': s.fzStatus
-  };
-  Object.entries(fields).forEach(function(kv) {
-    var el = document.getElementById(kv[0]);
-    if (el) el.value = kv[1];
-  });
+  var sv = function(id, v) { var e=document.getElementById(id); if(e){ if(e.type==='checkbox') e.checked=v; else e.value=v; }};
+  sv('fz-editor', s.fzEditor||17); sv('fz-ui', s.fzUi||17);
+  sv('fz-panel', s.fzPanel||17);   sv('fz-status', s.fzStatus||17);
+  sv('cfg-frame-size', s.frameSize||120);    sv('cfg-sphere-size', s.sphereSize||18);
+  sv('cfg-trace-width', s.traceWidth||2);    sv('cfg-path-width', s.pathWidth||2);
+  sv('cfg-base-frame-size', s.baseFSz||150); sv('cfg-tcp-frame-size', s.tcpFSz||100);
+  sv('cfg-speed-default', s.speedDefault||40);
+  sv('cfg-show-trace', s.showTrace!==undefined ? s.showTrace : true);
+  sv('cfg-show-grid',  s.showGrid!==undefined  ? s.showGrid  : true);
+  sv('cfg-show-persp', s.showPersp!==undefined ? s.showPersp : true);
+  sv('cfg-tool-mode',  s.toolMode||'solid');
+  sv('cfg-link-col', s.linkCol||'#cc4400'); sv('cfg-joint-col', s.jointCol||'#e8a020');
+  sv('cfg-tcp-col',  s.tcpCol||'#ffee00');  sv('cfg-path-col',  s.pathCol||'#f05500');
 }
 
 function fzWheel(e, inp) {
@@ -3474,6 +3529,7 @@ function initSettings() {
   var s = loadSettings();
   applySettingsToUI(s);
   applyFZ();
+  applyVisualSettings();
 }
 
 function toggleSettings() {

@@ -54,8 +54,7 @@
   <button class="sbtn" id="btn-steuer" onclick="toggleSteuerPanel()" title="Steuerungspanel">🖥 Status</button>
   <button class="sbtn" id="btn-axmap" onclick="toggleAxisMap()" title="Achsen-Karte">📊 Achsenkarte</button>
   <div class="sep"></div>
-  <button class="sbtn on" id="btn-grid" title="Grid ein/ausblenden" onclick="toggleGrid()">⊞ Grid</button>
-  <button class="sbtn on" id="btn-persp" title="Perspektive / Orthografisch" onclick="toggleProjection()">⊡ Perspektiv</button>
+
 </div>
 
 <div class="main">
@@ -123,249 +122,35 @@
         <span class="sp-close" onclick="toggleSteuerPanel()">✕</span>
       </div>
       <div class="sp-body" style="overflow-y:auto;max-height:calc(90vh - 40px)">
-        <div class="sp-sec-title" data-i18n="phyaxes">Physische Achsen</div>
-        <div id="sp-axes"></div>
-        <hr class="sp-divider">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
-          <span style="font-size:.75em;font-weight:bold;color:#c8d8e8">TCP</span>
-          <span class="sp-indicator"></span>
-        </div>
-        <div class="sp-tcp-grid" style="margin-bottom:6px">
-          <span class="sp-tcp-lbl">X:</span><span class="sp-tcp-val" id="sp-x">—</span>
-          <span class="sp-tcp-lbl">A(Z)</span><span class="sp-tcp-val" id="sp-a">—</span>
-          <span class="sp-tcp-lbl">Y:</span><span class="sp-tcp-val" id="sp-y">—</span>
-          <span class="sp-tcp-lbl">B(Y)</span><span class="sp-tcp-val" id="sp-b">—</span>
-          <span class="sp-tcp-lbl">Z:</span><span class="sp-tcp-val" id="sp-z">—</span>
-          <span class="sp-tcp-lbl">C(X)</span><span class="sp-tcp-val" id="sp-c">—</span>
-        </div>
-        <div id="jog-status" style="font-size:.68em;color:#3a6080;min-height:14px;margin-bottom:4px"></div>
-        <hr class="sp-divider">
-        <div style="display:flex;align-items:center;gap:6px;margin-bottom:5px">
-          <span style="font-size:.72em;color:#2a4060;flex:1" data-i18n="feedrate">Vorschub [mm/min]</span>
-          <input class="sp-jog-inp" id="jog-feed" type="number" value="10000" step="100" style="width:65px">
-        </div>
-        <div style="font-size:.68em;color:#3a6080;margin-bottom:3px" data-i18n="insert_stmt">Satz einfügen (vor END):</div>
-        <div style="display:flex;gap:4px">
-          <button class="sp-jog-btn" onclick="insertPTP()" style="flex:1" title="PTP mit aktuellen Achswinkeln" data-i18n="ins_ptp">+ PTP</button>
-          <button class="sp-jog-btn" onclick="insertLIN()" style="flex:1" title="LIN mit aktuellem TCP" data-i18n="ins_lin">+ LIN</button>
-        </div>
-      </div>
-    </div>
-    <div id="marker-info"></div>
-    <div class="scene-hint" data-i18n="hint">LMB: Orbit / Pos. ziehen &nbsp;|&nbsp; RMB: Pan &nbsp;|&nbsp; Wheel: Zoom &nbsp;|&nbsp; Pos. klicken = auswählen</div>
-    <!-- robot status bar -->
-    <div id="robot-bar">
-      <span class="rb-dim">Achsen:</span>
-      <span class="rb-val">A1 <span id="rb-a1">0.0</span>°</span>
-      <span class="rb-val">A2 <span id="rb-a2">-90.0</span>°</span>
-      <span class="rb-val">A3 <span id="rb-a3">90.0</span>°</span>
-      <span class="rb-val">A4 <span id="rb-a4">0.0</span>°</span>
-      <span class="rb-val">A5 <span id="rb-a5">0.0</span>°</span>
-      <span class="rb-val">A6 <span id="rb-a6">0.0</span>°</span>
-      <span class="rb-dim" style="margin-left:auto">FK-Δ:</span>
-      <span class="rb-val"><span id="rb-fk">—</span> mm</span>
-    </div>
-  </div>
-
-  <!-- INFO PANEL -->
-  <div id="ip-resize-handle" class="ip-resize-handle"></div>
-  <div class="info-panel" id="info-panel">
-    <!-- Kinematics -->
-    <div class="sec">
-      <div class="sec-t" onclick="toggleSec(this)"><span class="tog">▼</span data-i18n="kin_sec">⚙ Kinematik</div>
-      <div class="sec-b">
-        <!-- Name + New/Load/Save -->
-        <div style="display:flex;gap:4px;align-items:center;margin-bottom:6px">
-          <input id="kin-name" class="stl-inp" type="text" value="KR8 R1420 HW" style="flex:1;font-size:.82em" placeholder="Name der Kinematik" data-i18n="kin_name_placeholder" data-i18n-attr="placeholder">
-          <button class="sbtn" onclick="newKinematic()" title="Neue leere Kinematik">+Neu</button>
-        </div>
-        <div style="display:flex;gap:4px;margin-bottom:6px">
-          <button class="sbtn" onclick="saveKinematic()" style="flex:1" data-i18n="save">💾 Speichern</button>
-          <button class="sbtn" onclick="loadKinematic()" style="flex:1" data-i18n="load">📂 Laden</button>
-          <input type="file" id="kin-file-in" accept=".zip,.json,.xml" style="display:none">
-        </div>
-        <div style="display:flex;gap:4px;margin-bottom:8px">
-          <button class="sbtn" onclick="loadDefaultSTLs();loadDefaultSceneSTLs();" style="flex:1;background:rgba(240,85,0,.15);border-color:var(--acc)" data-i18n="stlload">↺ STL laden</button>
-        </div>
-        <div style="font-size:.85em;color:var(--txt3);margin-bottom:4px;padding:0 2px;font-weight:bold">Achsgrenzen [°]</div>
-        <div id="kin-section" style="scroll-margin-top:4px"></div>
-        <div id="joint-limits-ui"></div>
-        <div style="font-size:.85em;color:var(--txt3);margin-top:8px;margin-bottom:4px;padding:0 2px;font-weight:bold">Link-Offsets [mm] · Robot CS</div>
-        <div id="joint-offsets-ui" style="margin-top:2px"></div>
-        <button class="sbtn" onclick="applyKinematicConfig()" style="width:calc(100% - 10px);margin:5px" data-i18n="applykin">▶ Kinematik übernehmen</button>
-        <div style="font-size:.85em;color:var(--txt3);margin-top:10px;margin-bottom:4px;padding:0 2px;font-weight:bold">STL Achsmodelle</div>
-        <div id="axis-stl-ui"></div>
-        <input type="file" id="axis-stl-file" accept=".stl" style="display:none">
-        <div style="display:flex;gap:4px;margin-top:5px">
-          <button class="sbtn" onclick="loadPedestalSTL()" style="flex:1">+ Podest STL</button>
-          <span id="pedestal-name" style="font-size:.7em;color:var(--txt3);align-self:center;overflow:hidden;white-space:nowrap;flex:2"></span>
-          <input type="file" id="pedestal-stl-file" accept=".stl" style="display:none">
-        </div>
-        <div style="display:flex;gap:4px;margin-top:4px">
-          <button class="sbtn on" id="btn-show-skeleton" onclick="toggleSkeleton()" style="flex:1" data-i18n="skeleton">Skelett</button>
-          <button class="sbtn on" id="btn-show-stl-robot" onclick="toggleSTLRobot()" style="flex:1" data-i18n="axstl">Achsen STL</button>
-        </div>
-        <div style="display:flex;gap:4px;margin-top:4px">
-          <button class="sbtn on" id="btn-show-tool" onclick="toggleToolMesh()" style="flex:1" data-i18n="toolstl2">Werkzeug STL</button>
-          <button class="sbtn on" id="btn-show-pedestal" onclick="togglePedestalMesh()" style="flex:1" data-i18n="pedstl">Podest STL</button>
-        </div>
-      </div>
-    </div>
-    <!-- Robot Settings -->
-    <div class="sec collapsed">
-      <div class="sec-t" onclick="toggleSec(this)"><span class="tog">▼</span data-i18n="robo_set">🎨 Robot Einstellungen</div>
-      <div class="sec-b">
-        <div class="cfg-grid">
-          <div><div class="cfg-lbl">Link-Farbe</div><input type="color" class="cfg-color" id="cfg-link-col" value="#cc4400"></div>
-          <div><div class="cfg-lbl">Gelenk-Farbe</div><input type="color" class="cfg-color" id="cfg-joint-col" value="#e8a020"></div>
-          <div><div class="cfg-lbl">TCP-Farbe</div><input type="color" class="cfg-color" id="cfg-tcp-col" value="#ffee00"></div>
-          <div><div class="cfg-lbl">Path-Farbe</div><input type="color" class="cfg-color" id="cfg-path-col" value="#f05500"></div>
-        </div>
-        <div class="cfg-row">
-          <label data-i18n="showtrace">TCP Trace anzeigen</label>
-          <input type="checkbox" id="cfg-show-trace" checked>
-        </div>
-        <div class="cfg-row">
-          <label>Workspace-Hülle</label>
-          <input type="checkbox" id="cfg-show-ws">
-        </div>
-      </div>
-    </div>
-    <!-- TCP definition -->
-    <div class="sec collapsed">
-      <div class="sec-t" onclick="toggleSec(this)"><span class="tog">▼</span data-i18n="tcp_sec">🔧 TCP · CH0</div>
-      <div class="sec-b">
-        <div style="font-size:.7em;color:var(--txt3);margin-bottom:4px">Position [mm] relativ zum Flansch:</div>
-        <div class="stl-grid" style="margin-bottom:5px">
-          <span class="stl-lbl">X</span><input class="stl-inp" id="tcp-x" type="number" value="364.5" step="1"><span class="stl-unit">mm</span>
-          <span class="stl-lbl">Y</span><input class="stl-inp" id="tcp-y" type="number" value="0" step="0.1"><span class="stl-unit">mm</span>
-          <span class="stl-lbl">Z</span><input class="stl-inp" id="tcp-z" type="number" value="46.5" step="1"><span class="stl-unit">mm</span>
-          <span class="stl-lbl">A(Z)</span><input class="stl-inp" id="tcp-a" type="number" value="0" step="1"><span class="stl-unit">°</span>
-          <span class="stl-lbl">B(Y)</span><input class="stl-inp" id="tcp-b" type="number" value="90" step="1"><span class="stl-unit">°</span>
-          <span class="stl-lbl">C(X)</span><input class="stl-inp" id="tcp-c" type="number" value="0" step="1"><span class="stl-unit">°</span>
-        </div>
-        <div style="margin-bottom:5px"><button class="sbtn on" onclick="updateTCPDef()" style="width:100%;background:var(--acc);color:#fff;border-color:#c04200;font-weight:bold" data-i18n="overnahme">▶ Übernehmen</button></div>
-        <div style="font-size:.7em;color:var(--txt3)">
-          <div style="display:flex;gap:4px;margin-bottom:4px"><button class="sbtn" onclick="saveTCP()" style="flex:1">💾 TCP speichern</button><button class="sbtn" onclick="loadTCP()" style="flex:1">📂 TCP laden</button><input type="file" id="tcp-file-in" accept=".zip,.json,.xml" style="display:none"></div>
-          <button class="sbtn" onclick="loadToolFile()" style="width:100%;margin-top:3px">+ STL Werkzeug laden</button>
-          <input type="file" id="tool-file" accept=".stl">
-          <div id="tool-controls" style="display:none;margin-top:4px">
-            <div class="stl-name"><span id="tool-filename"></span><span class="del" onclick="removeToolSTL()">✕</span></div>
-          </div>
-        </div>
-      </div>
-    </div>
-    <!-- STL Scene -->
-    <div class="sec collapsed">
-      <div class="sec-t" onclick="toggleSec(this)"><span class="tog">▼</span>📦 STL Szenenmodelle
-        <button class="add-btn" onclick="event.stopPropagation();document.getElementById('stl-file').click()">+ Laden</button>
-        <input type="file" id="stl-file" accept=".stl" multiple>
-      </div>
-      <div class="sec-b" id="stl-list"><div class="empty">Keine STL Dateien geladen</div></div>
-    </div>
-    <!-- Positions -->
-    <div class="sec collapsed">
-      <div class="sec-t" onclick="toggleSec(this)"><span class="tog">▼</span data-i18n="pos_sec">📍 Positionen</div>
-      <div class="sec-b" id="pos-list"><div class="empty">Keine Positionen gefunden</div></div>
-    </div>
-    <!-- Variables -->
-    <div class="sec collapsed">
-      <div class="sec-t" onclick="toggleSec(this)"><span class="tog">▼</span data-i18n="var_sec">📦 Variablen</div>
-      <div class="sec-b" id="var-list"><div class="empty">Keine Variablen</div></div>
-    </div>
-    <!-- Digital Out -->
-    <div class="sec collapsed">
-      <div class="sec-t" onclick="toggleSec(this)"><span class="tog">▼</span data-i18n="dout_sec">🔴 Digital Outputs ($OUT)</div>
-      <div class="sec-b" id="dout-list"><div class="empty">Kein $OUT</div></div>
-    </div>
-    <!-- Digital In -->
-    <div class="sec collapsed">
-      <div class="sec-t" onclick="toggleSec(this)"><span class="tog">▼</span data-i18n="din_sec">🔵 Digital Inputs ($IN)</div>
-      <div class="sec-b" id="din-list"><div class="empty">Kein $IN</div></div>
-    </div>
-    <!-- Analog -->
-    <div class="sec collapsed">
-      <div class="sec-t" onclick="toggleSec(this)"><span class="tog">▼</span data-i18n="anout_sec">📊 Analog ($ANOUT)</div>
-      <div class="sec-b" id="anout-list"><div class="empty">Kein $ANOUT</div></div>
-    </div>
-  </div>
-</div>
-
-
-
-
-
-<!-- Achsenkarte (Axis Optimizer Map) -->
-<div id="axis-map-panel">
-  <div id="amp-hdr">
-    <span id="amp-title">📊 Achsenkarte · Redundanter Achsenoptimierer</span>
-    <div class="amp-tab-group">
-      <button class="amp-tab on">AxisA6 · Werkzeug-Drehachse</button>
-    </div>
-    <button class="sbtn" onclick="toggleAxisMap()" style="margin-left:8px">✕</button>
-  </div>
-  <div id="amp-body">
-    <div id="amp-sidebar">
-      <div style="color:var(--acc);font-size:.78em;font-weight:bold;margin-bottom:6px">Kollisions Plan</div>
-      <div class="amp-legend-row"><div class="amp-legend-dot" style="background:#cc3333"></div><span class="amp-legend-lbl">nicht Erreichbar</span></div>
-      <div class="amp-legend-row"><div class="amp-legend-dot" style="background:#cc44aa"></div><span class="amp-legend-lbl">Endschalter</span></div>
-      <div class="amp-legend-row"><div class="amp-legend-dot" style="background:#ff8800"></div><span class="amp-legend-lbl">Singularitäten (A5≈0)</span></div>
-      <div class="amp-legend-row"><div class="amp-legend-dot" style="background:#1a3050"></div><span class="amp-legend-lbl">Gültiger Bereich</span></div>
-      <div class="amp-legend-row"><div class="amp-legend-dot" style="background:#ffee00"></div><span class="amp-legend-lbl">Aktueller Weg</span></div>
-      <div style="border-top:1px solid #1a3050;margin:8px 0"></div>
-      <div style="color:var(--acc);font-size:.78em;font-weight:bold;margin-bottom:4px">Optimierung</div>
-      <button class="amp-sbtn" onclick="ampAutoOptimize()">▶ Erstelle Plan</button>
-      <button class="amp-sbtn" style="margin-top:3px" onclick="ampApplyPath()">✓ Weg übernehmen</button>
-      <div class="amp-info" id="amp-info">Nach PARSE: Karte wird automatisch berechnet.</div>
-    </div>
-    <div id="amp-canvas-wrap">
-      <div id="amp-yaxis">
-        <span>+360°</span><span>+180°</span><span>0°</span><span>-180°</span><span>-360°</span>
-      </div>
-      <div id="amp-tooltip"></div>
-      <canvas id="amp-canvas"></canvas>
-      <canvas id="amp-cursor" style="position:absolute;top:0;left:0;pointer-events:none;z-index:5"></canvas>
-      <div id="amp-xaxis"></div>
-    </div>
-  </div>
-</div>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-<script src="./js/i18n.js"></script>
-<script src="./js/simulator.js"></script>
-
-<!-- Einstellungsfenster -->
-<div id="settings-panel" style="position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);width:360px;background:rgba(10,20,35,.97);border:1px solid var(--acc);border-radius:5px;z-index:25;font-family:'Consolas','Courier New',monospace;box-shadow:0 4px 20px rgba(0,0,0,.7);user-select:none;display:none">
-  <div class="sp-hdr" id="settings-drag-handle">
-    <span class="sp-hdr-title" data-i18n="sett_title">⚙ Einstellungen</span>
-    <span class="sp-close" onclick="toggleSettings()">✕</span>
-  </div>
-  <div class="sp-body" style="overflow-y:auto;max-height:calc(90vh - 40px)">
     <div class="sp-sec-title" data-i18n="fontsizes">Schriftgrössen</div>
-    <div class="sp-axis-row">
-      <span style="flex:1;color:#c8d8e8;font-size:1em" data-i18n="fz_editor">Editor (Code)</span>
-      <input type="number" min="9" max="50" step="1" id="fz-editor"
-        oninput="applyFZ()" onwheel="fzWheel(event,this)"
-        style="width:54px;background:var(--bg3);color:var(--acc);border:1px solid var(--bdr);border-radius:3px;padding:2px 4px;text-align:right;font-size:.95em;font-family:inherit" value="17">
-    </div>
-    <div class="sp-axis-row">
-      <span style="flex:1;color:#c8d8e8;font-size:1em" data-i18n="fz_ui">Toolbar / Buttons</span>
-      <input type="number" min="8" max="50" step="1" id="fz-ui"
-        oninput="applyFZ()" onwheel="fzWheel(event,this)"
-        style="width:54px;background:var(--bg3);color:var(--acc);border:1px solid var(--bdr);border-radius:3px;padding:2px 4px;text-align:right;font-size:.95em;font-family:inherit" value="17">
-    </div>
-    <div class="sp-axis-row">
-      <span style="flex:1;color:#c8d8e8;font-size:1em" data-i18n="fz_panel">Parameter rechts</span>
-      <input type="number" min="8" max="50" step="1" id="fz-panel"
-        oninput="applyFZ()" onwheel="fzWheel(event,this)"
-        style="width:54px;background:var(--bg3);color:var(--acc);border:1px solid var(--bdr);border-radius:3px;padding:2px 4px;text-align:right;font-size:.95em;font-family:inherit" value="17">
-    </div>
-    <div class="sp-axis-row">
-      <span style="flex:1;color:#c8d8e8;font-size:1em" data-i18n="fz_status">Statusleiste</span>
-      <input type="number" min="8" max="50" step="1" id="fz-status"
-        oninput="applyFZ()" onwheel="fzWheel(event,this)"
-        style="width:54px;background:var(--bg3);color:var(--acc);border:1px solid var(--bdr);border-radius:3px;padding:2px 4px;text-align:right;font-size:.95em;font-family:inherit" value="17">
-    </div>
+    <div class="sp-axis-row"><span style="flex:1;color:#c8d8e8;font-size:1em"><span data-i18n="fz_editor">Editor (Code)</span></span><input type="number" min="8" max="50" step="1" id="fz-editor" oninput="applyFZ()" onwheel="fzWheel(event,this)" style="width:54px;background:var(--bg3);color:var(--acc);border:1px solid var(--bdr);border-radius:3px;padding:2px 4px;text-align:right;font-size:.95em;font-family:inherit" value="17"></div>
+    <div class="sp-axis-row"><span style="flex:1;color:#c8d8e8;font-size:1em"><span data-i18n="fz_ui">Toolbar / Buttons</span></span><input type="number" min="8" max="50" step="1" id="fz-ui" oninput="applyFZ()" onwheel="fzWheel(event,this)" style="width:54px;background:var(--bg3);color:var(--acc);border:1px solid var(--bdr);border-radius:3px;padding:2px 4px;text-align:right;font-size:.95em;font-family:inherit" value="17"></div>
+    <div class="sp-axis-row"><span style="flex:1;color:#c8d8e8;font-size:1em"><span data-i18n="fz_panel">Parameter rechts</span></span><input type="number" min="8" max="50" step="1" id="fz-panel" oninput="applyFZ()" onwheel="fzWheel(event,this)" style="width:54px;background:var(--bg3);color:var(--acc);border:1px solid var(--bdr);border-radius:3px;padding:2px 4px;text-align:right;font-size:.95em;font-family:inherit" value="17"></div>
+    <div class="sp-axis-row"><span style="flex:1;color:#c8d8e8;font-size:1em"><span data-i18n="fz_status">Statusleiste</span></span><input type="number" min="8" max="50" step="1" id="fz-status" oninput="applyFZ()" onwheel="fzWheel(event,this)" style="width:54px;background:var(--bg3);color:var(--acc);border:1px solid var(--bdr);border-radius:3px;padding:2px 4px;text-align:right;font-size:.95em;font-family:inherit" value="17"></div>
+
+    <hr class="sp-divider">
+    <div class="sp-sec-title">3D Darstellung</div>
+    <div class="sp-axis-row"><span style="flex:1;color:#c8d8e8;font-size:1em">Frame-Grösse</span><input type="number" min="10" max="500" step="1" id="cfg-frame-size" value="120" oninput="applyVisualSettings()" onwheel="fzWheel(event,this)" style="width:54px;background:var(--bg3);color:var(--acc);border:1px solid var(--bdr);border-radius:3px;padding:2px 4px;text-align:right;font-size:.95em;font-family:inherit"></div>
+    <div class="sp-axis-row"><span style="flex:1;color:#c8d8e8;font-size:1em">Sphären-Grösse</span><input type="number" min="2" max="100" step="1" id="cfg-sphere-size" value="18" oninput="applyVisualSettings()" onwheel="fzWheel(event,this)" style="width:54px;background:var(--bg3);color:var(--acc);border:1px solid var(--bdr);border-radius:3px;padding:2px 4px;text-align:right;font-size:.95em;font-family:inherit"></div>
+    <div class="sp-axis-row"><span style="flex:1;color:#c8d8e8;font-size:1em">Trace Linienstärke</span><input type="number" min="1" max="10" step="1" id="cfg-trace-width" value="2" oninput="applyVisualSettings()" onwheel="fzWheel(event,this)" style="width:54px;background:var(--bg3);color:var(--acc);border:1px solid var(--bdr);border-radius:3px;padding:2px 4px;text-align:right;font-size:.95em;font-family:inherit"></div>
+    <div class="sp-axis-row"><span style="flex:1;color:#c8d8e8;font-size:1em">Bahn Linienstärke</span><input type="number" min="1" max="10" step="1" id="cfg-path-width" value="2" oninput="applyVisualSettings()" onwheel="fzWheel(event,this)" style="width:54px;background:var(--bg3);color:var(--acc);border:1px solid var(--bdr);border-radius:3px;padding:2px 4px;text-align:right;font-size:.95em;font-family:inherit"></div>
+    <div class="sp-axis-row"><span style="flex:1;color:#c8d8e8;font-size:1em">BASE KS Grösse</span><input type="number" min="10" max="500" step="1" id="cfg-base-frame-size" value="150" oninput="applyVisualSettings()" onwheel="fzWheel(event,this)" style="width:54px;background:var(--bg3);color:var(--acc);border:1px solid var(--bdr);border-radius:3px;padding:2px 4px;text-align:right;font-size:.95em;font-family:inherit"></div>
+    <div class="sp-axis-row"><span style="flex:1;color:#c8d8e8;font-size:1em">TOOL KS Grösse</span><input type="number" min="10" max="500" step="1" id="cfg-tcp-frame-size" value="100" oninput="applyVisualSettings()" onwheel="fzWheel(event,this)" style="width:54px;background:var(--bg3);color:var(--acc);border:1px solid var(--bdr);border-radius:3px;padding:2px 4px;text-align:right;font-size:.95em;font-family:inherit"></div>
+    <div class="sp-axis-row"><span style="flex:1;color:#c8d8e8;font-size:1em">Speed Standard %</span><input type="number" min="1" max="200" step="1" id="cfg-speed-default" value="40" oninput="applyVisualSettings()" onwheel="fzWheel(event,this)" style="width:54px;background:var(--bg3);color:var(--acc);border:1px solid var(--bdr);border-radius:3px;padding:2px 4px;text-align:right;font-size:.95em;font-family:inherit"></div>
+
+    <hr class="sp-divider">
+    <div class="sp-sec-title">Sichtbarkeit</div>
+    <div class="sp-axis-row"><span style="flex:1;color:#c8d8e8;font-size:1em">TCP Trace</span><input type="checkbox" id="cfg-show-trace" checked onchange="applyVisualSettings()" style="width:18px;height:18px;accent-color:var(--acc)"></div>
+    <div class="sp-axis-row"><span style="flex:1;color:#c8d8e8;font-size:1em">Grid</span><input type="checkbox" id="cfg-show-grid" checked onchange="applyVisualSettings()" style="width:18px;height:18px;accent-color:var(--acc)"></div>
+    <div class="sp-axis-row"><span style="flex:1;color:#c8d8e8;font-size:1em">Perspektiv (aus=Ortho)</span><input type="checkbox" id="cfg-show-persp" checked onchange="applyVisualSettings()" style="width:18px;height:18px;accent-color:var(--acc)"></div>
+    <div class="sp-axis-row"><span style="flex:1;color:#c8d8e8;font-size:1em">Tool-Darstellung</span><select id="cfg-tool-mode" onchange="applyVisualSettings()" style="background:var(--bg3);color:var(--acc);border:1px solid var(--bdr);border-radius:3px;padding:2px 6px;font-size:.9em;font-family:inherit"><option value="solid">Sichtbar</option><option value="transparent">Transparent</option><option value="hidden">Unsichtbar</option></select></div>
+    <hr class="sp-divider">
+    <div class="sp-sec-title">Farben</div>
+    <div class="sp-axis-row"><span style="flex:1;color:#c8d8e8;font-size:1em">Link-Farbe</span><input type="color" id="cfg-link-col" value="#cc4400" oninput="applyVisualSettings()" style="width:40px;height:24px;border:none;background:none;cursor:pointer"></div>
+    <div class="sp-axis-row"><span style="flex:1;color:#c8d8e8;font-size:1em">Gelenk-Farbe</span><input type="color" id="cfg-joint-col" value="#e8a020" oninput="applyVisualSettings()" style="width:40px;height:24px;border:none;background:none;cursor:pointer"></div>
+    <div class="sp-axis-row"><span style="flex:1;color:#c8d8e8;font-size:1em">TCP-Farbe</span><input type="color" id="cfg-tcp-col" value="#ffee00" oninput="applyVisualSettings()" style="width:40px;height:24px;border:none;background:none;cursor:pointer"></div>
+    <div class="sp-axis-row"><span style="flex:1;color:#c8d8e8;font-size:1em">Path-Farbe</span><input type="color" id="cfg-path-col" value="#f05500" oninput="applyVisualSettings()" style="width:40px;height:24px;border:none;background:none;cursor:pointer"></div>
+
     <hr class="sp-divider">
     <div class="sp-axis-row">
       <span style="flex:1;color:#c8d8e8;font-size:1em" data-i18n="lang_label">Sprache:</span>
@@ -375,7 +160,7 @@
     <hr class="sp-divider">
     <div style="display:flex;gap:6px">
       <button class="sp-jog-btn" onclick="resetSettings()" style="flex:1" data-i18n="fz_reset">↺ Reset</button>
-      <button class="sp-jog-btn" onclick="saveSettings()" style="flex:1;color:var(--acc);border-color:var(--acc)">✓ Speichern</button>
+      <button class="sp-jog-btn" onclick="saveSettings();toggleSettings();" style="flex:1;color:var(--acc);border-color:var(--acc)">✓ Speichern</button>
     </div>
   </div>
 </div>
