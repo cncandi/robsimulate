@@ -324,13 +324,11 @@ input[type=range].ss::-webkit-slider-thumb{-webkit-appearance:none;width:12px;he
 .stl-vis-btn:hover { opacity:0.7; }
 .stl-vis-btn svg { display:block; }
 
-/* Mehr Platz zwischen Zahl und Hoch/Runter-Buttons */
-input[type=number] {
-  padding-right: 4px !important;
-}
+/* Platz fuer Spinner-Buttons */
+input[type=number] { padding-right: 18px !important; box-sizing: border-box; }
+input[type=number]::-webkit-outer-spin-button,
 input[type=number]::-webkit-inner-spin-button {
   opacity: 1;
-  margin-left: 4px;
+  width: 16px;
+  cursor: pointer;
 }
-.stl-inp { padding-right: 4px !important; }
-.sp-axis-inp { padding-right: 2px !important; }
