@@ -3455,13 +3455,7 @@ function applySettingsToUI(s) {
 }
 
 function fzWheel(e, inp) {
-  e.preventDefault();
-  var delta = e.deltaY < 0 ? 1 : -1;
-  var val = parseInt(inp.value) + delta;
-  var mn = parseInt(inp.min) || 8;
-  var mx = parseInt(inp.max) || 50;
-  inp.value = Math.max(mn, Math.min(mx, val));
-  applyFZ();
+  // Legacy — global wheel handler takes care of this now
 }
 
 function applyFZ() {
@@ -3601,6 +3595,31 @@ function toggleTCPMarker() {
   document.getElementById('btn-show-tcpmarker').classList.toggle('on', showTCPMarker);
   markerVisuals.visible = showTCPMarker;
 }
+
+
+// Mausrad auch ohne Fokus: beim Hover-Element
+(function() {
+  var hoveredNumber = null;
+  document.addEventListener('mouseover', function(e) {
+    if (e.target && e.target.type === 'number') hoveredNumber = e.target;
+  });
+  document.addEventListener('mouseout', function(e) {
+    if (e.target && e.target.type === 'number') hoveredNumber = null;
+  });
+  document.addEventListener('wheel', function(e) {
+    var el = hoveredNumber;
+    if (!el) return;
+    e.preventDefault();
+    var step = parseFloat(el.step) || 1;
+    var val  = parseFloat(el.value) || 0;
+    val += e.deltaY < 0 ? step : -step;
+    var mn = el.min !== '' ? parseFloat(el.min) : -Infinity;
+    var mx = el.max !== '' ? parseFloat(el.max) :  Infinity;
+    el.value = Math.max(mn, Math.min(mx, val));
+    el.dispatchEvent(new Event('input', {bubbles:true}));
+    el.dispatchEvent(new Event('change', {bubbles:true}));
+  }, {passive: false});
+})();
 
 parseAndLoad();
 

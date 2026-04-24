@@ -324,13 +324,14 @@ input[type=range].ss::-webkit-slider-thumb{-webkit-appearance:none;width:12px;he
 .stl-vis-btn:hover { opacity:0.7; }
 .stl-vis-btn svg { display:block; }
 
-/* Spinner ausblenden — native Spinner ueberlagern Text */
+/* Spinner komplett entfernt — Mausrad stattdessen */
 input[type=number]::-webkit-outer-spin-button,
 input[type=number]::-webkit-inner-spin-button {
-  -webkit-appearance: none;
+  -webkit-appearance: none !important;
   margin: 0;
+  display: none;
 }
 input[type=number] {
-  -moz-appearance: textfield;
-  appearance: textfield;
+  -moz-appearance: textfield !important;
+  appearance: textfield !important;
 }
