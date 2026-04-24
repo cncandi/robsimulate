@@ -1886,7 +1886,7 @@ function applyDraggedPos(idx,newPos,syncCode){
 
 function syncPositionToCode(idx){
   const pos=parsedData.positions[idx];if(pos.lineNum===undefined)return;
-  const ta=document.getElementById('code-input');const lines=ta.value.split(/\r?\n/);const old=lines[pos.lineNum];
+  var _mv = monacoGetValue(); const lines=_mv.split(/\r?\n/);const old=lines[pos.lineNum];
   const str=`{X ${pos.X.toFixed(3)},Y ${pos.Y.toFixed(3)},Z ${pos.Z.toFixed(3)},A ${pos.A.toFixed(3)},B ${pos.B.toFixed(3)},C ${pos.C.toFixed(3)}${pos.S!==null&&pos.S!==undefined?',S '+pos.S:''}${pos.T!==null&&pos.T!==undefined?',T '+pos.T:''}}`;
   lines[pos.lineNum]=old.replace(/\{[^}]+\}/,str);ta.value=lines.join('\n');
 }
@@ -2617,8 +2617,7 @@ function writeBackPosition(idx, x, y, z, a, b, c) {
   var pos = parsedData.positions[idx];
   if (!pos) return;
   // Update KRL editor
-  var ta = { value: monacoGetValue() };
-  var lines = ta.value.split('\n');
+  var lines = monacoGetValue().split('\n');
   var lineNum = pos.lineNum - 1;
   if (lineNum < 0 || lineNum >= lines.length) return;
   var line = lines[lineNum];
@@ -2758,7 +2757,7 @@ buildSteuerAxes();
 buildAxisSTLUI();
 buildRobotModel([0,-90,90,0,0,0]);  // show robot at home position
 
-(monacoGetValue())=`DEF NONAME()
+var _defaultKRL = `DEF NONAME()
 GLOBAL INTERRUPT DECL 3 WHEN $STOPMESS==TRUE DO IR_STOPM ( )
 INTERRUPT ON 3
 BAS (#INITMOV,0)
@@ -2792,6 +2791,8 @@ LIN {X 1200, Y -200, Z 810, A 180, B 0, C 180} C_DIS
 END
 `;
 
+monacoSetValue(_defaultKRL);
+document.getElementById('code-input').value = _defaultKRL;
 
 // STL-Dateien werden per fetch aus ./stl/ geladen
 function xhrSTL(url, onDone, onErr) {
@@ -3140,11 +3141,27 @@ function resetAll() {
   updateCamera();
 }
 
-parseAndLoad();
+// ── Monaco Editor initialisieren ─────────────────────────────
+function onMonacoReady() {
+  var ta = document.getElementById('code-input');
+  var content = (ta && ta.value) ? ta.value : (typeof _defaultKRL !== 'undefined' ? _defaultKRL : '');
+  if (content) monacoSetValue(content);
+  var fzE = parseInt((document.getElementById('fz-editor') && document.getElementById('fz-editor').value) || 17);
+  monacoFontSize(fzE);
+  setTimeout(function(){ monacoLayout(); }, 100);
+}
 
-// STL nach vollständigem Laden der Seite (inkl. Three.js CDN)
-// STL wird manuell per '↺ STL' Button geladen
-// Settings nach vollständigem DOM-Load anwenden
 window.addEventListener('load', function() {
   initSettings();
+  initMonacoEditor('monaco-container',
+    typeof _defaultKRL !== 'undefined' ? _defaultKRL : '',
+    function(v) {
+      var ta = document.getElementById('code-input');
+      if (ta) ta.value = v;
+    },
+    function(line, col) { /* cursor */ }
+  );
 });
+
+parseAndLoad();
+applyLang();

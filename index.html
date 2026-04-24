@@ -62,7 +62,9 @@
   <!-- EDITOR -->
   <div class="ep">
     <div class="pt">KRL Programm <span style="color:var(--txt3);text-transform:none;font-size:1.1em">— Zeile klicken = Breakpoint</span></div>
-    <div class="ew" id="monaco-container" style="overflow:hidden"></div>
+    <div class="ew" style="flex:1;min-height:0;position:relative;overflow:hidden">
+      <div id="monaco-container" style="position:absolute;top:0;left:0;right:0;bottom:0"></div>
+    </div>
     <!-- Hidden textarea for legacy compatibility -->
     <textarea id="code-input" style="display:none"></textarea>
     <div style="display:flex;gap:4px;padding:4px 5px 0;flex-shrink:0">
