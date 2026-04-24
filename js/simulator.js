@@ -3585,6 +3585,23 @@ function resetAll() {
   updateCamera();
 }
 
+
+function togglePosFrames() {
+  showPosFrames = !showPosFrames;
+  document.getElementById('btn-show-posframes').classList.toggle('on', showPosFrames);
+  posGrp.visible = showPosFrames;
+}
+function toggleBaseFrame() {
+  showBaseFrame = !showBaseFrame;
+  document.getElementById('btn-show-baseframe').classList.toggle('on', showBaseFrame);
+  baseFrameGrp.visible = showBaseFrame;
+}
+function toggleTCPMarker() {
+  showTCPMarker = !showTCPMarker;
+  document.getElementById('btn-show-tcpmarker').classList.toggle('on', showTCPMarker);
+  markerVisuals.visible = showTCPMarker;
+}
+
 parseAndLoad();
 
 // STL nach vollständigem Laden der Seite (inkl. Three.js CDN)
