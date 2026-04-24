@@ -203,8 +203,18 @@ function parseKRL(code){
         pushStep(ln,'move',{posIdx:pi+1,label:'CIRC'});}continue;}
     const moveM=line.match(/^(LIN|PTP|SLIN)\s+\{([^}]+)\}/i);
     if(moveM){const pi=positions.length;
-      positions.push({type:moveM[1].toUpperCase(),...parsePos(moveM[2]),lineNum:ln,snapshot:snap()});
-      pushStep(ln,'move',{posIdx:pi,label:moveM[1].toUpperCase()});continue;}
+      const moveType=moveM[1].toUpperCase();
+      const parsedMove=parsePos(moveM[2]);
+      // PTP mit Achswinkeln (A1..A6) → als ptpAngles speichern
+      const axisM=moveM[2].match(/A1\s*([-\d.]+)/i);
+      if(moveType==='PTP' && axisM) {
+        const aMatch=moveM[2].match(/A([1-6])\s*([-\d.]+)/gi)||[];
+        const ptpQ=[0,-90,90,0,0,0];
+        aMatch.forEach(function(s){const m2=s.match(/A([1-6])\s*([-\d.]+)/i);if(m2)ptpQ[+m2[1]-1]=parseFloat(m2[2]);});
+        pushStep(ln,'ptpAxis',{angles:ptpQ.slice()});continue;
+      }
+      positions.push({type:moveType,...parsedMove,lineNum:ln,snapshot:snap()});
+      pushStep(ln,'move',{posIdx:pi,label:moveType});continue;}
     let m;
     if((m=line.match(/^\$IN\s*\[(\d+)\]\s*=\s*(.+)/i))){din[+m[1]]=parseVal(m[2]);pushStep(ln,'signal',{});continue;}
     if((m=line.match(/^\$OUT\s*\[(\d+)\]\s*=\s*(.+)/i))){dout[+m[1]]=parseVal(m[2]);pushStep(ln,'signal',{});continue;}
@@ -2029,7 +2039,17 @@ function computeIKTable(positions) {
       arcS.push(arcS[pi-1]+Math.sqrt(dx*dx+dy*dy+dz*dz));
     }
     var targetPts = positions.map(function(p,i){ return {s:arcS[i],X:p.X,Y:p.Y,Z:p.Z,A:p.A,B:p.B,C:p.C}; });
+    // qStart: letzter PTP-Achswinkel vor den LIN-Positionen
     var qStart = jointAngles.slice();
+    if (parsedData.steps) {
+      for (var si = 0; si < parsedData.steps.length; si++) {
+        var step = parsedData.steps[si];
+        if (step.type === 'ptpAxis' && step.angles) {
+          qStart = step.angles.slice();  // letzten PTP merken
+        }
+        if (step.type === 'move') break; // Erster LIN → stopp
+      }
+    }
     var result = DPSolver.plan(targetPts, qStart);
 
     // ikTable aus DP raw path (Konfigurationswahl)
@@ -2596,7 +2616,16 @@ function buildTrajectory(positions, ikTab) {
     trajectory.push({pos, angles, segIdx});
   }
 
-  pushSample(positions[0], (ikTab[0]&&ikTab[0].angles) || [0,-90,90,0,0,0], 0);
+  // Startwinkel: letzter PTP-Achsbefehl vor den LIN-Positionen
+  var _buildStart = (ikTab[0]&&ikTab[0].angles) || [0,-90,90,0,0,0];
+  if (parsedData && parsedData.steps) {
+    for (var _si=0; _si<parsedData.steps.length; _si++) {
+      var _st=parsedData.steps[_si];
+      if (_st.type==='ptpAxis'&&_st.angles) _buildStart=_st.angles.slice();
+      if (_st.type==='move') break;
+    }
+  }
+  pushSample(positions[0], _buildStart, 0);
 
   for (let i = 1; i < N; i++) {
     const prev = positions[i-1];
