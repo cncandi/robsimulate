@@ -3802,6 +3802,42 @@ function toggleTCPMarker() {
   }, {passive: false});
 })();
 
+
+// ── DP-Solver Parameter aus UI anwenden ────────────────────────
+function dpSolverApplySettings() {
+  function gn(id, def) {
+    var el = document.getElementById(id);
+    return el ? (parseFloat(el.value) || def) : def;
+  }
+  var wA4    = gn('dp-wA4', 4);
+  var wA5    = gn('dp-wA5', 5);
+  var wA6    = gn('dp-wA6', 0.25);
+  var wSwitch= gn('dp-wSwitch', 5000);
+  var copies = Math.round(gn('dp-a6copies', 1));
+  var safety = gn('dp-safety', 3);
+  var tcptol = gn('dp-tcptol', 2);
+  var sing   = gn('dp-singthresh', 0.01);
+
+  DPSolver.settings.wAxes        = [1, 1, 1, wA4, wA5, wA6];
+  DPSolver.settings.wConfigSwitch = wSwitch;
+  DPSolver.settings.safetyDeg    = safety;
+  DPSolver.settings.maxTcpPosError= tcptol;
+  DPSolver.settings.minSingularity= sing;
+
+  // A6-Kopien: copies=1 → [-1,0,1], copies=2 → [-2,-1,0,1,2] etc.
+  var a6 = [0];
+  for (var k = 1; k <= copies; k++) { a6.push(k); a6.push(-k); }
+  DPSolver.settings.a6Copies = a6;
+
+  // Sofort neu berechnen
+  if (parsedData && parsedData.positions.length > 0) {
+    computeIKTable(parsedData.positions);
+    var ampPanel = document.getElementById('axis-map-panel');
+    if (ampPanel && ampPanel.classList.contains('visible')) ampBuild();
+    document.getElementById('amp-info').textContent = 'DP-Solver: Parameter aktualisiert, Plan neu berechnet.';
+  }
+}
+
 parseAndLoad();
 
 // STL nach vollständigem Laden der Seite (inkl. Three.js CDN)
