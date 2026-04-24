@@ -2240,6 +2240,17 @@ function selectPosition(idx){
   }
   // Show all IK variants for this position
   showEpIKSolutions(pos.X, pos.Y, pos.Z, pos.A, pos.B, pos.C);
+
+  // FK-Δ berechnen und anzeigen (Abweichung IK→Ziel)
+  if (ikTable[idx] && ikTable[idx].ok) {
+    var fkChk = fkAll(ikTable[idx].angles);
+    var tcpChk = fkChk.pts[7];
+    if (tcpChk) {
+      var dx = tcpChk[0]-pos.X, dy = tcpChk[1]-pos.Y, dz = tcpChk[2]-pos.Z;
+      var err = Math.sqrt(dx*dx+dy*dy+dz*dz);
+      document.getElementById('rb-fk').textContent = err.toFixed(2);
+    }
+  }
 }
 
 function deselectPosition(){
