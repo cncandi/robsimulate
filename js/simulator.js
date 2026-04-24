@@ -2733,7 +2733,7 @@ function togglePedestalMesh() {
 
 // ── 3-Panel Resize (Editor | Viewport | Parameter) ────────
 (function(){
-  function makeResizer(handleId, getPanel, getDir) {
+  function makeResizer(handleId, getPanel, getDir, saveKey) {
     var handle = document.getElementById(handleId);
     if (!handle) return;
     var dragging = false, startX = 0, startW = 0;
@@ -2752,7 +2752,7 @@ function togglePedestalMesh() {
       var delta = (e.clientX - startX) * getDir();
       var w = Math.max(120, Math.min(800, startW + delta));
       panel.style.width = w + 'px';
-      resize(); // update Three.js renderer
+      resize();
     });
     window.addEventListener('mouseup', function(){
       if (!dragging) return;
@@ -2760,12 +2760,36 @@ function togglePedestalMesh() {
       document.body.style.cursor = '';
       document.body.style.userSelect = '';
       resize();
+      // Breite in Settings speichern
+      var panel = getPanel();
+      if (panel && saveKey) {
+        try {
+          var s = JSON.parse(localStorage.getItem(SETTINGS_KEY) || '{}');
+          s[saveKey] = panel.offsetWidth;
+          localStorage.setItem(SETTINGS_KEY, JSON.stringify(s));
+        } catch(e) {}
+      }
     });
   }
-  // Left handle: editor expands to the RIGHT (+1)
-  makeResizer('ep-resize-handle', function(){ return document.querySelector('.ep'); }, function(){ return 1; });
-  // Right handle: info-panel expands to the LEFT (-1)
-  makeResizer('ip-resize-handle', function(){ return document.getElementById('info-panel'); }, function(){ return -1; });
+  // Left handle: editor
+  makeResizer('ep-resize-handle', function(){ return document.querySelector('.ep'); }, function(){ return 1; }, 'epWidth');
+  // Right handle: info-panel
+  makeResizer('ip-resize-handle', function(){ return document.getElementById('info-panel'); }, function(){ return -1; }, 'ipWidth');
+
+  // Gespeicherte Breiten wiederherstellen
+  window.addEventListener('load', function(){
+    try {
+      var s = JSON.parse(localStorage.getItem(SETTINGS_KEY) || '{}');
+      if (s.epWidth) {
+        var ep = document.querySelector('.ep');
+        if (ep) { ep.style.width = s.epWidth + 'px'; resize(); }
+      }
+      if (s.ipWidth) {
+        var ip = document.getElementById('info-panel');
+        if (ip) { ip.style.width = s.ipWidth + 'px'; resize(); }
+      }
+    } catch(e) {}
+  });
 })();
 
 // ══════════════════════════════════════════════════════════
