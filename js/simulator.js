@@ -1478,8 +1478,12 @@ function ampApplyPath() {
 
     ta.value = lines.join('\n');
 
-    // Sofort neu parsen
-    parseAndLoad();
+    // Nur parsen (liest neue A/B/C Werte), dann IK NICHT neu berechnen
+    // (trajectory wurde bereits mit neuen Winkeln aktualisiert)
+    parsedData = parseKRL(ta.value);
+    buildScene(parsedData.positions);
+    renderPositions(parsedData.positions);
+    renderVariables(parsedData.finalState.variables || {});
 
     const msg = errCount > 0
       ? '✓ Pfad übernommen (' + errCount + ' Schritte ohne IK-Konvergenz)'
