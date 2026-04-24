@@ -180,7 +180,7 @@ input[type=range].ss::-webkit-slider-thumb{-webkit-appearance:none;width:12px;he
   padding:2px 4px;font-family:inherit;font-size:.78em;width:100%;outline:none;text-align:right}
 .sp-jog-inp:focus{border-color:var(--acc)}
 .sp-axis-inp{background:transparent;color:#9ecfea;border:none;border-bottom:1px solid #1a3050;
-  font-family:inherit;font-size:.78em;width:54px;outline:none;text-align:right;cursor:text}
+  font-family:inherit;font-size:.78em;width:62px;outline:none;text-align:right;cursor:text}
 .sp-axis-inp:focus{border-bottom-color:var(--acc);background:#070d1a;border-radius:2px}
 .sp-jog-btn{background:#0f1e2e;color:var(--acc);border:1px solid var(--acc);border-radius:3px;
   padding:4px 6px;font-family:inherit;font-size:.75em;cursor:pointer}
@@ -324,11 +324,13 @@ input[type=range].ss::-webkit-slider-thumb{-webkit-appearance:none;width:12px;he
 .stl-vis-btn:hover { opacity:0.7; }
 .stl-vis-btn svg { display:block; }
 
-/* Platz fuer Spinner-Buttons */
-input[type=number] { padding-right: 18px !important; box-sizing: border-box; }
+/* Spinner ausblenden — native Spinner ueberlagern Text */
 input[type=number]::-webkit-outer-spin-button,
 input[type=number]::-webkit-inner-spin-button {
-  opacity: 1;
-  width: 16px;
-  cursor: pointer;
+  -webkit-appearance: none;
+  margin: 0;
+}
+input[type=number] {
+  -moz-appearance: textfield;
+  appearance: textfield;
 }
