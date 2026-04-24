@@ -2950,25 +2950,58 @@ function showEpIKSolutions(x,y,z,a,b,cv) {
 }
 
 function applyEpSolution(angles) {
-  // Apply the joint angles
-  applyAngles(angles);
+  // Roboter auf neue Gelenkwinkel bewegen
+  tweenToAngles(angles, 500);
 
-  // The stored position keeps its original XYZABC —
-  // but update the KRL code with the exact same coordinates (no drift)
-  if (selectedPosIdx !== null) {
-    var pos = parsedData.positions[selectedPosIdx];
-    if (pos) {
-      // Reflect the new angles in the edit panel IK score
-      var res = {ok: true, score: 0, angles: angles};
-      var fkResult = fkAll(angles);
-      var tcp = fkResult.pts[7];
-      // Update edit panel to show FK result for verification
-      document.getElementById('rb-fk').textContent = '0.00';
-      // Write position back to KRL with the ORIGINAL coordinates (not FK result)
-      // This preserves the exact target point
-      writeBackPosition(selectedPosIdx, pos.X, pos.Y, pos.Z, pos.A, pos.B, pos.C);
-    }
+  if (selectedPosIdx === null) return;
+  var pos = parsedData.positions[selectedPosIdx];
+  if (!pos) return;
+
+  // FK berechnen um neue A,B,C Orientierung zu ermitteln
+  var fkResult = fkAll(angles);
+  var R = fkResult.tcp_rot;
+
+  // ZYX Euler aus Rotationsmatrix (KUKA-Konvention)
+  var B2 = -Math.asin(Math.max(-1, Math.min(1, R[2][0])));
+  var cb2 = Math.cos(B2);
+  var A2, C2;
+  if (Math.abs(cb2) > 1e-6) {
+    A2 = Math.atan2(R[1][0]/cb2, R[0][0]/cb2);
+    C2 = Math.atan2(R[2][1]/cb2, R[2][2]/cb2);
+  } else {
+    A2 = 0;
+    C2 = Math.atan2(-R[1][2], R[1][1]);
   }
+  function toDeg(v) {
+    var d = v * 180 / Math.PI;
+    while (d >  180) d -= 360;
+    while (d <= -180) d += 360;
+    return d;
+  }
+  var newA = toDeg(A2), newB = toDeg(B2), newC = toDeg(C2);
+
+  // TCP-Position aus FK (X,Y,Z bleiben so erhalten)
+  var tcp = fkResult.pts[7];
+  var newX = tcp[0], newY = tcp[1], newZ = tcp[2];
+
+  // Edit-Panel Felder aktualisieren
+  document.getElementById('ep-x').value = newX.toFixed(3);
+  document.getElementById('ep-y').value = newY.toFixed(3);
+  document.getElementById('ep-z').value = newZ.toFixed(3);
+  document.getElementById('ep-a').value = newA.toFixed(3);
+  document.getElementById('ep-b').value = newB.toFixed(3);
+  document.getElementById('ep-c').value = newC.toFixed(3);
+
+  // Gespeicherte Position aktualisieren
+  parsedData.positions[selectedPosIdx] = Object.assign({}, pos, {
+    X: newX, Y: newY, Z: newZ, A: newA, B: newB, C: newC
+  });
+
+  // IK-Tabelle für diese Position aktualisieren
+  ikTable[selectedPosIdx] = { angles: angles, score: 0, ok: true };
+
+  // FK-Fehler anzeigen
+  document.getElementById('rb-fk').textContent = '0.00';
 }
 
 function writeBackPosition(idx, x, y, z, a, b, c) {
