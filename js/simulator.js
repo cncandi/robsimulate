@@ -1039,7 +1039,7 @@ function loadProgram() {
 let ampAxis = 'A6';          // which axis to show
 let ampMap = null;           // Float32Array [cols × rows]: 0=valid,1=limit,2=singular,3=unreachable
 let ampCols = 0, ampRows = 180;
-let ampUserPath = [];        // user-defined angle per column (null = auto)
+let ampUserPath = [];        // user-defined angle per column - persistent
 let ampAutoPath = [];        // auto-optimized angle per column
 let ampDragging = false;
 
@@ -1136,13 +1136,26 @@ function ampBuild() {
     }
   }
 
-  // User path: current A6 values along trajectory
+  // Auto path aus aktuellen Trajektorie-Winkeln
   ampAutoPath = [];
   for (let col=0; col<COLS; col++) {
     const tidx=Math.round(col/(COLS-1)*(trajectory.length-1));
     ampAutoPath.push(trajectory[tidx].angles[5]);
   }
-  ampUserPath = ampAutoPath.slice();
+  // UserPath NUR überschreiben wenn noch kein Weg vorhanden oder Größe passt nicht
+  if (!ampUserPath.length || ampUserPath.length !== COLS) {
+    ampUserPath = ampAutoPath.slice();
+  } else {
+    // Vorhandenen Weg auf neue Spaltenzahl interpolieren
+    var oldPath = ampUserPath.slice();
+    var oldLen  = oldPath.length;
+    // ampUserPath bleibt erhalten beim Schließen
+    for (var ci = 0; ci < COLS; ci++) {
+      var f = ci / Math.max(1, COLS-1) * (oldLen-1);
+      var i0 = Math.floor(f), i1 = Math.min(i0+1, oldLen-1);
+      ampUserPath.push(oldPath[i0] + (oldPath[i1]-oldPath[i0])*(f-i0));
+    }
+  }
 
   ampDraw(canvas, W, H);
   ampBuildXAxis(COLS, totalDist);
@@ -1330,8 +1343,7 @@ function ampApplyPath() {
   document.getElementById('amp-info').textContent = 'IK wird neu berechnet…';
 
   // Für jeden Trajektorie-Schritt: A6-Zielwert aus Map → IK neu lösen
-  // So bleiben X,Y,Z exakt erhalten und nur die Achswinkel ändern sich
-  setTimeout(() => {
+  {
     let errCount = 0;
     for (let tidx = 0; tidx < trajectory.length; tidx++) {
       if (!trajectory[tidx]) continue;
@@ -1387,18 +1399,15 @@ function ampApplyPath() {
 
     ta.value = lines.join('\n');
 
-    // Neu parsen damit Simulation die neuen Werte kennt
-    parsedData = parseKRL(ta.value);
-    computeIKTable(parsedData.positions);
-    buildScene(parsedData.positions);
-    renderPositions(parsedData.positions);
+    // Sofort neu parsen
+    parseAndLoad();
 
     const msg = errCount > 0
       ? '✓ Pfad übernommen (' + errCount + ' Schritte ohne IK-Konvergenz)'
       : '✓ Pfad übernommen · X/Y/Z-Endpunkte exakt erhalten';
     setStatus('paused', 'A6-Pfad übernommen');
     document.getElementById('amp-info').textContent = msg;
-  }, 10);
+  }
 }
 
 // Mouse interaction on canvas
