@@ -1721,6 +1721,48 @@ document.getElementById('btn-tcp-trace').addEventListener('click', function(){
 // ═══════════════════════════════════════════════════
 let ikTable = []; // [{angles, ok, score}] per position
 
+
+// Schneller IK für Kandidaten-Generierung (weniger Iterationen)
+function solveIKFast(tx, ty, tz, ta, tb, tc, initAngles) {
+  var clamp = function(v,lo,hi){ return Math.max(lo,Math.min(hi,v)); };
+  var tp = [tx, ty, tz];
+  var Rt = rotZYX(ta, tb, tc);
+  var dt = 0.4, lam = 0.8, tolP = 1.0, tolO = 1.0;
+  var q = initAngles ? initAngles.slice() : jointAngles.slice();
+  var bestScore = Infinity, bestQ = q.slice();
+  for (var iter = 0; iter < 80; iter++) {
+    var e = err6(q, tp, Rt);
+    var eP = Math.sqrt(e[0]*e[0]+e[1]*e[1]+e[2]*e[2]);
+    var eO = Math.sqrt(e[3]*e[3]+e[4]*e[4]+e[5]*e[5]);
+    var score = eP + eO;
+    if (score < bestScore) { bestScore = score; bestQ = q.slice(); }
+    if (eP < tolP && eO < tolO) break;
+    var J = [];
+    for (var i = 0; i < 6; i++) {
+      var q1 = q.slice(); q1[i] += dt;
+      var e1 = err6(q1, tp, Rt);
+      J.push([(e1[0]-e[0])/dt,(e1[1]-e[1])/dt,(e1[2]-e[2])/dt,
+               (e1[3]-e[3])/dt,(e1[4]-e[4])/dt,(e1[5]-e[5])/dt]);
+    }
+    var JtJ = Array.from({length:6}, function(){ return Array(6).fill(0); });
+    var Jte = Array(6).fill(0);
+    for (var i = 0; i < 6; i++) {
+      for (var r = 0; r < 6; r++) {
+        Jte[i] += J[i][r] * e[r];
+        for (var j = 0; j < 6; j++) JtJ[i][j] += J[i][r] * J[j][r];
+      }
+      JtJ[i][i] += lam;
+    }
+    var dq = solve6x6(JtJ, Jte);
+    var step = Math.min(2.0, 8.0 / Math.max(1, bestScore));
+    for (var i = 0; i < 6; i++) {
+      if (!isFinite(dq[i])) continue;
+      q[i] = clamp(q[i] - step*dq[i], JOINTS_DEF[i].min, JOINTS_DEF[i].max);
+    }
+  }
+  return { angles: bestQ, score: bestScore, ok: bestScore < 25 };
+}
+
 // ── Globaler DP-Planer (nach Redundanzoptimierung-PDF) ────────
 // Kostenfunktion: A4/A5 teuer, A6 kontinuierlich, Limits/Singularitäten bestrafen
 function ikCost(from, to) {
@@ -1747,31 +1789,31 @@ function ikCost(from, to) {
 function ikCandidates(pos, prevAngles) {
   var cands = [];
   // A6 aus Planlinie als primären Startwert verwenden
-  var a6Plan = 0;
+  var a6Plan = prevAngles[5];
   if (ampUserPath.length > 0 && parsedData.positions.length > 0) {
     var posIdx_hint = parsedData.positions.indexOf(pos);
     if (posIdx_hint < 0) posIdx_hint = 0;
     var planCol = Math.round(posIdx_hint / Math.max(1, parsedData.positions.length-1) * (ampCols-1));
     planCol = Math.max(0, Math.min(ampCols-1, planCol));
-    a6Plan = ampUserPath[planCol] !== undefined ? ampUserPath[planCol] : prevAngles[5];
-  } else {
-    a6Plan = prevAngles[5];
+    if (ampUserPath[planCol] !== undefined) a6Plan = ampUserPath[planCol];
   }
-  // Planlinie-Start: prevAngles mit A6 aus Plan
+  // Nur 2 A6-Kacheln: aktuell + benachbarte 360°-Kopie
   var planStart = prevAngles.slice(); planStart[5] = a6Plan;
-  var a6Offsets = [0, 360, -360];  // A6 periodisch: aktuelle + ±1 Umdrehung
+  var planStart360 = prevAngles.slice(); planStart360[5] = a6Plan + 360;
+  var planStartN360 = prevAngles.slice(); planStartN360[5] = a6Plan - 360;
+  var a6Offsets = [0];  // Kachelung nur via Starts, nicht als Loop
   var baseStarts = [
-    planStart,           // Planlinie als erster Versuch
-    prevAngles,
-    [0,-90,90,0,a6Plan,0], [0,-90,90,0,-45,0],
-    [180,-90,90,0,0,0], [0,-120,110,0,-45,0], [0,-60,60,0,-45,0],
+    planStart,      // Plan-A6: wichtigster Kandidat
+    prevAngles,     // Kontinuität vom Vorgänger
+    planStart360,   // A6 + 360
+    planStartN360,  // A6 - 360
   ];
   var seen = [];
   for (var oi = 0; oi < a6Offsets.length; oi++) {
     for (var si = 0; si < baseStarts.length; si++) {
       var start = baseStarts[si].slice();
       start[5] += a6Offsets[oi];  // A6 kacheln
-      var res = solveIK(pos.X, pos.Y, pos.Z, pos.A, pos.B, pos.C, start);
+      var res = solveIKFast(pos.X, pos.Y, pos.Z, pos.A, pos.B, pos.C, start);
       if (!res.ok) continue;
       // Normalisiere auf kürzesten Weg vom Vorgänger
       var ang = res.angles.map(function(v, i) {
@@ -2657,9 +2699,15 @@ function frame(ts){
     applySimT(newT);
   }
   renderer.render(scene,activeCam);
-  // Achsenkarte Cursor live updaten wenn sichtbar
+  // Achsenkarte Cursor: nur bei Änderung updaten
   var ampPanel = document.getElementById('axis-map-panel');
-  if (ampPanel && ampPanel.classList.contains('visible')) ampUpdateCursor();
+  if (ampPanel && ampPanel.classList.contains('visible')) {
+    if (typeof _lastCursorT === 'undefined') window._lastCursorT = -1;
+    if (Math.abs(sim.t - window._lastCursorT) > 0.01) {
+      window._lastCursorT = sim.t;
+      ampUpdateCursor();
+    }
+  }
 }
 requestAnimationFrame(frame);
 
