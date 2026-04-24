@@ -2774,10 +2774,10 @@ function togglePedestalMesh() {
 var SETTINGS_KEY = 'robsim_settings';
 
 var defaultSettings = {
-  fzEditor:  13,
-  fzUi:      11,
-  fzPanel:   11,
-  fzStatus:  10
+  fzEditor: 17,
+  fzUi:     17,
+  fzPanel:  17,
+  fzStatus: 17
 };
 
 function loadSettings() {
@@ -2789,10 +2789,10 @@ function loadSettings() {
 
 function saveSettings() {
   var s = {
-    fzEditor: parseInt(document.getElementById('fz-editor').value) || 13,
-    fzUi:     parseInt(document.getElementById('fz-ui').value)     || 11,
-    fzPanel:  parseInt(document.getElementById('fz-panel').value)  || 11,
-    fzStatus: parseInt(document.getElementById('fz-status').value) || 10
+    fzEditor: parseInt(document.getElementById('fz-editor').value) || 17,
+    fzUi:     parseInt(document.getElementById('fz-ui').value)     || 17,
+    fzPanel:  parseInt(document.getElementById('fz-panel').value)  || 17,
+    fzStatus: parseInt(document.getElementById('fz-status').value) || 17
   };
   try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(s)); } catch(e) {}
   applyFZ();
@@ -2826,43 +2826,45 @@ function fzWheel(e, inp) {
 }
 
 function applyFZ() {
-  var fzE = parseInt(document.getElementById('fz-editor').value);
-  var fzU = parseInt(document.getElementById('fz-ui').value);
-  var fzP = parseInt(document.getElementById('fz-panel').value);
-  var fzS = parseInt(document.getElementById('fz-status').value);
+  var fzE = parseInt(document.getElementById('fz-editor').value) || 17;
+  var fzU = parseInt(document.getElementById('fz-ui').value)     || 17;
+  var fzP = parseInt(document.getElementById('fz-panel').value)  || 17;
+  var fzS = parseInt(document.getElementById('fz-status').value) || 17;
 
-  // Editor
+  // Editor + Gutter
   var codeEl = document.getElementById('code-input');
   if (codeEl) { codeEl.style.fontSize = fzE + 'px'; codeEl.style.lineHeight = Math.round(fzE * 1.6) + 'px'; }
+  var gut = document.getElementById('gutter');
+  if (gut) { gut.style.fontSize = fzE + 'px'; gut.style.lineHeight = Math.round(fzE * 1.6) + 'px'; }
 
-  // Toolbar + Buttons + Header
-  document.querySelectorAll('.tb,.sbtn,.slbl,.sv,.sstatus,header,.htag').forEach(function(el) {
-    el.style.fontSize = fzU + 'px';
-  });
-
-  // Steuerungspanel + Einstellungsfenster (floating panels = UI-Schrift)
+  // Alles mit fontSize setzen via universellen Ansatz:
+  // Toolbar, Buttons, Header, alle Labels
   document.querySelectorAll(
-    '#steuer-panel,#steuer-panel .sp-hdr-title,#steuer-panel .sp-axis-row,' +
-    '#steuer-panel .sp-sec-title,#steuer-panel .sp-tcp-grid,#steuer-panel .sp-jog-btn,' +
-    '#steuer-panel .sp-axis-val,#steuer-panel .sp-axis-inp,' +
-    '#settings-panel,#settings-panel .sp-hdr-title,#settings-panel .sp-axis-row'
+    '.tb, .sbtn, .slbl, .sv, .sstatus, header, .htag, ' +
+    '.vbtn, #view-bar, #parse-btn, #parse-area'
   ).forEach(function(el) { el.style.fontSize = fzU + 'px'; });
 
-  // Achsenkarte
-  document.querySelectorAll('#axis-map-panel,#amp-hdr,#amp-title,.amp-tab,.amp-legend-lbl,.amp-sbtn,.amp-info')
-    .forEach(function(el) { el.style.fontSize = fzU + 'px'; });
-
-  // Rechtes Info-Panel
+  // Alle floating Panels (Steuerung, Einstellungen, Hilfe, Achsenkarte)
   document.querySelectorAll(
-    '.info-panel,.sec-t,.sec-b,.pt,.stl-lbl,.stl-inp,.stl-unit,' +
-    '.cfg-lbl,.cfg-row,.pc,.pf,.vr,.sr,.ar,.ep-grid,.ep-lbl,.ep-inp,.ep-unit'
-  ).forEach(function(el) { el.style.fontSize = fzP + 'px'; });
+    '#steuer-panel *, #settings-panel *, #help-panel *, #axis-map-panel *,' +
+    '#steuer-panel, #settings-panel, #help-panel, #axis-map-panel'
+  ).forEach(function(el) { el.style.fontSize = fzU + 'px'; });
+
+  // Rechtes Info-Panel: alle Kindelemente
+  var ip = document.getElementById('info-panel');
+  if (ip) {
+    ip.style.fontSize = fzP + 'px';
+    ip.querySelectorAll('*').forEach(function(el) { el.style.fontSize = ''; });
+    // Reset dann gezielt setzen
+    ip.querySelectorAll(
+      '.sec-t,.sec-b,.pt,label,.stl-lbl,.stl-inp,.stl-unit,.cfg-lbl,.cfg-row,' +
+      '.pc,.pf,.vr,.sr,.ar,.ep-grid,.ep-lbl,.ep-inp,.ep-unit,input,select,button,span,div'
+    ).forEach(function(el) { el.style.fontSize = fzP + 'px'; });
+  }
 
   // Statusleiste + Roboterbar
-  document.querySelectorAll('#robot-bar,.rb-val,.rb-dim,.scene-hint,#marker-info')
+  document.querySelectorAll('#robot-bar, #robot-bar *, .rb-val, .rb-dim, .scene-hint, #marker-info')
     .forEach(function(el) { el.style.fontSize = fzS + 'px'; });
-
-
 }
 
 function initSettings() {
