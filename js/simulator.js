@@ -1213,13 +1213,7 @@ function ampDraw(canvas, W, H) {
   }
   ctx.stroke();
 
-  // Current sim position (orange vertical)
-  if (parsedData.positions.length > 1) {
-    const tFrac = sim.t / (parsedData.positions.length - 1);
-    const px = tFrac * (W-1);
-    ctx.strokeStyle='#f05500'; ctx.lineWidth=1.5;
-    ctx.beginPath(); ctx.moveTo(px,0); ctx.lineTo(px,H); ctx.stroke();
-  }
+  // Cursor drawn on amp-cursor overlay canvas
 
   // First and last control points (draggable diamonds)
   // Zone shading for drag areas
@@ -1247,6 +1241,7 @@ function ampDraw(canvas, W, H) {
   }
   drawCtrlPt(0,           '#00ff88', 'P1 ↕');
   drawCtrlPt(ampCols-1,   '#00aaff', 'Pn ↕');
+  ampUpdateCursor();
 }
 
 function ampBuildXAxis(cols, totalDistMm) {
@@ -2524,6 +2519,59 @@ function updateTween(dt) {
   if (_tween.t >= _tween.duration) _tween = null;
 }
 
+
+// ── Achsenkarte Cursor (Simulations-Position) ─────────────────
+function ampUpdateCursor() {
+  var cc = document.getElementById('amp-cursor');
+  var mc = document.getElementById('amp-canvas');
+  if (!cc || !mc || !ampCols) return;
+  var W = mc.width, H = mc.height;
+  if (!W || !H) return;
+  cc.width  = W;
+  cc.height = H;
+  cc.style.width  = mc.style.width  || W + 'px';
+  cc.style.height = mc.style.height || H + 'px';
+
+  var ctx = cc.getContext('2d');
+  ctx.clearRect(0, 0, W, H);
+
+  var N = parsedData.positions.length;
+  if (N < 2) return;
+
+  var tFrac = sim.t / (N - 1);
+  var px = tFrac * (W - 1);
+
+  // Aktuelle A6-Position aus ikTable
+  var idx = Math.min(Math.round(sim.t), N-1);
+  var curA6 = (ikTable[idx] && ikTable[idx].ok) ? ikTable[idx].angles[5] : null;
+
+  // Vertikale Linie
+  ctx.strokeStyle = 'rgba(255,240,0,0.9)';
+  ctx.lineWidth = 2;
+  ctx.setLineDash([5, 4]);
+  ctx.beginPath(); ctx.moveTo(px, 0); ctx.lineTo(px, H); ctx.stroke();
+  ctx.setLineDash([]);
+
+  // Punkt auf der aktuellen A6-Position
+  if (curA6 !== null) {
+    var py = H - ((curA6 - A6_MIN) / (A6_MAX - A6_MIN)) * H;
+    py = Math.max(4, Math.min(H-4, py));
+    ctx.fillStyle = '#ffee00';
+    ctx.strokeStyle = '#000';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.arc(px, py, 5, 0, Math.PI * 2);
+    ctx.fill(); ctx.stroke();
+  }
+
+  // Positions-Label oben
+  ctx.fillStyle = 'rgba(255,240,0,0.85)';
+  ctx.font = 'bold 10px monospace';
+  var label = '#' + (idx+1) + '/' + N;
+  var tx = Math.min(px + 4, W - ctx.measureText(label).width - 2);
+  ctx.fillText(label, tx, 11);
+}
+
 let lastTs=null;
 function frame(ts){
   requestAnimationFrame(frame);
@@ -2545,6 +2593,9 @@ function frame(ts){
     applySimT(newT);
   }
   renderer.render(scene,activeCam);
+  // Achsenkarte Cursor live updaten wenn sichtbar
+  var ampPanel = document.getElementById('axis-map-panel');
+  if (ampPanel && ampPanel.classList.contains('visible')) ampUpdateCursor();
 }
 requestAnimationFrame(frame);
 
