@@ -3529,7 +3529,8 @@ function initSettings() {
   var s = loadSettings();
   applySettingsToUI(s);
   applyFZ();
-  applyVisualSettings();
+  // applyVisualSettings nach DOM-Ready
+  setTimeout(function(){ applyVisualSettings(); }, 200);
 }
 
 function toggleSettings() {
@@ -3605,11 +3606,34 @@ function resetAll() {
   updateCamera();
 }
 
-parseAndLoad();
+var _defaultKRL = `DEF NONAME()
+GLOBAL INTERRUPT DECL 3 WHEN $STOPMESS==TRUE DO IR_STOPM ( )
+INTERRUPT ON 3
+BAS (#INITMOV,0)
+$CIRC_TYPE = #PATH
+BAS (#VEL_PTP,20)
+BAS (#ACC_PTP,20)
+$APO.CDIS = 0.5000
+$BASE = $WORLD
+$ACT_BASE=0
+$TOOL=TOOL_DATA[1]
+$ACT_TOOL=1
+LIN {X 1200, Y -200, Z 800, A 180, B 0, C 180} C_DIS
+$VEL.CP=0
+$BASE = $WORLD
+$ACT_BASE=0
+$advance=5
+$VEL.CP=0.167
+LIN {X 1200, Y -200, Z 810, A 180, B 0, C 180} C_DIS
+END
+`;
 
-// STL nach vollständigem Laden der Seite (inkl. Three.js CDN)
-// STL wird manuell per '↺ STL' Button geladen
-// Settings nach vollständigem DOM-Load anwenden
+var ta0 = document.getElementById('code-input');
+if (ta0) ta0.value = _defaultKRL;
+
+parseAndLoad();
+applyLang();
+
 window.addEventListener('load', function() {
   initSettings();
 });
