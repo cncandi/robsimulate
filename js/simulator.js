@@ -1691,21 +1691,137 @@ document.getElementById('btn-tcp-trace').addEventListener('click', function(){
 // ═══════════════════════════════════════════════════
 let ikTable = []; // [{angles, ok, score}] per position
 
+// ── Globaler DP-Planer (nach Redundanzoptimierung-PDF) ────────
+// Kostenfunktion: A4/A5 teuer, A6 kontinuierlich, Limits/Singularitäten bestrafen
+function ikCost(from, to) {
+  if (!from || !to) return 1e9;
+  var W = [1, 1, 1, 8, 8, 1];  // A4/A5 hoch gewichten
+  var cost = 0;
+  for (var i = 0; i < 6; i++) {
+    var d = shortestAngleDiff(from[i], to[i]);
+    cost += W[i] * Math.abs(d);
+  }
+  // Limit-Penalty: Strafe bei Nähe zu Achsgrenzen
+  for (var j = 0; j < 6; j++) {
+    var lim = JOINTS_DEF[j];
+    var margin = Math.min(to[j] - lim.min, lim.max - to[j]);
+    if (margin < 10) cost += (10 - margin) * 5;
+  }
+  // Singularitäts-Penalty: A5 nahe 0
+  var a5 = Math.abs(to[4]);
+  if (a5 < 15) cost += (15 - a5) * 10;
+  return cost;
+}
+
+// Generiert mehrere IK-Kandidaten pro Position (A6 periodisch gekachelt)
+function ikCandidates(pos, prevAngles) {
+  var cands = [];
+  var a6Offsets = [0, 360, -360];  // A6 periodisch: aktuelle + ±1 Umdrehung
+  var baseStarts = [
+    prevAngles,
+    [0,-90,90,0,0,0], [0,-90,90,0,-45,0],
+    [180,-90,90,0,0,0], [0,-120,110,0,-45,0], [0,-60,60,0,-45,0],
+  ];
+  var seen = [];
+  for (var oi = 0; oi < a6Offsets.length; oi++) {
+    for (var si = 0; si < baseStarts.length; si++) {
+      var start = baseStarts[si].slice();
+      start[5] += a6Offsets[oi];  // A6 kacheln
+      var res = solveIK(pos.X, pos.Y, pos.Z, pos.A, pos.B, pos.C, start);
+      if (!res.ok) continue;
+      // Normalisiere auf kürzesten Weg vom Vorgänger
+      var ang = res.angles.map(function(v, i) {
+        return prevAngles[i] + shortestAngleDiff(prevAngles[i], v);
+      });
+      // Duplikat-Check (0.5° Toleranz pro Achse)
+      var isDup = seen.some(function(s) {
+        return s.every(function(v, i) { return Math.abs(v - ang[i]) < 0.5; });
+      });
+      if (isDup) continue;
+      // Harte Grenzen prüfen (mit 5° Sicherheitsabstand)
+      var inLimits = ang.every(function(v, i) {
+        return v >= JOINTS_DEF[i].min + 5 && v <= JOINTS_DEF[i].max - 5;
+      });
+      if (!inLimits) continue;
+      seen.push(ang);
+      cands.push({ angles: ang, score: res.score });
+    }
+  }
+  return cands;
+}
+
 function computeIKTable(positions) {
   ikTable = [];
-  let prevAngles = jointAngles.slice();  // start from current robot pose
-  for (const pos of positions) {
-    const res = solveIK(pos.X, pos.Y, pos.Z, pos.A, pos.B, pos.C, prevAngles);
-    // Normalize angles to minimize total joint travel from previous pose
-    if (res.ok) {
-      res.angles = res.angles.map(function(v, i) {
-        var diff = shortestAngleDiff(prevAngles[i], v);
-        return prevAngles[i] + diff;
-      });
-    }
-    ikTable.push(res);
-    if (res.ok) prevAngles = res.angles.slice();
+  var N = positions.length;
+  if (!N) {
+    buildTrajectory(positions, ikTable);
+    return;
   }
+
+  // Schritt 1: Kandidaten für jede Position generieren
+  var allCands = [];
+  var prevAngles = jointAngles.slice();
+  for (var i = 0; i < N; i++) {
+    var cands = ikCandidates(positions[i], prevAngles);
+    if (!cands.length) {
+      // Fallback: normaler Solver
+      var res = solveIK(positions[i].X, positions[i].Y, positions[i].Z,
+                        positions[i].A, positions[i].B, positions[i].C, prevAngles);
+      cands = [{ angles: res.angles, score: res.score }];
+    }
+    allCands.push(cands);
+    if (cands.length) prevAngles = cands[0].angles.slice();
+  }
+
+  // Schritt 2: Dynamic Programming — globaler Pfad
+  var INF = 1e12;
+  // dp[i][j] = { cost, prevJ }
+  var dp = allCands.map(function(c) {
+    return c.map(function() { return { cost: INF, prevJ: -1 }; });
+  });
+
+  // Init: erste Position kostet 0
+  for (var j0 = 0; j0 < allCands[0].length; j0++) {
+    dp[0][j0].cost = ikCost(jointAngles, allCands[0][j0].angles);
+  }
+
+  // Forward pass
+  for (var i = 1; i < N; i++) {
+    for (var j = 0; j < allCands[i].length; j++) {
+      for (var k = 0; k < allCands[i-1].length; k++) {
+        var c = dp[i-1][k].cost + ikCost(allCands[i-1][k].angles, allCands[i][j].angles);
+        if (c < dp[i][j].cost) {
+          dp[i][j].cost = c;
+          dp[i][j].prevJ = k;
+        }
+      }
+    }
+  }
+
+  // Backward pass: besten Endpunkt finden
+  var bestJ = 0, bestCost = INF;
+  for (var j = 0; j < allCands[N-1].length; j++) {
+    if (dp[N-1][j].cost < bestCost) {
+      bestCost = dp[N-1][j].cost;
+      bestJ = j;
+    }
+  }
+
+  // Pfad zurückverfolgen
+  var path = new Array(N);
+  var cur = bestJ;
+  for (var i = N-1; i >= 0; i--) {
+    path[i] = cur;
+    cur = dp[i][cur].prevJ;
+    if (cur < 0) cur = 0;
+  }
+
+  // IK-Tabelle aus DP-Pfad aufbauen
+  for (var i = 0; i < N; i++) {
+    var cand = allCands[i][path[i]];
+    ikTable.push({ angles: cand.angles, score: cand.score, ok: cand.score < 20 });
+  }
+
   // Build trajectory after IK table is ready
   buildTrajectory(positions, ikTable);
   // Rebuild axis map if open
