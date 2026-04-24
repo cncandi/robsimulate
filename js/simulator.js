@@ -1413,26 +1413,34 @@ function ampApplyPath() {
     for (let tidx = 0; tidx < trajectory.length; tidx++) {
       if (!trajectory[tidx]) continue;
 
-      // A6-Zielwert interpoliert aus Map-Pfad
+      // A6-Zielwert aus Map-Pfad (bogenlaengen-interpoliert)
       const colF = tidx / Math.max(1,trajectory.length-1) * (ampCols-1);
       const col0 = Math.floor(colF), col1 = Math.min(col0+1, ampCols-1);
       const frac = colF - col0;
       const a6target = ampUserPath[col0] + (ampUserPath[col1]-ampUserPath[col0]) * frac;
+      const a6clamped = Math.max(JOINTS_DEF[5].min, Math.min(JOINTS_DEF[5].max, a6target));
 
-      // IK-Init: aktuelle Winkel, A6 zum Zielwert biegen
-      const init = trajectory[tidx].angles.slice();
-      init[5] = Math.max(JOINTS_DEF[5].min, Math.min(JOINTS_DEF[5].max, a6target));
-
-      // Original-TCP-Position bleibt Ziel
+      // Strategie: A6 direkt setzen, A4 kompensiert die Differenz
+      // (haelt Wrist-Orientierung konstant: delta_A4 = -delta_A6)
+      const curAngles = trajectory[tidx].angles.slice();
+      const deltaA6 = a6clamped - curAngles[5];
+      const newAngles = curAngles.slice();
+      newAngles[5] = a6clamped;
+      // A4-Kompensation (Wrist-Redundanz)
+      const a4new = curAngles[3] - deltaA6;
+      if (a4new >= JOINTS_DEF[3].min && a4new <= JOINTS_DEF[3].max) {
+        newAngles[3] = a4new;
+      }
+      // Feinkorrektur: IK mit festem A6 startend
       const pos = trajectory[tidx].pos;
-      const res = solveIK(pos.X, pos.Y, pos.Z, pos.A, pos.B, pos.C, init);
-
-      if (res.ok) {
+      const res = solveIK(pos.X, pos.Y, pos.Z, pos.A, pos.B, pos.C, newAngles);
+      if (res.ok && Math.abs(res.angles[5] - a6clamped) < 15) {
+        // IK-Lösung nahe am gewünschten A6 → übernehmen
         trajectory[tidx].angles = res.angles;
       } else {
+        // IK weicht zu stark ab → direkte Winkel verwenden
+        trajectory[tidx].angles = newAngles;
         errCount++;
-        // Fallback: nur A6 direkt setzen ohne IK
-        trajectory[tidx].angles[5] = init[5];
       }
     }
 
