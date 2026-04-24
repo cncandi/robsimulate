@@ -2017,10 +2017,52 @@ function ikCandidates(pos, prevAngles) {
 function computeIKTable(positions) {
   ikTable = [];
   var N = positions.length;
-  if (!N) {
-    buildTrajectory(positions, ikTable);
+  if (!N) { buildTrajectory(positions, ikTable); return; }
+
+  // ── DPSolver ─────────────────────────────────────────────
+  try {
+    // Arc-length s for each position
+    var arcS = [0];
+    for (var pi = 1; pi < N; pi++) {
+      var p0=positions[pi-1], p1=positions[pi];
+      var dx=p1.X-p0.X, dy=p1.Y-p0.Y, dz=p1.Z-p0.Z;
+      arcS.push(arcS[pi-1]+Math.sqrt(dx*dx+dy*dy+dz*dz));
+    }
+    var targetPts = positions.map(function(p,i){ return {s:arcS[i],X:p.X,Y:p.Y,Z:p.Z,A:p.A,B:p.B,C:p.C}; });
+    var qStart = jointAngles.slice();
+    var result = DPSolver.plan(targetPts, qStart);
+
+    // Fill ikTable from raw path
+    for (var pi2 = 0; pi2 < N; pi2++) {
+      var rp = result.rawPath[pi2] || result.rawPath[result.rawPath.length-1];
+      ikTable.push({ angles: rp.q.slice(), ok: true, score: 0 });
+    }
+
+    // Build trajectory from smoothed path
+    trajectory = [];
+    for (var si = 0; si < result.smoothedPath.length; si++) {
+      var sp = result.smoothedPath[si];
+      // Map s → position via interpolation
+      var s = sp.s;
+      var total = arcS[arcS.length-1] || 1;
+      var frac = s / total;
+      var posIdx = Math.min(Math.floor(frac * (N-1)), N-1);
+      trajectory.push({ pos: positions[posIdx], angles: sp.q.slice(), segIdx: posIdx });
+    }
+    trajMax = Math.max(0, trajectory.length-1);
+    trajectoryRef = trajectory.map(function(t){ return {pos:t.pos, angles:t.angles.slice()}; });
+
+    // Path line
+    pathGrp.clear();
+    var pts3 = positions.map(function(p){ return new THREE.Vector3(p.X,p.Y,p.Z); });
+    if(pts3.length>1) pathGrp.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts3), new THREE.LineBasicMaterial({color:0x1a3050})));
     return;
+
+  } catch(e) {
+    console.warn('DPSolver Fehler, Fallback:', e.message);
   }
+
+  // ── Fallback: alter DP-Planer ─────────────────────────────
 
   // Schritt 1: Kandidaten für jede Position generieren
   var allCands = [];
@@ -2445,6 +2487,20 @@ function lerpAngles(a, b, f) {
 // Each entry: {pos:{X,Y,Z,A,B,C}, angles:[6], segIdx:int}
 // segIdx = index in parsedData.positions of destination point
 let trajectory = [];   // built once on parseAndLoad
+
+// ── DPSolver initialisieren ───────────────────────────────────
+(function() {
+  DPSolver.fkFn = function(q) { return fkAll(q); };
+  DPSolver.solveIKFn = function(x,y,z,a,b,c,init) { return solveIK(x,y,z,a,b,c,init); };
+  DPSolver.singFn = function(q) {
+    var m = computeManipulability(q);
+    return Math.max(0, 1.0 - m.condition / 1000.0);
+  };
+  DPSolver.limits = JOINTS_DEF.map(function(j){ return {min:j.min, max:j.max}; });
+  DPSolver.settings.wAxes = [1,1,1,4,5,0.25];
+  DPSolver.settings.a6Copies = [-1,0,1];
+  DPSolver.settings.smoothSamples = 150;
+})();
 let trajectoryRef = [];  // Referenz-Trajektorie für Map (unveränderlich)
 let trajMax = 0;       // trajectory.length - 1
 
