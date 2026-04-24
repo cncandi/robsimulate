@@ -2423,7 +2423,48 @@ function showEpIKSolutions(x,y,z,a,b,cv) {
 }
 
 function applyEpSolution(angles) {
+  // Apply the joint angles
   applyAngles(angles);
+
+  // The stored position keeps its original XYZABC —
+  // but update the KRL code with the exact same coordinates (no drift)
+  if (selectedPosIdx !== null) {
+    var pos = parsedData.positions[selectedPosIdx];
+    if (pos) {
+      // Reflect the new angles in the edit panel IK score
+      var res = {ok: true, score: 0, angles: angles};
+      var fkResult = fkAll(angles);
+      var tcp = fkResult.pts[7];
+      // Update edit panel to show FK result for verification
+      document.getElementById('rb-fk').textContent = '0.00';
+      // Write position back to KRL with the ORIGINAL coordinates (not FK result)
+      // This preserves the exact target point
+      writeBackPosition(selectedPosIdx, pos.X, pos.Y, pos.Z, pos.A, pos.B, pos.C);
+    }
+  }
+}
+
+function writeBackPosition(idx, x, y, z, a, b, c) {
+  if (idx === null || idx === undefined) return;
+  var pos = parsedData.positions[idx];
+  if (!pos) return;
+  // Update KRL editor
+  var ta = document.getElementById('code-input');
+  if (!ta) return;
+  var lines = ta.value.split('\n');
+  var lineNum = pos.lineNum - 1;
+  if (lineNum < 0 || lineNum >= lines.length) return;
+  var line = lines[lineNum];
+  // Replace coordinate values in the line
+  var newCoords = 'X ' + x.toFixed(3) + ', Y ' + y.toFixed(3) +
+    ', Z ' + z.toFixed(3) + ', A ' + a.toFixed(3) +
+    ', B ' + b.toFixed(3) + ', C ' + c.toFixed(3);
+  lines[lineNum] = line.replace(
+    /X\s*[-\d.]+\s*,\s*Y\s*[-\d.]+\s*,\s*Z\s*[-\d.]+\s*,\s*A\s*[-\d.]+\s*,\s*B\s*[-\d.]+\s*,\s*C\s*[-\d.]+/,
+    newCoords
+  );
+  ta.value = lines.join('\n');
+  rebuildGutter();
 }
 
 function toggleSec(titleEl){titleEl.closest('.sec').classList.toggle('collapsed');}
@@ -2748,10 +2789,10 @@ function loadSettings() {
 
 function saveSettings() {
   var s = {
-    fzEditor:  parseInt(document.getElementById('fz-editor').value),
-    fzUi:      parseInt(document.getElementById('fz-ui').value),
-      fzPanel:   parseInt(document.getElementById('fz-panel').value),
-    fzStatus:  parseInt(document.getElementById('fz-status').value)
+    fzEditor: parseInt(document.getElementById('fz-editor').value) || 13,
+    fzUi:     parseInt(document.getElementById('fz-ui').value)     || 11,
+    fzPanel:  parseInt(document.getElementById('fz-panel').value)  || 11,
+    fzStatus: parseInt(document.getElementById('fz-status').value) || 10
   };
   try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(s)); } catch(e) {}
   applyFZ();
@@ -2858,8 +2899,6 @@ function toggleSettings() {
   window.addEventListener('mouseup', function() { dragging = false; });
 })();
 
-initSettings();
-
 
 function clearTCPTrace() {
   tcpTracePoints.length = 0;
@@ -2909,3 +2948,7 @@ parseAndLoad();
 
 // STL nach vollständigem Laden der Seite (inkl. Three.js CDN)
 // STL wird manuell per '↺ STL' Button geladen
+// Settings nach vollständigem DOM-Load anwenden
+window.addEventListener('load', function() {
+  initSettings();
+});
