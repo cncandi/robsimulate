@@ -49,7 +49,6 @@
   <div class="sep"></div>
   <button class="sbtn" id="btn-bg" title="Hintergrund wechseln" data-i18n="bg">◑ Hintergrund</button>
     <button class="sbtn" onclick="toggleSettings()" title="Einstellungen" data-i18n="settings">⚙ Einst.</button>
-    <button class="sbtn" onclick="loadDefaultSTLs();loadDefaultSceneSTLs();" title="STL Modelle neu laden" data-i18n="stlload">↺ STL</button>
     <button class="sbtn" onclick="clearTCPTrace()" title="TCP Trace loeschen" data-i18n="clrtrace">✕ Trace</button>
     <button class="sbtn r" onclick="resetAll()" title="Alles zuruecksetzen" data-i18n="reset">⟳ Reset</button>
   <button class="sbtn" id="btn-steuer" onclick="toggleSteuerPanel()" title="Steuerungspanel">🖥 Status</button>
@@ -180,10 +179,13 @@
           <input id="kin-name" class="stl-inp" type="text" value="KR8 R1420 HW" style="flex:1;font-size:.82em" placeholder="Name der Kinematik" data-i18n="kin_name_placeholder" data-i18n-attr="placeholder">
           <button class="sbtn" onclick="newKinematic()" title="Neue leere Kinematik">+Neu</button>
         </div>
-        <div style="display:flex;gap:4px;margin-bottom:8px">
-          <button class="sbtn" onclick="saveKinematic()" style="flex:1">💾 Speichern</button>
-          <button class="sbtn" onclick="loadKinematic()" style="flex:1">📂 Laden</button>
+        <div style="display:flex;gap:4px;margin-bottom:6px">
+          <button class="sbtn" onclick="saveKinematic()" style="flex:1" data-i18n="save">💾 Speichern</button>
+          <button class="sbtn" onclick="loadKinematic()" style="flex:1" data-i18n="load">📂 Laden</button>
           <input type="file" id="kin-file-in" accept=".json,.xml" style="display:none">
+        </div>
+        <div style="display:flex;gap:4px;margin-bottom:8px">
+          <button class="sbtn" onclick="loadDefaultSTLs();loadDefaultSceneSTLs();" style="flex:1;background:rgba(240,85,0,.15);border-color:var(--acc)" data-i18n="stlload">↺ STL laden</button>
         </div>
         <div style="font-size:.85em;color:var(--txt3);margin-bottom:4px;padding:0 2px;font-weight:bold">Achsgrenzen [°]</div>
         <div id="kin-section" style="scroll-margin-top:4px"></div>
@@ -340,23 +342,27 @@
     <div class="sp-sec-title" data-i18n="fontsizes">Schriftgrössen</div>
     <div class="sp-axis-row">
       <span style="flex:1;color:#c8d8e8;font-size:1em" data-i18n="fz_editor">Editor (Code)</span>
-      <input type="range" min="9" max="50" step="1" id="fz-editor" oninput="applyFZ()" style="width:80px;accent-color:var(--acc)">
-      <span class="sp-axis-val" id="fz-editor-v">13</span>
+      <input type="number" min="9" max="50" step="1" id="fz-editor"
+        oninput="applyFZ()" onwheel="fzWheel(event,this)"
+        style="width:54px;background:var(--bg3);color:var(--acc);border:1px solid var(--bdr);border-radius:3px;padding:2px 4px;text-align:right;font-size:.95em;font-family:inherit" value="13">
     </div>
     <div class="sp-axis-row">
       <span style="flex:1;color:#c8d8e8;font-size:1em" data-i18n="fz_ui">Toolbar / Buttons</span>
-      <input type="range" min="8" max="50" step="1" id="fz-ui" oninput="applyFZ()" style="width:80px;accent-color:var(--acc)">
-      <span class="sp-axis-val" id="fz-ui-v">11</span>
+      <input type="number" min="8" max="50" step="1" id="fz-ui"
+        oninput="applyFZ()" onwheel="fzWheel(event,this)"
+        style="width:54px;background:var(--bg3);color:var(--acc);border:1px solid var(--bdr);border-radius:3px;padding:2px 4px;text-align:right;font-size:.95em;font-family:inherit" value="11">
     </div>
     <div class="sp-axis-row">
       <span style="flex:1;color:#c8d8e8;font-size:1em" data-i18n="fz_panel">Parameter rechts</span>
-      <input type="range" min="8" max="50" step="1" id="fz-panel" oninput="applyFZ()" style="width:80px;accent-color:var(--acc)">
-      <span class="sp-axis-val" id="fz-panel-v">11</span>
+      <input type="number" min="8" max="50" step="1" id="fz-panel"
+        oninput="applyFZ()" onwheel="fzWheel(event,this)"
+        style="width:54px;background:var(--bg3);color:var(--acc);border:1px solid var(--bdr);border-radius:3px;padding:2px 4px;text-align:right;font-size:.95em;font-family:inherit" value="11">
     </div>
     <div class="sp-axis-row">
       <span style="flex:1;color:#c8d8e8;font-size:1em" data-i18n="fz_status">Statusleiste</span>
-      <input type="range" min="8" max="50" step="1" id="fz-status" oninput="applyFZ()" style="width:80px;accent-color:var(--acc)">
-      <span class="sp-axis-val" id="fz-status-v">10</span>
+      <input type="number" min="8" max="50" step="1" id="fz-status"
+        oninput="applyFZ()" onwheel="fzWheel(event,this)"
+        style="width:54px;background:var(--bg3);color:var(--acc);border:1px solid var(--bdr);border-radius:3px;padding:2px 4px;text-align:right;font-size:.95em;font-family:inherit" value="10">
     </div>
     <hr class="sp-divider">
     <div class="sp-axis-row">

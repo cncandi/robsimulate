@@ -644,21 +644,19 @@ document.getElementById('btn-robot3d').addEventListener('click', function(){
   if(!showRobot3D){ buildRobotModel(jointAngles); } else buildRobotModel(jointAngles);
 });
 function toggleProjection(){
-  const isPersp = activeCam === perspCam;
+  var isPersp = activeCam === perspCam;
   if(isPersp){
-    // switch to ortho — use current view direction
+    // Wechsel zu Ortho — aktuelle View-Richtung beibehalten (ISO bleibt ISO)
     activeCam = orthoCam;
-    if(currentView === 'iso') currentView = 'front';
-    document.querySelectorAll('.vbtn').forEach(b=>b.classList.remove('on'));
-    (function(){var _e=document.getElementById('vb-'+currentView);if(_e)_e.classList.add('on');})();
-    document.getElementById('btn-persp').textContent='⊞ Ortho';
+    // currentView unverändert lassen
+    document.getElementById('btn-persp').setAttribute('data-i18n','ortho');
+    document.getElementById('btn-persp').textContent = t('ortho');
     document.getElementById('btn-persp').classList.remove('on');
   } else {
     activeCam = perspCam;
-    currentView = 'iso';
-    document.querySelectorAll('.vbtn').forEach(b=>b.classList.remove('on'));
-    (function(){var _e=document.getElementById('vb-iso');if(_e)_e.classList.add('on');})();
-    document.getElementById('btn-persp').textContent='⊡ Perspektiv';
+    // currentView unverändert lassen
+    document.getElementById('btn-persp').setAttribute('data-i18n','persp');
+    document.getElementById('btn-persp').textContent = t('persp');
     document.getElementById('btn-persp').classList.add('on');
   }
   updateCamera();resize();
@@ -2772,10 +2770,18 @@ function applySettingsToUI(s) {
   };
   Object.entries(fields).forEach(function(kv) {
     var el = document.getElementById(kv[0]);
-    if (el) { el.value = kv[1]; }
-    var vEl = document.getElementById(kv[0]+'-v');
-    if (vEl) vEl.textContent = kv[1] + 'px';
+    if (el) el.value = kv[1];
   });
+}
+
+function fzWheel(e, inp) {
+  e.preventDefault();
+  var delta = e.deltaY < 0 ? 1 : -1;
+  var val = parseInt(inp.value) + delta;
+  var mn = parseInt(inp.min) || 8;
+  var mx = parseInt(inp.max) || 50;
+  inp.value = Math.max(mn, Math.min(mx, val));
+  applyFZ();
 }
 
 function applyFZ() {
@@ -2815,12 +2821,7 @@ function applyFZ() {
   document.querySelectorAll('#robot-bar,.rb-val,.rb-dim,.scene-hint,#marker-info')
     .forEach(function(el) { el.style.fontSize = fzS + 'px'; });
 
-  // Slider-Werte aktualisieren
-  ['fz-editor','fz-ui','fz-panel','fz-status'].forEach(function(id) {
-    var sl = document.getElementById(id);
-    var vl = document.getElementById(id+'-v');
-    if (sl && vl) vl.textContent = sl.value + 'px';
-  });
+
 }
 
 function initSettings() {
@@ -2873,16 +2874,10 @@ function resetAll() {
   applyAngles(jointAngles);
   // TCP Trace löschen
   clearTCPTrace();
-  // Editor zurücksetzen
-  var ta = document.getElementById('code-input');
-  if (ta) {
-    ta.value = 'DEF NONAME()\n\nEND';
-    rebuildGutter();
-  }
   // Simulation stoppen
   pauseSim();
   setStatus('stopped', 'STOPPED');
-  // Positionen leeren
+  // Positionen/Variablen leeren
   parsedData = {positions:[], steps:[], finalState:{variables:{},digitalIn:{},digitalOut:{},analogOut:{}}};
   ikTable = [];
   trajectory = [];
@@ -2896,6 +2891,18 @@ function resetAll() {
   // Deselect
   deselectPosition();
   markerGrp.visible = false;
+  // TCP zurücksetzen
+  TCP_DEF = {x:364.5, y:0, z:46.5, a:0, b:90, c:0};
+  document.getElementById('tcp-x').value = 364.5;
+  document.getElementById('tcp-y').value = 0;
+  document.getElementById('tcp-z').value = 46.5;
+  document.getElementById('tcp-a').value = 0;
+  document.getElementById('tcp-b').value = 90;
+  document.getElementById('tcp-c').value = 0;
+  // Kamera auf ISO
+  currentView = 'iso';
+  activeCam = perspCam;
+  updateCamera();
 }
 
 parseAndLoad();
