@@ -102,7 +102,7 @@ input[type=range].ss::-webkit-slider-thumb{-webkit-appearance:none;width:12px;he
 
 
 /* ── Achsenkarte ────────────────────────────── */
-#axis-map-panel{position:fixed;bottom:0;left:0;right:0;height:320px;
+#axis-map-panel{position:fixed;bottom:0;height:320px;
   background:#0a1525;border-top:2px solid var(--acc);z-index:30;
   display:none;flex-direction:column;font-family:'Consolas','Courier New',monospace}
 #axis-map-panel.visible{display:flex}

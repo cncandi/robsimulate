@@ -1043,9 +1043,21 @@ let ampUserPath = [];        // user-defined angle per column - persistent
 let ampAutoPath = [];        // auto-optimized angle per column
 let ampDragging = false;
 
+
+// ── Achsenkarte auf Viewport ausrichten ───────────────────────
+function ampAlignToViewport() {
+  var panel = document.getElementById('axis-map-panel');
+  if (!panel) return;
+  var vp = document.querySelector('.vp');
+  if (!vp) return;
+  var r = vp.getBoundingClientRect();
+  panel.style.left  = r.left + 'px';
+  panel.style.width = r.width + 'px';
+}
 function toggleAxisMap() {
   const p = document.getElementById('axis-map-panel');
   p.classList.toggle('visible');
+  if (p.classList.contains('visible')) ampAlignToViewport();
   document.getElementById('btn-axmap').classList.toggle('on', p.classList.contains('visible'));
   if (p.classList.contains('visible') && trajectory.length > 0) {
     setTimeout(ampBuild, 50);
@@ -1988,6 +2000,7 @@ function setView(view){
 }
 
 function resize(){
+  ampAlignToViewport();
   const vp=canvas.parentElement;const w=vp.clientWidth,h=vp.clientHeight;
   renderer.setSize(w,h);perspCam.aspect=w/h;perspCam.updateProjectionMatrix();
   const asp=w/h;orthoCam.left=-orthoHalfSize*asp;orthoCam.right=orthoHalfSize*asp;
