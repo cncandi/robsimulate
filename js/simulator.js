@@ -1772,7 +1772,7 @@ function raycastPositions(e){
   if(!hits.length)return null;
   let grp=hits[0].object;
   while(grp.parent&&grp.parent!==posGrp)grp=grp.parent;
-  return grp.userData.posIdx!==undefined?arguments[0]:null;
+  return grp.userData.posIdx!==undefined?grp.userData.posIdx:null;
 }
 
 canvas.addEventListener('mousedown',e=>{
