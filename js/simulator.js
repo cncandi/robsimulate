@@ -1239,32 +1239,32 @@ function ampDraw(canvas, W, H) {
     ctx.fillStyle='#fff'; ctx.font='bold 11px monospace';
     ctx.fillText(label, px2+13, py2+4);
   }
-  // Alle Zielpunkte als Punkte in der Map
-  if (ikTable.length > 0 && parsedData.positions.length > 1) {
+  // Alle Zielpunkte als Punkte auf der Planlinie
+  if (ampUserPath.length > 0 && parsedData.positions.length > 1) {
     var N_pts = parsedData.positions.length;
     for (var pi = 0; pi < N_pts; pi++) {
-      var ik = ikTable[pi];
-      if (!ik || !ik.ok) continue;
-      var a6 = ik.angles[5];
       var pxP = (pi / (N_pts - 1)) * (W - 1);
+      // A6 von der Planlinie (nicht vom IK-Solver) — Punkt liegt IMMER auf der Linie
+      var col_idx = Math.round(pi / Math.max(1, N_pts-1) * (ampCols-1));
+      col_idx = Math.max(0, Math.min(ampCols-1, col_idx));
+      var a6 = ampUserPath[col_idx] !== undefined ? ampUserPath[col_idx] : 0;
       var pyP = H - ((a6 - A6_MIN) / (A6_MAX - A6_MIN)) * H;
       pyP = Math.max(3, Math.min(H-3, pyP));
-      // Farbe je nach Status
-      var col_idx = Math.round(pi / Math.max(1, N_pts-1) * (ampCols-1));
+      // Farbe je nach Bereichsstatus an dieser Stelle
       var row_idx = Math.round((a6 - A6_MIN) / (A6_MAX - A6_MIN) * (ampRows-1));
       row_idx = Math.max(0, Math.min(ampRows-1, row_idx));
       var status = ampMap ? (ampMap[col_idx * ampRows + row_idx] || 0) : 0;
       var dotColor = status === 0 ? '#00ddaa' : status === 1 ? '#ff60c0' : status === 2 ? '#ff8800' : '#ff3030';
       ctx.fillStyle = dotColor;
-      ctx.strokeStyle = 'rgba(0,0,0,0.6)';
-      ctx.lineWidth = 1;
+      ctx.strokeStyle = 'rgba(0,0,0,0.7)';
+      ctx.lineWidth = 1.5;
       ctx.beginPath();
-      ctx.arc(pxP, pyP, 4, 0, Math.PI * 2);
+      ctx.arc(pxP, pyP, 5, 0, Math.PI * 2);
       ctx.fill(); ctx.stroke();
-      // Positionsnummer als kleines Label
-      ctx.fillStyle = 'rgba(255,255,255,0.7)';
-      ctx.font = '8px monospace';
-      ctx.fillText(pi + 1, pxP + 5, pyP - 3);
+      // Positionsnummer
+      ctx.fillStyle = 'rgba(255,255,255,0.8)';
+      ctx.font = 'bold 8px monospace';
+      ctx.fillText(pi + 1, pxP + 6, pyP - 3);
     }
   }
   drawCtrlPt(0,           '#00ff88', 'P1 ↕');
@@ -1739,10 +1739,24 @@ function ikCost(from, to) {
 // Generiert mehrere IK-Kandidaten pro Position (A6 periodisch gekachelt)
 function ikCandidates(pos, prevAngles) {
   var cands = [];
+  // A6 aus Planlinie als primären Startwert verwenden
+  var a6Plan = 0;
+  if (ampUserPath.length > 0 && parsedData.positions.length > 0) {
+    var posIdx_hint = parsedData.positions.indexOf(pos);
+    if (posIdx_hint < 0) posIdx_hint = 0;
+    var planCol = Math.round(posIdx_hint / Math.max(1, parsedData.positions.length-1) * (ampCols-1));
+    planCol = Math.max(0, Math.min(ampCols-1, planCol));
+    a6Plan = ampUserPath[planCol] !== undefined ? ampUserPath[planCol] : prevAngles[5];
+  } else {
+    a6Plan = prevAngles[5];
+  }
+  // Planlinie-Start: prevAngles mit A6 aus Plan
+  var planStart = prevAngles.slice(); planStart[5] = a6Plan;
   var a6Offsets = [0, 360, -360];  // A6 periodisch: aktuelle + ±1 Umdrehung
   var baseStarts = [
+    planStart,           // Planlinie als erster Versuch
     prevAngles,
-    [0,-90,90,0,0,0], [0,-90,90,0,-45,0],
+    [0,-90,90,0,a6Plan,0], [0,-90,90,0,-45,0],
     [180,-90,90,0,0,0], [0,-120,110,0,-45,0], [0,-60,60,0,-45,0],
   ];
   var seen = [];
@@ -2599,10 +2613,12 @@ function ampUpdateCursor() {
   var tx = Math.min(px + 4, W - ctx.measureText(label).width - 2);
   ctx.fillText(label, tx, 11);
 
-  // Aktuellen Zielpunkt hervorheben
-  if (ikTable[idx] && ikTable[idx].ok) {
-    var a6cur = ikTable[idx].angles[5];
-    var pyCur = H - ((a6cur - A6_MIN) / (A6_MAX - A6_MIN)) * H;
+  // Aktuellen Zielpunkt auf Planlinie hervorheben
+  if (ampUserPath.length > 0 && N > 1) {
+    var planCol2 = Math.round(idx / Math.max(1,N-1) * (ampCols-1));
+    planCol2 = Math.max(0, Math.min(ampCols-1, planCol2));
+    var a6plan2 = ampUserPath[planCol2] !== undefined ? ampUserPath[planCol2] : 0;
+    var pyCur = H - ((a6plan2 - A6_MIN) / (A6_MAX - A6_MIN)) * H;
     pyCur = Math.max(6, Math.min(H-6, pyCur));
     ctx.fillStyle = 'rgba(255,240,0,0.3)';
     ctx.strokeStyle = '#ffee00';
