@@ -264,7 +264,7 @@ const tcpTraceGrp=new THREE.Group();scene.add(tcpTraceGrp);
 const markerGrp=new THREE.Group();scene.add(markerGrp);
 const markerVisuals=new THREE.Group();markerGrp.add(markerVisuals);
 {
-  const sp=new THREE.Mesh(new THREE.SphereGeometry(28,12,12),new THREE.MeshBasicMaterial({color:0xffffff,transparent:true,opacity:.9}));
+  const sp=new THREE.Mesh(new THREE.SphereGeometry(28,12,12),new THREE.MeshBasicMaterial({color:0xf05500,transparent:true,opacity:.9}));
   markerVisuals.add(sp);
   const ring=new THREE.Mesh(new THREE.TorusGeometry(36,5,6,24),new THREE.MeshBasicMaterial({color:0xff6600}));
   ring.rotation.x=Math.PI/2;markerVisuals.add(ring);
@@ -276,7 +276,7 @@ const selSphere=new THREE.Mesh(new THREE.SphereGeometry(34,12,12),new THREE.Mesh
 selSphere.visible=false;scene.add(selSphere);
 
 const TYPE_COL={LIN:0xf05500,PTP:0xffaa00,SLIN:0x00aaff,CIRC:0xaa44ff,CIRC_AUX:0x445566};
-let frameSize=120,sphereSize=18;
+let frameSize=40,sphereSize=7;
 let traceLineWidth=2, pathLineWidth=2;  // Linienstärken
 // SVG Icons für Visibility-Zustände
 var svgIconSolid  = '<svg viewBox="0 0 24 24" width="16" height="16"><circle cx="12" cy="12" r="10" fill="#f58220"/></svg>';
