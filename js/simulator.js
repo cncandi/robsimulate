@@ -3059,7 +3059,7 @@ function renderPositions(positions){
         ${ikHtml}
       </div></div>`;
   }).join('');
-  positions.forEach((_,i)=>{(function(){var _e=document.getElementById('pcard-'+i);if(_e)_e.addEventListener('click',function(){selectPosition(i);pauseSim();applySimT(i);setStatus('paused','PAUSED');});})();;});
+  positions.forEach((_,i)=>{(function(){var _e=document.getElementById('pcard-'+i);if(_e)_e.addEventListener('click',function(){pauseSim();setStatus('paused','PAUSED');selectPosition(i);});})();;});
 }
 
 function updatePosCards(activeIdx){document.querySelectorAll('.pc').forEach((el,i)=>el.classList.toggle('sim-cur',i===activeIdx));(function(){var _e=document.getElementById('pcard-'+activeIdx);if(_e)_e.scrollIntoView({block:'nearest',behavior:'smooth'});})();;}
