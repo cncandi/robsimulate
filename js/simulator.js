@@ -261,6 +261,21 @@ const robotGrp=new THREE.Group();scene.add(robotGrp);
 const tcpTraceGrp=new THREE.Group();scene.add(tcpTraceGrp);
 
 // Simulation marker (white sphere + CS arrows, like KUKA sim)
+
+// BASE Koordinatensystem (Weltkoordinaten)
+const baseFrameGrp = new THREE.Group();
+(function() {
+  var sz = 150;
+  var dirs = [[1,0,0,0xff3333],[0,1,0,0x33ff33],[0,0,1,0x3388ff]];
+  dirs.forEach(function(d) {
+    baseFrameGrp.add(new THREE.ArrowHelper(
+      new THREE.Vector3(d[0],d[1],d[2]),
+      new THREE.Vector3(0,0,0),
+      sz, d[3], sz*.2, sz*.1
+    ));
+  });
+})();
+scene.add(baseFrameGrp);
 const markerGrp=new THREE.Group();scene.add(markerGrp);
 const markerVisuals=new THREE.Group();markerGrp.add(markerVisuals);
 {
@@ -302,7 +317,7 @@ function makeFrame(pos){
 }
 
 function rebuildFrames(){
-  posGrp.clear();
+  posGrp.clear(); posGrp.visible = showPosFrames;
   parsedData.positions.forEach((pos,i)=>{const g=makeFrame(pos);g.userData.posIdx=i;posGrp.add(g);});
   if(selectedPosIdx!==null){const p=parsedData.positions[selectedPosIdx];if(p)selSphere.position.set(p.X,p.Y,p.Z);}
   markerVisuals.scale.setScalar(frameSize/120);
@@ -348,6 +363,9 @@ const axisSTLBase64  = [null,null,null,null,null,null];
 const axisPivots     = [];   // THREE.Group per axis (hierarchical chain)
 let pedestalMesh     = null;
 let showSkeleton     = true;
+let showPosFrames    = true;   // Zielkoordinatensysteme (posGrp)
+let showBaseFrame    = true;   // BASE Koordinatensystem
+let showTCPMarker    = true;   // TCP Frame (markerVisuals)
 let showSTLRobot     = true;
 let showToolMesh     = true;
 let showPedestalMesh = true;
@@ -2801,7 +2819,7 @@ window.addEventListener('keydown',e=>{
 // PATH BUILDING
 // ═══════════════════════════════════════════════════
 function buildScene(positions){
-  posGrp.clear();pathGrp.clear();tcpTraceGrp.clear();tcpTracePoints.length=0;
+  posGrp.clear(); posGrp.visible = showPosFrames;pathGrp.clear();tcpTraceGrp.clear();tcpTracePoints.length=0;
   visitedLine=null;markerGrp.visible=false;selSphere.visible=false;
   if(!positions.length)return;
   const pts=positions.map(p=>new THREE.Vector3(p.X,p.Y,p.Z));
