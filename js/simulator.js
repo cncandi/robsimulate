@@ -3967,6 +3967,30 @@ function bindSettingsEvents() {
   bind('cfg-show-tcpmarker',  'change', function(){ if(this.checked!==showTCPMarker) toggleTCPMarker(); });
 }
 
+
+// ── Editor Sprache: KUKA / DRCODE ────────────────────────────
+var editorLang = 'kuka';
+
+function setEditorLang(lang) {
+  editorLang = lang;
+  var btnKuka   = document.getElementById('btn-lang-kuka');
+  var btnDrcode = document.getElementById('btn-lang-drcode');
+  var label     = document.getElementById('editor-lang-label');
+  if (lang === 'kuka') {
+    if (btnKuka)   { btnKuka.style.background   = 'var(--acc)'; btnKuka.style.color   = '#fff'; }
+    if (btnDrcode) { btnDrcode.style.background = 'transparent'; btnDrcode.style.color = 'var(--txt3)'; }
+    if (label) label.textContent = 'KRL Programm';
+    // DRCODE → KUKA Konvertierung (wird später implementiert)
+    // convertDRCodeToKuka();
+  } else {
+    if (btnDrcode) { btnDrcode.style.background = 'var(--acc)'; btnDrcode.style.color   = '#fff'; }
+    if (btnKuka)   { btnKuka.style.background   = 'transparent'; btnKuka.style.color = 'var(--txt3)'; }
+    if (label) label.textContent = 'DRCODE Programm';
+    // KUKA → DRCODE Konvertierung (wird später implementiert)
+    // convertKukaToDRCode();
+  }
+}
+
 parseAndLoad();
 
 // STL nach vollständigem Laden der Seite (inkl. Three.js CDN)

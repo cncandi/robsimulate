@@ -60,7 +60,16 @@
 <div class="main">
   <!-- EDITOR -->
   <div class="ep">
-    <div class="pt">KRL Programm <span style="color:var(--txt3);text-transform:none;font-size:1.1em">— Zeile klicken = Breakpoint</span></div>
+    <div class="pt" style="display:flex;align-items:center;gap:8px">
+      <span id="editor-lang-label">KRL Programm</span>
+      <span style="color:var(--txt3);text-transform:none;font-size:1.1em;flex:1">— Zeile klicken = Breakpoint</span>
+      <div id="editor-lang-toggle" style="display:flex;background:var(--bg3);border:1px solid var(--bdr);border-radius:4px;overflow:hidden;flex-shrink:0">
+        <button id="btn-lang-kuka" onclick="setEditorLang('kuka')"
+          style="padding:2px 10px;border:none;background:var(--acc);color:#fff;font-family:inherit;font-size:.85em;cursor:pointer;font-weight:bold">KUKA</button>
+        <button id="btn-lang-drcode" onclick="setEditorLang('drcode')"
+          style="padding:2px 10px;border:none;background:transparent;color:var(--txt3);font-family:inherit;font-size:.85em;cursor:pointer">DRCODE</button>
+      </div>
+    </div>
     <div class="ew">
       <div id="gutter"></div>
       <textarea id="code-input" spellcheck="false" wrap="off"></textarea>
