@@ -2737,7 +2737,7 @@ function buildTrajectory(positions, ikTab) {
     const progPts = parsedData.positions.map(p => new THREE.Vector3(p.X, p.Y, p.Z));
     pathGrp.add(new THREE.Line(
       new THREE.BufferGeometry().setFromPoints(progPts),
-      new THREE.LineBasicMaterial({color:0x1a3050})
+      new THREE.LineBasicMaterial({color:hexToInt((document.getElementById('cfg-planned-col')||{value:'#1a3050'}).value)})
     ));
   }
 }
@@ -3049,7 +3049,7 @@ function buildScene(positions){
   visitedLine=null;markerGrp.visible=false;selSphere.visible=false;
   if(!positions.length)return;
   const pts=positions.map(p=>new THREE.Vector3(p.X,p.Y,p.Z));
-  if(pts.length>1)pathGrp.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts),new THREE.LineBasicMaterial({color:0x1a3050,linewidth:pathLineWidth})));
+  if(pts.length>1)pathGrp.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts),new THREE.LineBasicMaterial({color:hexToInt((document.getElementById('cfg-planned-col')||{value:'#1a3050'}).value),linewidth:pathLineWidth})));
   positions.forEach((pos,i)=>{const g=makeFrame(pos);g.userData.posIdx=i;posGrp.add(g);});
   const box=new THREE.Box3();pts.forEach(p=>box.expandByPoint(p));
   const ctr=new THREE.Vector3();box.getCenter(ctr);const span=box.getSize(new THREE.Vector3()).length();
@@ -3949,7 +3949,9 @@ function bindSettingsEvents() {
   bind('cfg-tcp-col',   'change', function(){ tcpColor=hexToInt(this.value);   buildRobotModel(jointAngles); });
   bind('cfg-path-col',  'input',  function(){ pathCol=hexToInt(this.value); buildScene(parsedData.positions); });
   bind('cfg-path-col',  'change', function(){ pathCol=hexToInt(this.value); buildScene(parsedData.positions); });
-  bind('cfg-trace-col', 'input',  function(){ tcpTraceGrp.clear(); tcpTracePoints.length=0; });
+  bind('cfg-trace-col',   'input',  function(){ tcpTraceGrp.clear(); tcpTracePoints.length=0; });
+  bind('cfg-planned-col', 'input',  function(){ buildScene(parsedData.positions); });
+  bind('cfg-planned-col', 'change', function(){ buildScene(parsedData.positions); });
   bind('cfg-trace-col', 'change', function(){ tcpTraceGrp.clear(); tcpTracePoints.length=0; });
   // Sichtbarkeit
   bind('cfg-show-trace',      'change', function(){ showTCPTrace=this.checked; if(!showTCPTrace)tcpTraceGrp.clear(); var b=document.getElementById('btn-tcp-trace'); if(b)b.classList.toggle('on',this.checked); });
