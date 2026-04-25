@@ -3952,6 +3952,8 @@ function bindSettingsEvents() {
   bind('cfg-trace-col',   'input',  function(){ tcpTraceGrp.clear(); tcpTracePoints.length=0; });
   bind('cfg-planned-col', 'input',  function(){ buildScene(parsedData.positions); });
   bind('cfg-planned-col', 'change', function(){ buildScene(parsedData.positions); });
+  bind('cfg-show-tool',     'change', function(){ if(this.checked!==showToolMesh)    toggleToolMesh(); });
+  bind('cfg-show-pedestal', 'change', function(){ if(this.checked!==showPedestalMesh) togglePedestalMesh(); });
   bind('cfg-trace-col', 'change', function(){ tcpTraceGrp.clear(); tcpTracePoints.length=0; });
   // Sichtbarkeit
   bind('cfg-show-trace',      'change', function(){ showTCPTrace=this.checked; if(!showTCPTrace)tcpTraceGrp.clear(); var b=document.getElementById('btn-tcp-trace'); if(b)b.classList.toggle('on',this.checked); });

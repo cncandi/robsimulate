@@ -202,19 +202,8 @@
           <span id="pedestal-name" style="font-size:.7em;color:var(--txt3);align-self:center;overflow:hidden;white-space:nowrap;flex:2"></span>
           <input type="file" id="pedestal-stl-file" accept=".stl" style="display:none">
         </div>
-        <div style="display:flex;gap:4px;margin-top:4px">
-          <button class="sbtn on" id="btn-show-skeleton" onclick="toggleSkeleton()" style="flex:1" data-i18n="skeleton">Skelett</button>
-          <button class="sbtn on" id="btn-show-stl-robot" onclick="toggleSTLRobot()" style="flex:1" data-i18n="axstl">Achsen STL</button>
-        </div>
-        <div style="display:flex;gap:4px;margin-top:4px">
-          <button class="sbtn on" id="btn-show-posframes" onclick="togglePosFrames()" style="flex:1">Ziel KS</button>
-          <button class="sbtn on" id="btn-show-baseframe" onclick="toggleBaseFrame()" style="flex:1">BASE KS</button>
-          <button class="sbtn on" id="btn-show-tcpmarker" onclick="toggleTCPMarker()" style="flex:1">TCP Frame</button>
-        </div>
-        <div style="display:flex;gap:4px;margin-top:4px">
-          <button class="sbtn on" id="btn-show-tool" onclick="toggleToolMesh()" style="flex:1" data-i18n="toolstl2">Werkzeug STL</button>
-          <button class="sbtn on" id="btn-show-pedestal" onclick="togglePedestalMesh()" style="flex:1" data-i18n="pedstl">Podest STL</button>
-        </div>
+
+
       </div>
     </div>
     <!-- Robot Settings -->
@@ -394,6 +383,8 @@
     <div class="sp-axis-row"><span style="flex:1;color:#c8d8e8;font-size:1em">Ziel Koordinatensystem</span><input type="checkbox" id="cfg-show-posframes" checked style="width:18px;height:18px;accent-color:var(--acc)"></div>
     <div class="sp-axis-row"><span style="flex:1;color:#c8d8e8;font-size:1em">BASE Koordinatensystem</span><input type="checkbox" id="cfg-show-baseframe" checked style="width:18px;height:18px;accent-color:var(--acc)"></div>
     <div class="sp-axis-row"><span style="flex:1;color:#c8d8e8;font-size:1em">TCP Frame</span><input type="checkbox" id="cfg-show-tcpmarker" checked style="width:18px;height:18px;accent-color:var(--acc)"></div>
+    <div class="sp-axis-row"><span style="flex:1;color:#c8d8e8;font-size:1em">Werkzeug STL</span><input type="checkbox" id="cfg-show-tool" checked style="width:18px;height:18px;accent-color:var(--acc)"></div>
+    <div class="sp-axis-row"><span style="flex:1;color:#c8d8e8;font-size:1em">Podest STL</span><input type="checkbox" id="cfg-show-pedestal" checked style="width:18px;height:18px;accent-color:var(--acc)"></div>
     <hr class="sp-divider">
     <div class="sp-axis-row">
       <span style="flex:1;color:#c8d8e8;font-size:1em" data-i18n="lang_label">Sprache:</span>
