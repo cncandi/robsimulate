@@ -3698,11 +3698,14 @@ function applyFZ() {
   var fzP = parseInt(document.getElementById('fz-panel').value)  || 17;
   var fzS = parseInt(document.getElementById('fz-status').value) || 17;
 
-  // Editor + Gutter
+  // Editor + Gutter: CSS-Variablen setzen → alles synchron
+  var lh = Math.round(fzE * 1.6);
+  document.documentElement.style.setProperty('--fsz', fzE + 'px');
+  document.documentElement.style.setProperty('--lh',  lh  + 'px');
   var codeEl = document.getElementById('code-input');
-  if (codeEl) { codeEl.style.fontSize = fzE + 'px'; codeEl.style.lineHeight = Math.round(fzE * 1.6) + 'px'; }
+  if (codeEl) { codeEl.style.fontSize = fzE + 'px'; codeEl.style.lineHeight = lh + 'px'; }
   var gut = document.getElementById('gutter');
-  if (gut) { gut.style.fontSize = fzE + 'px'; gut.style.lineHeight = Math.round(fzE * 1.6) + 'px'; }
+  if (gut) { gut.style.fontSize = fzE + 'px'; gut.style.lineHeight = lh + 'px'; }
 
   // Alles mit fontSize setzen via universellen Ansatz:
   // Toolbar, Buttons, Header, alle Labels

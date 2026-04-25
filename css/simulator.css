@@ -54,7 +54,7 @@ input[type=range].ss::-webkit-slider-thumb{-webkit-appearance:none;width:12px;he
 .gl:hover{background:rgba(255,255,255,.02)}
 .gl.active{background:rgba(240,85,0,.15)}
 .gl.active .ln{color:var(--acc)}
-.ln{color:var(--txt3);font-size:.63em;flex:1;text-align:right;padding-right:3px}
+.ln{color:var(--txt3);font-size:1em;flex:1;text-align:right;padding-right:3px}
 .bpdot{width:8px;height:8px;border-radius:50%;flex-shrink:0;background:transparent}
 .gl.has-bp .bpdot{background:var(--err);box-shadow:0 0 4px #aa1111}
 .gl.can-bp:not(.has-bp):hover .bpdot{background:#442222}
