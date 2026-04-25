@@ -198,7 +198,7 @@ input[type=range].ss::-webkit-slider-thumb{-webkit-appearance:none;width:12px;he
 .ep-sol-ok{font-size:.8em;padding:0 4px;border-radius:2px}
 .ep-sol-ok.ok{background:rgba(0,160,50,.15);color:var(--ok)}
 .ep-sol-ok.lim{background:rgba(200,40,40,.1);color:var(--err)}
-#marker-info{position:absolute;bottom:28px;left:8px;background:rgba(240,85,0,.12);
+#marker-info{position:absolute;bottom:28px;right:8px;left:auto;background:rgba(240,85,0,.12);
   border:1px solid rgba(240,85,0,.35);padding:4px 8px;border-radius:3px;
   font-size:.69em;pointer-events:none;color:#f0a070;display:none}
 .scene-hint{position:absolute;bottom:8px;left:8px;background:rgba(0,0,0,.45);
