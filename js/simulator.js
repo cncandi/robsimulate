@@ -664,7 +664,8 @@ function rebuildTCPTrace() {
   tcpTraceGrp.clear();
   if (tcpTracePoints.length < 2) return;
   const geo = new THREE.BufferGeometry().setFromPoints(tcpTracePoints);
-  const col = hexToInt(document.getElementById('cfg-path-col').value);
+  var _traceColEl = document.getElementById('cfg-trace-col') || document.getElementById('cfg-path-col');
+  const col = hexToInt(_traceColEl.value);
   const mat = new THREE.LineBasicMaterial({color: col, opacity:.5, transparent:true, linewidth: traceLineWidth});
   tcpTraceGrp.add(new THREE.Line(geo, mat));
 }
@@ -3946,8 +3947,10 @@ function bindSettingsEvents() {
   bind('cfg-joint-col', 'change', function(){ jointColor=hexToInt(this.value); buildRobotModel(jointAngles); });
   bind('cfg-tcp-col',   'input',  function(){ tcpColor=hexToInt(this.value);   buildRobotModel(jointAngles); });
   bind('cfg-tcp-col',   'change', function(){ tcpColor=hexToInt(this.value);   buildRobotModel(jointAngles); });
-  bind('cfg-path-col',  'input',  function(){ pathCol=hexToInt(this.value);    buildScene(parsedData.positions); });
-  bind('cfg-path-col',  'change', function(){ pathCol=hexToInt(this.value);    buildScene(parsedData.positions); });
+  bind('cfg-path-col',  'input',  function(){ pathCol=hexToInt(this.value); buildScene(parsedData.positions); });
+  bind('cfg-path-col',  'change', function(){ pathCol=hexToInt(this.value); buildScene(parsedData.positions); });
+  bind('cfg-trace-col', 'input',  function(){ tcpTraceGrp.clear(); tcpTracePoints.length=0; });
+  bind('cfg-trace-col', 'change', function(){ tcpTraceGrp.clear(); tcpTracePoints.length=0; });
   // Sichtbarkeit
   bind('cfg-show-trace',      'change', function(){ showTCPTrace=this.checked; if(!showTCPTrace)tcpTraceGrp.clear(); var b=document.getElementById('btn-tcp-trace'); if(b)b.classList.toggle('on',this.checked); });
   bind('cfg-show-skeleton',   'change', function(){ if(this.checked!==showSkeleton) toggleSkeleton(); });
