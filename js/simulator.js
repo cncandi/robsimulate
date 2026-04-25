@@ -1,3 +1,22 @@
+
+// ── Splash Screen ─────────────────────────────────────────────
+function splashProgress(pct, msg) {
+  var bar = document.getElementById('splash-bar');
+  var txt = document.getElementById('splash-msg');
+  if (bar) bar.style.width = pct + '%';
+  if (txt && msg) txt.textContent = msg;
+}
+
+function splashHide() {
+  var el = document.getElementById('splash-screen');
+  if (!el) return;
+  el.style.transition = 'opacity .5s ease';
+  el.style.opacity = '0';
+  setTimeout(function(){ el.style.display = 'none'; }, 520);
+}
+
+// Schrittweise Progress während Initialisierung
+splashProgress(10, '3D Szene wird aufgebaut…');
 'use strict';
 // ═══════════════════════════════════════════════════
 // KUKA KR8 R1420 HW — KINEMATIK
@@ -3423,10 +3442,12 @@ document.getElementById('parse-btn').addEventListener('click',parseAndLoad);
 // ═══════════════════════════════════════════════════
 // INIT
 // ═══════════════════════════════════════════════════
+splashProgress(30, 'Kinematik wird geladen…');
 buildKinConfig();
 buildSteuerAxes();
 buildAxisSTLUI();
-buildRobotModel([0,-90,90,0,0,0]);  // show robot at home position
+splashProgress(60, 'Robotermodell wird erstellt…');
+buildRobotModel([0,-90,90,0,0,0]);
 
 document.getElementById('code-input').value=`DEF NONAME()
 GLOBAL INTERRUPT DECL 3 WHEN $STOPMESS==TRUE DO IR_STOPM ( )
@@ -3991,12 +4012,16 @@ function setEditorLang(lang) {
   }
 }
 
+splashProgress(80, 'Programm wird geparst…');
 parseAndLoad();
 
 // STL nach vollständigem Laden der Seite (inkl. Three.js CDN)
 // STL wird manuell per '↺ STL' Button geladen
 // Settings nach vollständigem DOM-Load anwenden
 window.addEventListener('load', function() {
+  splashProgress(95, 'Einstellungen werden geladen…');
   initSettings();
   bindSettingsEvents();
+  splashProgress(100, 'Bereit.');
+  setTimeout(splashHide, 400);
 });
