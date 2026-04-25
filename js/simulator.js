@@ -670,18 +670,12 @@ function rebuildTCPTrace() {
 }
 
 // Color update
-document.getElementById('cfg-link-col').addEventListener('input', function(){
-  robotColor=hexToInt(this.value); buildRobotModel(jointAngles);
-});
-document.getElementById('cfg-joint-col').addEventListener('input', function(){
-  jointColor=hexToInt(this.value); buildRobotModel(jointAngles);
-});
+
+
 document.getElementById('cfg-tcp-col').addEventListener('input', function(){
   tcpColor=hexToInt(this.value); buildRobotModel(jointAngles);
 });
-document.getElementById('cfg-show-trace').addEventListener('change', function(){
-  showTCPTrace=this.checked; if(!showTCPTrace)tcpTraceGrp.clear();
-});
+
 document.getElementById('btn-robot3d').addEventListener('click', function(){
   showRobot3D=!showRobot3D;this.classList.toggle('on',showRobot3D);
   if(!showRobot3D){ buildRobotModel(jointAngles); } else buildRobotModel(jointAngles);
@@ -3938,6 +3932,31 @@ function solveIKPrecise(tx, ty, tz, ta, tb, tc, initAngles) {
   return { angles: bestQ, score: bestScore, ok: bestScore < 5 };
 }
 
+
+// ── Settings-Listener (nach DOM-Ready gebunden) ──────────────
+function bindSettingsEvents() {
+  function bind(id, evt, fn) {
+    var el = document.getElementById(id);
+    if (el) el.addEventListener(evt, fn);
+  }
+  // Farben
+  bind('cfg-link-col',  'input',  function(){ robotColor=hexToInt(this.value); buildRobotModel(jointAngles); });
+  bind('cfg-link-col',  'change', function(){ robotColor=hexToInt(this.value); buildRobotModel(jointAngles); });
+  bind('cfg-joint-col', 'input',  function(){ jointColor=hexToInt(this.value); buildRobotModel(jointAngles); });
+  bind('cfg-joint-col', 'change', function(){ jointColor=hexToInt(this.value); buildRobotModel(jointAngles); });
+  bind('cfg-tcp-col',   'input',  function(){ tcpColor=hexToInt(this.value);   buildRobotModel(jointAngles); });
+  bind('cfg-tcp-col',   'change', function(){ tcpColor=hexToInt(this.value);   buildRobotModel(jointAngles); });
+  bind('cfg-path-col',  'input',  function(){ pathCol=hexToInt(this.value);    buildScene(parsedData.positions); });
+  bind('cfg-path-col',  'change', function(){ pathCol=hexToInt(this.value);    buildScene(parsedData.positions); });
+  // Sichtbarkeit
+  bind('cfg-show-trace',      'change', function(){ showTCPTrace=this.checked; if(!showTCPTrace)tcpTraceGrp.clear(); var b=document.getElementById('btn-tcp-trace'); if(b)b.classList.toggle('on',this.checked); });
+  bind('cfg-show-skeleton',   'change', function(){ if(this.checked!==showSkeleton) toggleSkeleton(); });
+  bind('cfg-show-stlrobot',   'change', function(){ if(this.checked!==showSTLRobot) toggleSTLRobot(); });
+  bind('cfg-show-posframes',  'change', function(){ if(this.checked!==showPosFrames) togglePosFrames(); });
+  bind('cfg-show-baseframe',  'change', function(){ if(this.checked!==showBaseFrame) toggleBaseFrame(); });
+  bind('cfg-show-tcpmarker',  'change', function(){ if(this.checked!==showTCPMarker) toggleTCPMarker(); });
+}
+
 parseAndLoad();
 
 // STL nach vollständigem Laden der Seite (inkl. Three.js CDN)
@@ -3945,4 +3964,5 @@ parseAndLoad();
 // Settings nach vollständigem DOM-Load anwenden
 window.addEventListener('load', function() {
   initSettings();
+  bindSettingsEvents();
 });
