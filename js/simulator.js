@@ -1114,14 +1114,15 @@ function toggleAxisMap() {
   if (p.classList.contains('visible')) ampAlignToViewport();
   document.getElementById('btn-axmap').classList.toggle('on', p.classList.contains('visible'));
   if (p.classList.contains('visible') && trajectory.length > 0) {
-    setTimeout(ampBuild, 50);
+    setTimeout(ampBuild, 50);  // auf Anforderung wenn Map geöffnet wird
   }
 }
 
 function setAmpAxis(ax) {
   ampAxis = ax;
   document.querySelectorAll('.amp-tab').forEach(b => b.classList.toggle('on', b.textContent === ax));
-  if (trajectory.length > 0) ampBuild();
+  // Achsenkarte wird nur auf Anforderung gebaut (Performance)
+  // if (trajectory.length > 0) ampBuild();
 }
 
 // Build the map: for each trajectory step × angle value → classify
@@ -2044,6 +2045,30 @@ function computeIKTable(positions) {
   if (!N) { buildTrajectory(positions, ikTable); return; }
 
   // ── DPSolver ─────────────────────────────────────────────
+  // Schwellwert: bei > 150 Punkten → direkte IK mit Warm-Start (Performance)
+  var DP_MAX_POINTS = 150;
+  if (N > DP_MAX_POINTS) {
+    console.log('[Perf] ' + N + ' Punkte → DPSolver deaktiviert, verwende Warm-Start IK');
+    splashProgress && splashProgress(50, N + ' Punkte — Schnell-IK wird berechnet…');
+    var prevQ = jointAngles.slice();
+    if (parsedData.steps) {
+      for (var _si=0; _si<parsedData.steps.length; _si++) {
+        if (parsedData.steps[_si].type==='ptpAxis'&&parsedData.steps[_si].angles) { prevQ=parsedData.steps[_si].angles.slice(); break; }
+        if (parsedData.steps[_si].type==='move') break;
+      }
+    }
+    for (var pi=0; pi<N; pi++) {
+      var res = solveIKFast(positions[pi].X, positions[pi].Y, positions[pi].Z,
+                            positions[pi].A, positions[pi].B, positions[pi].C, prevQ);
+      var angles = res.ok ? res.angles : prevQ;
+      // Normalize to shortest path
+      angles = angles.map(function(v,j){ return prevQ[j] + shortestAngleDiff(prevQ[j], v); });
+      ikTable.push({ angles: angles, score: res.score, ok: res.ok });
+      prevQ = angles.slice();
+    }
+    buildTrajectory(positions, ikTable);
+    return;
+  }
   try {
     // Arc-length s for each position
     var arcS = [0];
@@ -2617,7 +2642,8 @@ function buildTrajectory(positions, ikTab) {
   const N = positions.length;
   if (!N) { trajMax = 0; return; }
 
-  const STEP_MM = 8;  // sample every ~8mm along path
+  // Adaptives Sampling: mehr Punkte = größerer Schritt
+  const STEP_MM = N > 500 ? 25 : N > 200 ? 15 : N > 50 ? 10 : 8;
 
   // IK with warm-start from previous angles
   // Used for LIN/SLIN/CIRC to guarantee straight Cartesian path
