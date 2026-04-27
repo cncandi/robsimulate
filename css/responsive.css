@@ -33,7 +33,8 @@ button,input,textarea,select{touch-action:manipulation}
   header{height:auto;min-height:56px}
   header h1{font-size:.78em;max-width:calc(100vw - 150px)}
   .main{display:grid;grid-template-columns:1fr 310px;grid-template-rows:minmax(0,1fr) minmax(190px,32dvh);grid-template-areas:'viewport info' 'editor info';min-height:0}
-  .vp{grid-area:viewport;min-height:0;height:auto}
+  .vp{grid-area:viewport;min-height:360px;height:auto}
+  #c3d{width:100%!important;height:100%!important;min-height:360px;display:block}
   .ep{grid-area:editor;width:auto;min-width:0;border-right:none;border-top:2px solid var(--acc);height:auto;min-height:0}
   .info-panel{grid-area:info;width:auto;min-width:0;border-left:2px solid var(--acc);height:auto;min-height:0}
   .ep-resize-handle,.ip-resize-handle{display:none}
@@ -58,9 +59,10 @@ button,input,textarea,select{touch-action:manipulation}
   .tb .sbtn{width:100%;min-height:48px;text-align:center;font-size:.78em;border-radius:8px;padding:8px 6px}
   #b-start,#b-playrev,#b-steprev,#b-end,#btn-tcp-trace,#btn-bg,#btn-steuer,#btn-axmap,#btn-grid{display:none!important}
   .main{display:flex;flex-direction:column;min-height:0;overflow:hidden}
-  .vp{order:1;flex:1 1 auto;min-height:42dvh}
-  .ep{order:2;width:100%;height:29dvh;min-height:190px;max-height:38dvh;border-top:2px solid var(--acc);border-right:none}
-  .info-panel{order:3;width:100%;height:24dvh;min-height:150px;border-left:none;border-top:2px solid var(--acc)}
+  .vp{order:1;flex:0 0 52dvh!important;height:52dvh!important;min-height:380px!important;max-height:58dvh;background:var(--bg0)}
+  #c3d{width:100%!important;height:100%!important;min-height:380px!important;display:block!important}
+  .ep{order:2;width:100%;height:24dvh;min-height:160px;max-height:30dvh;border-top:2px solid var(--acc);border-right:none}
+  .info-panel{order:3;width:100%;height:18dvh;min-height:120px;border-left:none;border-top:2px solid var(--acc)}
   .pt{font-size:.75em;padding:6px 8px}
   #parse-btn{min-height:44px;border-radius:8px}
   .view-btns{display:none}
@@ -79,8 +81,9 @@ button,input,textarea,select{touch-action:manipulation}
 @media (max-width:430px){
   .tb{grid-template-columns:repeat(2,1fr)}
   #btn-robot3d,#btn-bg,#btn-grid{display:none!important}
-  .vp{min-height:45dvh}
-  .ep{height:30dvh}.info-panel{height:22dvh}
+  .vp{flex-basis:54dvh!important;height:54dvh!important;min-height:400px!important}
+  #c3d{min-height:400px!important}
+  .ep{height:24dvh;min-height:155px}.info-panel{height:17dvh;min-height:110px}
   .sp-tcp-grid{grid-template-columns:28px 1fr}
   .joint-cfg{grid-template-columns:28px 1fr 1fr}
 }
