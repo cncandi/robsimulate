@@ -183,3 +183,30 @@ function setLang(lang) {
 
 // Init on load
 currentLang = detectLang();
+
+// RobSimul Branding / Version
+var ROBSIMUL_VERSION = '0.11';
+function applyRobSimulBranding(){
+  var titleText = 'RobSimul Simulator Software © Datentechnik Reitz GmbH & Co. KG';
+  document.title = titleText;
+  var h1 = document.querySelector('header h1');
+  if (h1) {
+    h1.innerHTML = '<span class="brand-logo" title="RobSimul">RS</span> ' + titleText;
+  }
+  var right = document.querySelector('header .hright span');
+  if (right) {
+    right.id = 'app-version';
+    right.textContent = 'v' + ROBSIMUL_VERSION + ' · cnc-technik.de';
+  }
+  if (!document.getElementById('robsimul-brand-style')) {
+    var st = document.createElement('style');
+    st.id = 'robsimul-brand-style';
+    st.textContent = '.brand-logo{display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;margin-right:8px;border-radius:6px;background:var(--acc);color:#fff;font-weight:800;font-size:.78em;letter-spacing:.5px;vertical-align:middle;box-shadow:0 0 8px rgba(240,85,0,.35)}#app-version{white-space:nowrap}';
+    document.head.appendChild(st);
+  }
+}
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', applyRobSimulBranding);
+} else {
+  applyRobSimulBranding();
+}
