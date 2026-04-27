@@ -2,553 +2,552 @@
 <html lang="de">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>DRCODE – Robot Programmeditor</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>DRCODE – Datentechnik Reitz</title>
 <style>
 :root{
-  --bg0:#030912;--bg1:#050d1a;--bg2:#07111e;--bg3:#0a1a2e;
-  --acc:#f05500;--bdr:#1a3050;--txt:#9ecfea;--txt2:#3a6080;--txt3:#1e3a55;
+  --bg0:#0d1117;--bg1:#161b22;--bg2:#21262d;--bg3:#30363d;
+  --acc:#f05500;--grn:#3fb950;--bdr:#30363d;
+  --txt:#e6edf3;--txt2:#8b949e;--txt3:#484f58;
 }
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
-html,body{height:100%;overflow:hidden}
-body{background:var(--bg0);color:var(--txt);font-family:'Consolas','Courier New',monospace;font-size:17px;display:flex;flex-direction:column}
-
-/* ── Header ── */
-.hdr{height:56px;background:var(--bg2);border-bottom:2px solid var(--acc);display:flex;align-items:center;gap:8px;padding:0 12px;flex-shrink:0}
-.hdr-logo{color:var(--acc);font-weight:bold;font-size:1.3em;letter-spacing:2px}
-.hdr-sub{color:var(--txt2);font-size:.9em}
-.hdr-btn{background:var(--bg3);color:var(--txt);border:1px solid var(--bdr);border-radius:4px;padding:8px 18px;cursor:pointer;font-family:inherit;font-size:.95em;flex-shrink:0;min-height:40px}
-.hdr-btn:active{background:var(--acc);color:#fff;border-color:var(--acc)}
-.hdr-btn.acc{color:var(--acc);border-color:var(--acc)}
-
-/* ── Layout ── */
-.body{display:flex;flex:1;min-height:0}
-
-/* ── Left: Befehlsliste ── */
-.left{width:55%;border-right:2px solid var(--acc);display:flex;flex-direction:column;min-width:0}
-
-/* Palette */
-.palette{background:var(--bg2);border-bottom:1px solid var(--bdr);padding:5px;display:flex;flex-wrap:wrap;gap:3px;flex-shrink:0}
-.pb{display:inline-flex;align-items:center;gap:4px;background:var(--bg3);border:1px solid var(--bdr);border-radius:4px;padding:7px 10px;cursor:pointer;font-family:inherit;font-size:.9em;color:var(--txt2);-webkit-user-select:none;user-select:none;min-height:38px}
-.pb:active{border-color:var(--acc);color:var(--acc);background:#0f2030}
-.pb .ic{border-radius:2px;padding:0 2px}
-
-/* List */
-.list{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch}
-.row{display:flex;align-items:center;gap:6px;padding:12px 8px;border-bottom:1px solid #060e1a;-webkit-user-select:none;user-select:none;min-height:52px}
-.row.sel{background:#0f2030;border-left:3px solid var(--acc);padding-left:5px}
-.row .ri{width:30px;height:28px;border-radius:4px;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:1.1em}
-.row .rt{color:var(--acc);font-weight:bold;font-size:.9em;width:90px;flex-shrink:0}
-.row .rs{flex:1;color:var(--txt2);font-size:.85em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.row .rb{display:flex;gap:2px;flex-shrink:0}
-.rb button{background:var(--bg3);border:1px solid var(--bdr);color:var(--txt);border-radius:3px;padding:6px 12px;cursor:pointer;font-size:.85em;font-family:inherit;min-height:34px}
-.rb button:active{border-color:var(--acc);color:var(--acc)}
-.rb .del:active{border-color:#f05500;color:#f05500}
-
-/* Empty state */
-.empty{color:var(--txt3);text-align:center;padding:30px 10px;font-size:.85em;line-height:2}
-
-/* ── Right: Formular ── */
-.right{flex:1;display:flex;flex-direction:column;min-width:0;background:var(--bg1)}
-.form-hdr{background:var(--bg2);border-bottom:1px solid var(--bdr);padding:10px 12px;font-size:1em;font-weight:bold;color:var(--acc);flex-shrink:0;min-height:48px;display:flex;align-items:center;gap:8px}
-.form-body{flex:1;overflow-y:auto;padding:8px 10px;-webkit-overflow-scrolling:touch}
-.form-row{display:flex;align-items:center;gap:6px;margin-bottom:6px}
-.form-lbl{flex:0 0 auto;color:var(--txt2);font-size:.9em;width:110px}
-.form-unit{color:var(--txt3);font-size:.8em}
-.form-val{flex:1;background:var(--bg3);color:#f8b060;border:1px solid var(--bdr);border-radius:4px;padding:9px 10px;font-family:inherit;font-size:1em;outline:none;min-width:0;-webkit-appearance:none;min-height:42px}
-.form-val:focus{border-color:var(--acc)}
-input[type=number].form-val{text-align:right}
-input[type=checkbox]{width:24px;height:24px;accent-color:var(--acc);cursor:pointer;flex-shrink:0}
-
-/* ── Actions ── */
-.actions{padding:7px 8px;display:flex;gap:6px;border-top:1px solid var(--bdr);background:var(--bg2);flex-shrink:0}
-.actions button{flex:1;background:var(--bg3);color:var(--txt);border:1px solid var(--bdr);border-radius:4px;padding:10px 4px;cursor:pointer;font-family:inherit;font-size:.9em;min-height:44px}
-.actions button:active{border-color:var(--acc);color:var(--acc)}
-.actions .acc-btn{color:var(--acc);border-color:var(--acc)}
-
-/* Scrollbar */
-::-webkit-scrollbar{width:4px}
-::-webkit-scrollbar-track{background:var(--bg1)}
-::-webkit-scrollbar-thumb{background:var(--bdr);border-radius:2px}
+html,body{height:100%;overflow:hidden;font-size:15px}
+body{background:var(--bg0);color:var(--txt);font-family:-apple-system,'Segoe UI',Helvetica,Arial,sans-serif;display:flex;flex-direction:column}
+.hdr{height:36px;background:var(--bg1);border-bottom:1px solid var(--bdr);display:flex;align-items:center;padding:0 12px;gap:8px;flex-shrink:0}
+.hdr-logo{color:var(--acc);font-weight:700;font-size:.95em;letter-spacing:1px}
+.hdr-brand{color:var(--txt2);font-size:.78em}
+.hdr-btn{background:transparent;border:1px solid transparent;color:var(--txt2);border-radius:4px;padding:3px 10px;cursor:pointer;font-size:.78em;font-family:inherit}
+.hdr-btn:hover{border-color:var(--bdr);color:var(--txt)}
+.hdr-btn.acc{color:var(--acc)}
+.palette{background:var(--bg1);border-bottom:1px solid var(--bdr);padding:4px 8px;display:flex;flex-wrap:wrap;gap:3px;flex-shrink:0}
+.pb{display:inline-flex;align-items:center;gap:3px;background:var(--bg2);border:1px solid var(--bdr);border-radius:4px;padding:4px 7px;cursor:pointer;font-size:.72em;color:var(--txt2);user-select:none;-webkit-user-select:none}
+.pb:hover,.pb:active{border-color:var(--acc);color:var(--acc)}
+.tabs-area{background:var(--bg1);border-bottom:1px solid var(--bdr);padding:8px 12px;flex-shrink:0}
+.tabs-row{display:flex;align-items:center;gap:6px;margin-bottom:6px}
+.tabs-title{color:var(--txt);font-size:.95em;font-weight:600;flex:1}
+.ttb{background:transparent;border:none;cursor:pointer;padding:3px 7px;border-radius:4px;color:var(--txt2);font-size:1em;font-family:inherit}
+.ttb:hover{background:var(--bg3);color:var(--txt)}
+.ttb.grn{color:var(--grn)} .ttb.red{color:#f85149} .ttb.acc{color:var(--acc)}
+.tabs{display:flex;flex-wrap:wrap;gap:4px}
+.tab{display:flex;align-items:center;gap:5px;background:var(--bg2);border:1px solid var(--bdr);border-radius:5px;padding:5px 10px;cursor:pointer;font-size:.82em;color:var(--txt2);user-select:none;-webkit-user-select:none}
+.tab:hover{border-color:var(--txt2);color:var(--txt)}
+.tab.active{border-color:var(--grn);color:var(--grn);background:rgba(63,185,80,.08)}
+.tab .tdel{color:var(--txt3);font-size:.8em;margin-left:2px;border:none;background:none;cursor:pointer;padding:0 2px}
+.tab .tdel:hover{color:#f85149}
+.list{overflow-y:auto;-webkit-overflow-scrolling:touch;flex-shrink:0}
+.row{display:flex;align-items:center;gap:6px;padding:7px 10px;cursor:pointer;border-bottom:1px solid #0d1117;user-select:none;-webkit-user-select:none}
+.row:hover{background:var(--bg2)}
+.row.sel{background:rgba(240,85,0,.08);border-left:3px solid var(--acc);padding-left:7px}
+.row.drag-over-top{border-top:2px solid var(--acc)}
+.ri{width:24px;height:20px;border-radius:3px;display:flex;align-items:center;justify-content:center;font-size:.85em;flex-shrink:0}
+.rt{font-size:.78em;font-weight:700;width:82px;flex-shrink:0;color:var(--acc)}
+.rs{flex:1;color:var(--txt2);font-size:.74em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rb{display:flex;gap:2px;flex-shrink:0}
+.rb button{background:transparent;border:1px solid transparent;color:var(--txt3);border-radius:3px;padding:2px 8px;cursor:pointer;font-size:.72em;font-family:inherit}
+.rb button:hover{border-color:var(--bdr);color:var(--txt)}
+.rb .del:hover{border-color:#f85149;color:#f85149}
+.resize-h{height:5px;background:var(--bg3);cursor:row-resize;flex-shrink:0}
+.resize-h:hover{background:var(--acc)}
+.bottom{flex:1;display:flex;min-height:0;border-top:2px solid var(--acc)}
+.params{flex:1;display:flex;flex-direction:column;min-width:0;overflow:hidden}
+.ph{padding:7px 12px;background:var(--bg1);border-bottom:1px solid var(--bdr);font-size:.85em;font-weight:600;color:var(--acc);display:flex;align-items:center;gap:7px;flex-shrink:0;min-height:38px}
+.pb2{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch}
+/* Param table like VC */
+.ptable{width:100%;border-collapse:collapse}
+.ptable tr{border-bottom:1px solid var(--bg3)}
+.ptable tr:hover{background:var(--bg2)}
+.ptable td{padding:5px 8px;font-size:.82em;vertical-align:middle}
+.ptable td:first-child{color:var(--txt2);width:52%;white-space:nowrap;padding-right:4px}
+.ptable td:last-child{color:var(--txt3);font-size:.74em;white-space:nowrap;padding-left:2px}
+.ptable td:nth-child(2){width:48%}
+.pinp{width:100%;background:var(--bg3);color:var(--txt);border:1px solid var(--bdr);border-radius:3px;padding:4px 7px;font-size:.82em;font-family:inherit;outline:none}
+.pinp:focus{border-color:var(--acc);background:var(--bg2)}
+input[type=number].pinp{text-align:right;-moz-appearance:textfield}
+input[type=number].pinp::-webkit-inner-spin-button{display:none}
+input[type=checkbox]{width:17px;height:17px;accent-color:var(--acc);cursor:pointer}
+/* Group separator */
+.pgroup{background:var(--bg1);color:var(--txt3);font-size:.72em;font-weight:600;padding:4px 10px;letter-spacing:.5px;text-transform:uppercase;border-top:1px solid var(--bdr)}
+/* Action buttons */
+.act-btns{display:flex;gap:6px;padding:8px 10px;border-bottom:1px solid var(--bdr);flex-shrink:0}
+.act-btn{flex:1;background:var(--bg2);border:1px solid var(--bdr);border-radius:5px;padding:7px;cursor:pointer;font-size:.78em;color:var(--txt2);text-align:center}
+.act-btn:hover{border-color:var(--acc);color:var(--acc)}
+.act-btn.blue:hover{border-color:#58a6ff;color:#58a6ff}
+/* Right image panel */
+.img-panel{width:110px;background:var(--bg1);border-left:1px solid var(--bdr);display:flex;flex-direction:column;align-items:center;justify-content:flex-start;padding:14px 8px;gap:8px;flex-shrink:0}
+.cmd-img{width:80px;height:80px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:2.8em;background:var(--bg2);border:1px solid var(--bdr)}
+.cmd-lbl{color:var(--txt3);font-size:.68em;text-align:center;line-height:1.4}
+.empty-state{color:var(--txt3);text-align:center;padding:20px;font-size:.82em;line-height:2.2}
+/* Tooltip */
+.tip{color:var(--txt3);cursor:help;font-size:.85em;position:relative;display:inline-block;margin-left:3px}
+.tip::before{content:'ℹ';font-style:normal}
+.tip:hover::after{content:attr(data-tip);position:fixed;left:50%;transform:translateX(-50%);top:auto;bottom:40px;background:#1c2128;border:1px solid var(--bdr);border-radius:6px;padding:7px 12px;font-size:.8em;color:var(--txt);white-space:pre-wrap;max-width:280px;z-index:999;line-height:1.6;pointer-events:none;text-align:left}
+::-webkit-scrollbar{width:4px} ::-webkit-scrollbar-track{background:var(--bg1)} ::-webkit-scrollbar-thumb{background:var(--bdr);border-radius:2px}
 </style>
 </head>
 <body>
 
 <div class="hdr">
   <span class="hdr-logo">DRCODE</span>
-  <span class="hdr-sub">Datentechnik Reitz</span>
+  <span class="hdr-brand">Datentechnik Reitz</span>
   <div style="flex:1"></div>
-  <button class="hdr-btn acc" onclick="exportKRL()" title="KRL-Code erzeugen">→ KRL</button>
-  <button class="hdr-btn" onclick="importKRL()" title="KRL importieren">← KRL</button>
-  <button class="hdr-btn" onclick="exportXML()" title="XML speichern">💾</button>
+  <button class="hdr-btn acc" onclick="exportKRL()">→ KRL</button>
+  <button class="hdr-btn" onclick="importKRL()">← KRL</button>
+  <button class="hdr-btn" onclick="exportXML()">💾 XML</button>
 </div>
 
-<div class="body">
+<div class="palette" id="palette"></div>
 
-  <!-- Befehlsliste -->
-  <div class="left">
-    <div class="palette" id="palette"></div>
-    <div class="list" id="list">
-      <div class="empty">⬆ Befehl aus der Palette wählen<br>oder ← KRL importieren</div>
-    </div>
+<div class="tabs-area">
+  <div class="tabs-row">
+    <span class="tabs-title">Unterprogramme</span>
+    <button class="ttb grn" onclick="addProg()" title="Neu">+</button>
+    <button class="ttb" onclick="renameProg()" title="Umbenennen">✎</button>
+    <button class="ttb red" onclick="deleteProg()" title="Löschen">🗑</button>
+    <span style="width:1px;height:18px;background:var(--bdr);display:inline-block;margin:0 4px"></span>
+    <button class="ttb red" onclick="clearProg()" title="Alle Befehle löschen" style="font-size:.75em">✕ Leeren</button>
   </div>
+  <div class="tabs" id="tabs"></div>
+</div>
 
-  <!-- Parameter-Formular -->
-  <div class="right">
-    <div class="form-hdr" id="form-hdr">Parameter</div>
-    <div class="form-body" id="form-body">
-      <div style="color:var(--txt3);font-size:.8em;padding:20px 5px;line-height:2">
-        Befehl in der Liste antippen<br>um Parameter zu bearbeiten
-      </div>
-    </div>
+<div class="list" id="list" style="height:220px">
+  <div id="list-inner"></div>
+</div>
+
+<div class="resize-h" id="rh"></div>
+
+<div class="bottom">
+  <div class="params">
+    <div class="ph" id="ph">Parameter</div>
+    <div class="pb2" id="pb2"><div class="empty-state">Befehl in der Liste antippen</div></div>
   </div>
-
+  <div class="img-panel">
+    <div class="cmd-img" id="cimg">🤖</div>
+    <div class="cmd-lbl" id="clbl">Kein Befehl</div>
+  </div>
 </div>
 
 <script>
 'use strict';
 
-// ── Befehls-Definitionen ──────────────────────────────────────
-var DEFS = {
-  COMMENT:     {ic:'💬',lb:'Kommentar',  bg:'#1a2a3a',p:[{n:'Text',      t:'text',v:''}]},
-  TOOL:        {ic:'🔧',lb:'Werkzeug',   bg:'#102a10',p:[{n:'ID',        t:'int', v:1},
-                  {n:'X',t:'num',v:0,u:'mm'},{n:'Y',t:'num',v:0,u:'mm'},{n:'Z',t:'num',v:0,u:'mm'},
-                  {n:'A',t:'num',v:0,u:'°'},{n:'B',t:'num',v:0,u:'°'},{n:'C',t:'num',v:0,u:'°'}]},
-  BASE:        {ic:'📐',lb:'Basis',      bg:'#10102a',p:[{n:'ID',        t:'int', v:1},
-                  {n:'X',t:'num',v:0,u:'mm'},{n:'Y',t:'num',v:0,u:'mm'},{n:'Z',t:'num',v:0,u:'mm'},
-                  {n:'A',t:'num',v:0,u:'°'},{n:'B',t:'num',v:0,u:'°'},{n:'C',t:'num',v:0,u:'°'}]},
-  FEED:        {ic:'⚡',lb:'Vorschub',   bg:'#2a1500',p:[{n:'Value',t:'num',v:1000},{n:'Einheit',t:'sel',v:'mm/min',opts:['mm/min','mm/s','m/min','m/s']}]},
-  SPEED:       {ic:'🔄',lb:'Spindel',    bg:'#2a1500',p:[{n:'RPM',       t:'num', v:12000,u:'rpm'},
-                  {n:'Dir',t:'sel',v:'CW',opts:['CW','CCW']}]},
-  EXTRUDE:     {ic:'💧',lb:'Extrusion',  bg:'#002030',p:[{n:'Flow',t:'num',v:1.0,u:'l/min'},{n:'State',t:'bool',v:true}]},
-  DIGITAL_OUT: {ic:'●', lb:'Dig. Ausgang',bg:'#001830',p:[{n:'Nr',      t:'int', v:1},
-                  {n:'Wert',t:'bool',v:true}]},
-  DIGITAL_IN:  {ic:'○', lb:'Dig. Eingang',bg:'#001020',p:[{n:'Nr',      t:'int', v:1},
-                  {n:'Var',t:'text',v:'bIn'}]},
-  ANALOG_OUT:  {ic:'〰',lb:'Ana. Ausgang',bg:'#001830',p:[{n:'Channel',  t:'int', v:1},
-                  {n:'Value',t:'num',v:0},{n:'Unit',t:'sel',v:'%',opts:['V','%']}]},
-  WAIT:        {ic:'⏱',lb:'Warten',     bg:'#1a1a30',p:[{n:'Mode',      t:'sel', v:'TIME',opts:['TIME','SIGNAL']},
-                  {n:'Zeit',t:'num',v:1.0,u:'s'}]},
-  LIN:         {ic:'→', lb:'Linear',    bg:'#002510',action:true,p:[
-                  {n:'X',t:'num',v:0,u:'mm'},{n:'Y',t:'num',v:0,u:'mm'},{n:'Z',t:'num',v:0,u:'mm'},
-                  {n:'A',t:'num',v:0,u:'°'},{n:'B',t:'num',v:0,u:'°'},{n:'C',t:'num',v:0,u:'°'},
-                  {n:'Feed',t:'num',v:1000,u:'mm/min'},{n:'Approx',t:'num',v:0,u:'mm'}]},
-  CIRC:        {ic:'⌒', lb:'Kreis',     bg:'#001a0c',action:true,p:[
-                  {n:'HX',t:'num',v:0,u:'mm'},{n:'HY',t:'num',v:0,u:'mm'},{n:'HZ',t:'num',v:0,u:'mm'},
-                  {n:'X',t:'num',v:0,u:'mm'},{n:'Y',t:'num',v:0,u:'mm'},{n:'Z',t:'num',v:0,u:'mm'},
-                  {n:'A',t:'num',v:0,u:'°'},{n:'B',t:'num',v:0,u:'°'},{n:'C',t:'num',v:0,u:'°'},
-                  {n:'Feed',t:'num',v:1000,u:'mm/min'}]},
-  AXIS:        {ic:'🤖',lb:'Achspunkt',  bg:'#1a1000',action:true,p:[
-                  {n:'A1',t:'num',v:0,u:'°'},{n:'A2',t:'num',v:-90,u:'°'},{n:'A3',t:'num',v:90,u:'°'},
-                  {n:'A4',t:'num',v:0,u:'°'},{n:'A5',t:'num',v:0,u:'°'},{n:'A6',t:'num',v:0,u:'°'},
-                  {n:'Speed',t:'num',v:20,u:'%'}]},
-  LOOP:        {ic:'🔁',lb:'Schleife',   bg:'#1a0a2a',p:[{n:'Anzahl',   t:'int', v:0}]},
-  ENDLOOP:     {ic:'⤵', lb:'Ende Schl.',bg:'#1a0a2a',p:[]},
-  FOR:         {ic:'🔢',lb:'Zähler',     bg:'#1a0a2a',p:[{n:'Var',      t:'text',v:'i'},
-                  {n:'Von',t:'num',v:1},{n:'Bis',t:'num',v:10},{n:'Schritt',t:'num',v:1}]},
-  NEXT:        {ic:'⤵', lb:'Nächste',   bg:'#1a0a2a',p:[]},
+var IMGS={LIN:'→',CIRC:'⌒',AXIS:'🤖',TOOL:'🔧',BASE:'📐',FEED:'⚡',SPEED:'🔄',EXTRUDE:'💧',DIGITAL_OUT:'●',DIGITAL_IN:'○',ANALOG_OUT:'〰',WAIT:'⏱',COMMENT:'💬',LOOP:'🔁',ENDLOOP:'⤵',FOR:'🔢',NEXT:'⤵',CALL:'📞'};
+
+var TIPS={
+  X:'X-Position des TCP\nin der aktiven BASE',
+  Y:'Y-Position des TCP\nin der aktiven BASE',
+  Z:'Z-Position des TCP\nin der aktiven BASE\n(positiv = oben)',
+  A:'Euler-Winkel A\n(Rotation um Z) in Grad',
+  B:'Euler-Winkel B\n(Rotation um Y) in Grad',
+  C:'Euler-Winkel C\n(Rotation um X) in Grad',
+  A1:'Schwenkachse – Basis\nBereich: ±170°',
+  A2:'Schwingachse\nBereich: −185° … +65°',
+  A3:'Armachse\nBereich: −120° … +180°',
+  A4:'Handachse – Rotation\nBereich: ±185°',
+  A5:'Biegeachse – Neigung\nBereich: −115° … +140°',
+  A6:'Dreachse – Werkzeug\nBereich: ±360°',
+  KoordSystem:'Koordinatensystem\nTCP = relativ zum Werkzeug\nBASE = relativ zur aktiven Basis\nWORLD = Weltkoordinaten',
+  Aktiv:'Befehl aktiv/inaktiv\nDeaktiviert: Schritt wird übersprungen',
+  Basis:'Aktive Basiskoordinaten\n(BASE_DATA[n] oder WORLD)',
+  Werkzeug:'Aktives Werkzeug\n(TOOL_DATA[n])',
+  ExternerTCP:'Externer TCP:\nTCP liegt außerhalb des Roboterflanschs',
+  Zykluszeit:'Maximale Zykluszeit in Sekunden\n(0 = nicht überwacht)',
+  MaxGeschw:'Maximale Bahngeschwindigkeit\ndes Werkzeugmittelpunkts',
+  Beschleunigung:'Maximale Beschleunigung\ndes TCP auf der Bahn',
+  Verzoegerung:'Maximale Verzögerung\n(Abbremsung) des TCP',
+  GenauigkeitMethod:'Distance = Positionsabweichung\nTime = Zeitbasiert',
+  GenauigkeitWert:'Erlaubte Positionsabweichung\nbeim Näherungsfahren (0 = exakt)',
+  OrientInterp:'Orientierungsinterpolation:\nZwei Achsen X = Standard\nKonstant = Orientierung bleibt fest',
+  KonfigMode:'Fixed = Roboterstellung\nwird nicht geändert\nAuto = freie Konfiguration',
+  MaxWinkelGeschw:'Maximale Winkelgeschwindigkeit\nder Handachsen',
+  WinkelBeschleun:'Winkelbeschleunigung\nder Handachsen',
+  WinkelVerzoeger:'Winkelverzögerung\nder Handachsen',
+  Feed:'Bahngeschwindigkeit\ndes Werkzeugmittelpunkts',
+  Einheit:'Einheit für den Vorschubwert',
+  Approx:'Näherungsradius vor Ziel\n0 = exakt anfahren\n>0 = Kurvenfahrt (C_DIS)',
+  Speed:'Achsgeschwindigkeit in %\nder maximal möglichen Geschwindigkeit',
+  ID:'Datensatz-Nummer (1–32)',
+  RPM:'Spindeldrehzahl\n(Umdrehungen pro Minute)',
+  Dir:'Drehrichtung\nCW = Uhrzeigersinn\nCCW = Gegen-Uhrzeigersinn',
+  Flow:'Volumenstrom\n(Liter pro Minute)',
+  State:'EIN = Extrusion aktiv\nAUS = Extrusion gestoppt',
+  Wert:'TRUE = Signal HIGH\nFALSE = Signal LOW',
+  Nr:'Signalnummer auf der Steuerung\n(1–4096)',
+  Var:'Name der internen Variable',
+  Channel:'Kanal-Nummer des Analogmoduls',
+  Value:'Ausgabewert\n(0–100% oder 0–10V)',
+  Zeit:'Wartezeit in Sekunden\n(0.001 = 1 ms)',
+  Mode:'TIME = Zeitbasiert\nSIGNAL = Auf Signal warten',
+  Anzahl:'Anzahl Wiederholungen\n0 = Endlosschleife',
+  Von:'Startwert des Zählers',
+  Bis:'Endwert (inklusive)',
+  Schritt:'Schrittweite\n(positiv=aufwärts, negativ=abwärts)',
+  Text:'Kommentartext',
+  Target:'Aufzurufendes Unterprogramm',
+  Params:'Übergabeparameter\n(kommagetrennt)',
+  RetVar:'Variable für Rückgabewert\n(leer = kein Rückgabewert)',
+  HX:'Hilfspunkt X auf dem Kreisbogen\n(Zwischenpunkt, nicht Mittelpunkt)',
+  HY:'Hilfspunkt Y auf dem Kreisbogen',
+  HZ:'Hilfspunkt Z auf dem Kreisbogen',
 };
 
-// ── State ─────────────────────────────────────────────────────
-var cmds = [], sel = -1, nid = 1;
+// Gemeinsame Bewegungsparameter
+function moveParams(){return [
+  {n:'Aktiv',         t:'bool',v:true},
+  {n:'KoordSystem',   t:'sel', v:'BASE',opts:['BASE','TCP','WORLD']},
+  {n:'Basis',         t:'sel', v:'BASE_DATA[1]',opts:['WORLD','BASE_DATA[1]','BASE_DATA[2]','BASE_DATA[3]']},
+  {n:'Werkzeug',      t:'sel', v:'TOOL_DATA[1]',opts:['TOOL_DATA[1]','TOOL_DATA[2]','TOOL_DATA[3]','TOOL_DATA[24]']},
+  {n:'ExternerTCP',   t:'bool',v:false},
+  {n:'Zykluszeit',    t:'num', v:0,    u:'s'},
+  {n:'MaxGeschw',     t:'num', v:1000, u:'mm/s'},
+  {n:'Beschleunigung',t:'num', v:8000, u:'mm/s²'},
+  {n:'Verzoegerung',  t:'num', v:8000, u:'mm/s²'},
+  {n:'GenauigkeitMethod',t:'sel',v:'Distanz',opts:['Distanz','Zeit']},
+  {n:'GenauigkeitWert',  t:'num',v:0,u:'mm'},
+  {n:'OrientInterp',  t:'sel', v:'Zwei Achsen - X',opts:['Zwei Achsen - X','Konstant','Vollständig interpoliert']},
+  {n:'KonfigMode',    t:'sel', v:'Fest',opts:['Fest','Automatisch']},
+  {n:'MaxWinkelGeschw',  t:'num',v:200,u:'°/s'},
+  {n:'WinkelBeschleun',  t:'num',v:800,u:'°/s²'},
+  {n:'WinkelVerzoeger',  t:'num',v:800,u:'°/s²'},
+];}
 
-function mk(type) {
-  var d = DEFS[type]; if (!d) return null;
-  var p = {}; d.p.forEach(function(x){ p[x.n] = x.v; });
-  return {type:type, p:p, id:nid++};
+var DEFS={
+  COMMENT:     {ic:'💬',lb:'Kommentar',  bg:'#1f2937',p:[{n:'Text',t:'text',v:''}]},
+  TOOL:        {ic:'🔧',lb:'Werkzeug',   bg:'#1a3a1a',p:[{n:'ID',t:'int',v:1},
+    {n:'X',t:'num',v:0,u:'mm'},{n:'Y',t:'num',v:0,u:'mm'},{n:'Z',t:'num',v:0,u:'mm'},
+    {n:'A',t:'num',v:0,u:'°'},{n:'B',t:'num',v:0,u:'°'},{n:'C',t:'num',v:0,u:'°'}]},
+  BASE:        {ic:'📐',lb:'Basis',      bg:'#1a1a3a',p:[{n:'ID',t:'int',v:1},
+    {n:'X',t:'num',v:0,u:'mm'},{n:'Y',t:'num',v:0,u:'mm'},{n:'Z',t:'num',v:0,u:'mm'},
+    {n:'A',t:'num',v:0,u:'°'},{n:'B',t:'num',v:0,u:'°'},{n:'C',t:'num',v:0,u:'°'}]},
+  FEED:        {ic:'⚡',lb:'Vorschub',   bg:'#3a2000',p:[{n:'Value',t:'num',v:1000},{n:'Einheit',t:'sel',v:'mm/min',opts:['mm/min','mm/s','m/min','m/s']}]},
+  SPEED:       {ic:'🔄',lb:'Spindel',    bg:'#3a2000',p:[{n:'RPM',t:'num',v:12000,u:'rpm'},{n:'Dir',t:'sel',v:'CW',opts:['CW','CCW']}]},
+  EXTRUDE:     {ic:'💧',lb:'Extrusion',  bg:'#00253a',p:[{n:'Flow',t:'num',v:1.0,u:'l/min'},{n:'State',t:'bool',v:true}]},
+  DIGITAL_OUT: {ic:'●', lb:'Dig. Ausgang',bg:'#001830',p:[{n:'Nr',t:'int',v:1},{n:'Wert',t:'bool',v:true}]},
+  DIGITAL_IN:  {ic:'○', lb:'Dig. Eingang',bg:'#001020',p:[{n:'Nr',t:'int',v:1},{n:'Var',t:'text',v:'bIn'}]},
+  ANALOG_OUT:  {ic:'〰',lb:'Ana. Ausgang',bg:'#001830',p:[{n:'Channel',t:'int',v:1},{n:'Value',t:'num',v:0},{n:'Einheit',t:'sel',v:'%',opts:['%','V']}]},
+  WAIT:        {ic:'⏱',lb:'Warten',     bg:'#1a1a3a',p:[{n:'Mode',t:'sel',v:'TIME',opts:['TIME','SIGNAL']},{n:'Zeit',t:'num',v:1.0,u:'s'}]},
+  LIN:         {ic:'→', lb:'Linear',    bg:'#00251a',move:true,p:function(){return[
+    {n:'X',t:'num',v:0,u:'mm'},{n:'Y',t:'num',v:0,u:'mm'},{n:'Z',t:'num',v:0,u:'mm'},
+    {n:'A',t:'num',v:0,u:'°'},{n:'B',t:'num',v:0,u:'°'},{n:'C',t:'num',v:0,u:'°'},
+    {n:'Feed',t:'num',v:1000},{n:'Einheit',t:'sel',v:'mm/min',opts:['mm/min','mm/s','m/min','m/s']},
+    {n:'Approx',t:'num',v:0,u:'mm'}].concat(moveParams());}},
+  CIRC:        {ic:'⌒', lb:'Kreis',     bg:'#001a14',move:true,p:function(){return[
+    {n:'HX',t:'num',v:0,u:'mm'},{n:'HY',t:'num',v:0,u:'mm'},{n:'HZ',t:'num',v:0,u:'mm'},
+    {n:'X',t:'num',v:0,u:'mm'},{n:'Y',t:'num',v:0,u:'mm'},{n:'Z',t:'num',v:0,u:'mm'},
+    {n:'A',t:'num',v:0,u:'°'},{n:'B',t:'num',v:0,u:'°'},{n:'C',t:'num',v:0,u:'°'},
+    {n:'Feed',t:'num',v:1000},{n:'Einheit',t:'sel',v:'mm/min',opts:['mm/min','mm/s','m/min','m/s']}].concat(moveParams());}},
+  AXIS:        {ic:'🤖',lb:'Achspunkt',  bg:'#2a1800',move:true,p:function(){return[
+    {n:'A1',t:'num',v:0,u:'°'},{n:'A2',t:'num',v:-90,u:'°'},{n:'A3',t:'num',v:90,u:'°'},
+    {n:'A4',t:'num',v:0,u:'°'},{n:'A5',t:'num',v:0,u:'°'},{n:'A6',t:'num',v:0,u:'°'},
+    {n:'Speed',t:'num',v:20,u:'%'}].concat(moveParams());}},
+  LOOP:        {ic:'🔁',lb:'Schleife',   bg:'#1f1040',p:[{n:'Anzahl',t:'int',v:0}]},
+  ENDLOOP:     {ic:'⤵', lb:'Ende Schl.',bg:'#1f1040',p:[]},
+  FOR:         {ic:'🔢',lb:'Zähler',     bg:'#1f1040',p:[{n:'Var',t:'text',v:'i'},{n:'Von',t:'num',v:1},{n:'Bis',t:'num',v:10},{n:'Schritt',t:'num',v:1}]},
+  NEXT:        {ic:'⤵', lb:'Ende Für',  bg:'#1f1040',p:[]},
+  CALL:        {ic:'📞',lb:'Aufrufen',   bg:'#1a2a3a',p:[{n:'Target',t:'prog',v:'Sequence1'},{n:'Params',t:'text',v:''},{n:'RetVar',t:'text',v:''}]},
+};
+
+function getDefParams(type){var d=DEFS[type];if(!d)return[];return typeof d.p==='function'?d.p():d.p;}
+
+var progs=[{name:'Main',cmds:[]}],curProg=0,sel=-1,nid=1;
+function cmds(){return progs[curProg].cmds;}
+function mk(type){
+  var d=DEFS[type];if(!d)return null;
+  var p={};getDefParams(type).forEach(function(x){p[x.n]=x.v;});
+  return{type:type,p:p,id:nid++};
 }
 
-// ── Palette aufbauen ──────────────────────────────────────────
-function buildPalette() {
-  var pal = document.getElementById('palette');
-  Object.keys(DEFS).forEach(function(type) {
-    var d = DEFS[type];
-    var btn = document.createElement('button');
-    btn.className = 'pb';
-    btn.innerHTML = '<span class="ic" style="background:'+d.bg+'">'+d.ic+'</span>'+type;
-    btn.title = d.lb;
-    btn.addEventListener('click', function(){ add(type); });
-    pal.appendChild(btn);
+function renderTabs(){
+  var el=document.getElementById('tabs');
+  el.innerHTML=progs.map(function(pg,i){
+    return'<div class="tab'+(i===curProg?' active':'')+'" onclick="swProg('+i+')">'+(i===0?'M':'S')+' <b>'+pg.name+'</b>'+(i>0?'<button class="tdel" onclick="event.stopPropagation();deleteProg('+i+')">✕</button>':'')+' </div>';
+  }).join('');
+}
+function swProg(i){curProg=i;sel=-1;renderTabs();renderList();showForm();}
+function addProg(){var n=prompt('Programm-Name:','Sequence'+progs.length);if(!n)return;progs.push({name:n,cmds:[]});curProg=progs.length-1;sel=-1;renderTabs();renderList();showForm();}
+function renameProg(){if(curProg===0){alert('Main kann nicht umbenannt werden');return;}var n=prompt('Neuer Name:',progs[curProg].name);if(n){progs[curProg].name=n;renderTabs();}}
+function deleteProg(i){if(i===undefined)i=curProg;if(i===0){alert('Main kann nicht gelöscht werden');return;}if(!confirm('Löschen?'))return;progs.splice(i,1);if(curProg>=progs.length)curProg=progs.length-1;sel=-1;renderTabs();renderList();showForm();}
+function clearProg(){if(!confirm('Alle Befehle in "'+progs[curProg].name+'" löschen?'))return;progs[curProg].cmds=[];sel=-1;renderList();showForm();}
+
+function buildPalette(){
+  var pal=document.getElementById('palette');
+  Object.keys(DEFS).forEach(function(type){
+    var d=DEFS[type];
+    var b=document.createElement('button');
+    b.className='pb';b.title=d.lb;
+    b.innerHTML='<span style="background:'+d.bg+';border-radius:3px;padding:0 3px;font-size:.88em">'+d.ic+'</span>'+type;
+    b.addEventListener('click',function(){add(type);});
+    pal.appendChild(b);
   });
 }
 
-// ── Render Liste ──────────────────────────────────────────────
-function render() {
-  var el = document.getElementById('list');
-  if (!cmds.length) {
-    el.innerHTML = '<div class="empty">⬆ Befehl aus der Palette wählen<br>oder ← KRL importieren</div>';
-    return;
-  }
-  var indent = 0, OPEN = ['LOOP','FOR'], CLOSE = ['ENDLOOP','NEXT'];
-  el.innerHTML = cmds.map(function(cmd, i) {
-    var d = DEFS[cmd.type] || {ic:'?',lb:cmd.type,bg:'#111'};
-    if (CLOSE.includes(cmd.type)) indent = Math.max(0, indent-1);
-    var ind = indent;
-    if (OPEN.includes(cmd.type)) indent++;
-    var s = i === sel;
-    return '<div class="row'+(s?' sel':'')+'" data-i="'+i+'" style="padding-left:'+(8+ind*10)+'px'+(s?';padding-left:'+(5+ind*10)+'px':'')+'">' +
-      '<span class="ri" style="background:'+d.bg+'">'+d.ic+'</span>' +
-      '<span class="rt">'+cmd.type+'</span>' +
-      '<span class="rs">'+summary(cmd)+'</span>' +
-      '<span class="rb">' +
-        '<button data-act="up" data-i="'+i+'" title="Hoch">↑</button>' +
-        '<button data-act="dn" data-i="'+i+'" title="Runter">↓</button>' +
-        '<button data-act="del" data-i="'+i+'" class="del" title="Löschen">✕</button>' +
-      '</span>' +
-    '</div>';
+function renderList(){
+  var el=document.getElementById('list-inner');
+  var cc=cmds();
+  if(!cc.length){el.innerHTML='<div class="empty-state">⬆ Befehl aus der Palette wählen</div>';return;}
+  var ind=0,OPEN=['LOOP','FOR'],CLOSE=['ENDLOOP','NEXT'];
+  el.innerHTML=cc.map(function(cmd,i){
+    var d=DEFS[cmd.type]||{ic:'?',lb:cmd.type,bg:'#333'};
+    if(CLOSE.includes(cmd.type))ind=Math.max(0,ind-1);
+    var ii=ind; if(OPEN.includes(cmd.type))ind++;
+    var s=i===sel;
+    return'<div class="row'+(s?' sel':'')+'" data-i="'+i+'" style="padding-left:'+(10+ii*10)+'px">'+
+      '<span class="ri" style="background:'+d.bg+'">'+d.ic+'</span>'+
+      '<span class="rt">'+cmd.type+'</span>'+
+      '<span class="rs">'+sum(cmd)+'</span>'+
+      '<span class="rb">'+
+        '<button data-a="up" data-i="'+i+'">↑</button>'+
+        '<button data-a="dn" data-i="'+i+'">↓</button>'+
+        '<button data-a="del" data-i="'+i+'" class="del">✕</button>'+
+      '</span></div>';
   }).join('');
-
-  // Event delegation
-  el.onclick = function(e) {
-    var btn = e.target.closest('[data-act]');
-    var row = e.target.closest('[data-i]');
-    if (!row) return;
-    var i = parseInt(row.getAttribute('data-i'));
-    if (btn) {
-      var act = btn.getAttribute('data-act');
-      if (act==='up')  moveUp(i);
-      else if (act==='dn')  moveDn(i);
-      else if (act==='del') del(i);
-    } else {
-      selectCmd(i);
-    }
+  el.onclick=function(e){
+    var b=e.target.closest('[data-a]'),r=e.target.closest('[data-i]');
+    if(!r)return;
+    var i=parseInt(r.getAttribute('data-i'));
+    if(b){var a=b.getAttribute('data-a');if(a==='up')moveUp(i);else if(a==='dn')moveDn(i);else del(i);}
+    else selectCmd(i);
   };
-
-  // Drag & Drop
-  setupDragDrop(el);
+  setupDrag(el);
 }
 
-function summary(cmd) {
-  var p = cmd.p;
-  switch(cmd.type) {
-    case 'COMMENT':     return p.Text || '';
-    case 'LIN': case 'CIRC': return 'X:'+p.X+' Y:'+p.Y+' Z:'+p.Z;
-    case 'AXIS':        return 'A1:'+p.A1+'° A2:'+p.A2+'° A3:'+p.A3+'°';
-    case 'TOOL': case 'BASE': return 'ID '+p.ID;
-    case 'FEED':        return p.Value+' mm/min';
-    case 'SPEED':       return p.RPM+' rpm '+p.Dir;
-    case 'DIGITAL_OUT': return '$OUT['+p.Nr+']='+(p.Wert?'TRUE':'FALSE');
-    case 'EXTRUDE':     return (p.State?'EIN':'AUS')+' '+p.Flow+' l/min';
-    case 'WAIT':        return p.Mode==='TIME'?p.Zeit+'s':'Signal';
-    case 'FOR':         return p.Var+'='+p.Von+'…'+p.Bis;
-    default:            return '';
+function sum(cmd){
+  var p=cmd.p;
+  switch(cmd.type){
+    case 'COMMENT':return p.Text;
+    case 'LIN':case 'CIRC':return'X:'+p.X+' Y:'+p.Y+' Z:'+p.Z+' ['+( p.KoordSystem||'BASE')+']';
+    case 'AXIS':return'A1:'+p.A1+'° A2:'+p.A2+'° A3:'+p.A3+'°';
+    case 'TOOL':case 'BASE':return'ID '+p.ID;
+    case 'FEED':return p.Value+' '+p.Einheit;
+    case 'SPEED':return p.RPM+' rpm '+p.Dir;
+    case 'EXTRUDE':return(p.State?'EIN':'AUS')+' '+p.Flow+' l/min';
+    case 'DIGITAL_OUT':return'$OUT['+p.Nr+']='+(p.Wert?'TRUE':'FALSE');
+    case 'WAIT':return p.Mode==='TIME'?p.Zeit+'s':'Signal';
+    case 'FOR':return p.Var+'='+p.Von+'…'+p.Bis;
+    case 'CALL':return p.RetVar?(p.RetVar+'='+p.Target+'('+p.Params+')'):(p.Target+'('+p.Params+')');
+    default:return'';
   }
 }
 
-// ── Formular ──────────────────────────────────────────────────
-function selectCmd(i) {
-  sel = i;
-  render();
-  showForm();
-  // Scroll into view
-  var rows = document.querySelectorAll('.row');
-  if (rows[i]) rows[i].scrollIntoView({block:'nearest', behavior:'smooth'});
-}
+function selectCmd(i){sel=i;renderList();showForm();}
 
-function showForm() {
-  var hdr = document.getElementById('form-hdr');
-  var body = document.getElementById('form-body');
-  if (sel < 0 || sel >= cmds.length) {
-    hdr.innerHTML = 'Parameter';
-    body.innerHTML = '<div style="color:var(--txt3);font-size:.8em;padding:20px 5px;line-height:2">Befehl in der Liste antippen<br>um Parameter zu bearbeiten</div>';
-    return;
+// Groups for movement params
+var POS_KEYS=['X','Y','Z','A','B','C','HX','HY','HZ','A1','A2','A3','A4','A5','A6','Feed','Einheit','Approx','Speed'];
+var MOVE_KEYS=['Aktiv','KoordSystem','Basis','Werkzeug','ExternerTCP','Zykluszeit','MaxGeschw','Beschleunigung','Verzoegerung','GenauigkeitMethod','GenauigkeitWert','OrientInterp','KonfigMode','MaxWinkelGeschw','WinkelBeschleun','WinkelVerzoeger'];
+
+function showForm(){
+  var ph=document.getElementById('ph'),pb=document.getElementById('pb2');
+  var ci=document.getElementById('cimg'),cl=document.getElementById('clbl');
+  var cc=cmds();
+  if(sel<0||sel>=cc.length){
+    ph.innerHTML='Parameter';pb.innerHTML='<div class="empty-state">Befehl in der Liste antippen</div>';
+    ci.textContent='🤖';cl.textContent='Kein Befehl';return;
   }
-  var cmd = cmds[sel], d = DEFS[cmd.type];
-  hdr.innerHTML = '<span style="background:'+d.bg+';border-radius:3px;padding:1px 4px">'+d.ic+'</span> '+d.lb;
-
-  if (!d.p.length) {
-    body.innerHTML = '<div style="color:var(--txt2);font-size:.8em;padding:10px 0">Keine Parameter</div>';
-    return;
-  }
-
-  // Aktions-Buttons für Bewegungsbefehle
-  var actionBtns = '';
-  if (d.action) {
-    actionBtns = '<div style="display:flex;gap:8px;margin-bottom:10px">' +
-      '<button onclick="posGetCurrent()" style="flex:1;background:#0a1a2e;color:#44aaff;border:1px solid #1a3050;border-radius:4px;padding:9px 6px;font-family:inherit;font-size:.85em;cursor:pointer;min-height:42px">📍 Akt. Position</button>' +
-      '<button onclick="posGoto()" style="flex:1;background:#0a1a2e;color:#44cc88;border:1px solid #1a3050;border-radius:4px;padding:9px 6px;font-family:inherit;font-size:.85em;cursor:pointer;min-height:42px">▶ Anfahren</button>' +
+  var cmd=cc[sel],d=DEFS[cmd.type];
+  ph.innerHTML='<span style="background:'+d.bg+';border-radius:4px;padding:2px 7px">'+d.ic+'</span> '+d.lb;
+  ci.textContent=IMGS[cmd.type]||d.ic;
+  cl.textContent=d.lb;
+  var params=getDefParams(cmd.type);
+  var isMove=!!d.move;
+  var html='';
+  if(isMove){
+    html+='<div style="display:flex;gap:6px;padding:7px 10px;border-bottom:1px solid var(--bdr)">'+
+      '<button class="act-btn blue" onclick="posGetCurrent()">📍 Aktuelle Position übernehmen</button>'+
+      '<button class="act-btn" onclick="posGoto()">▶ Position anfahren</button>'+
       '</div>';
-  }
-  body.innerHTML = actionBtns + d.p.map(function(pd) {
-    var v = cmd.p[pd.n] !== undefined ? cmd.p[pd.n] : pd.v;
-    var inp;
-    if (pd.t === 'bool') {
-      inp = '<label style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:3px 0">' +
-        '<input type="checkbox"'+(v?' checked':'')+' data-p="'+pd.n+'" onchange="setP(\''+pd.n+'\',this.checked)">' +
-        '<span style="color:'+(v?'#44ee88':'#3a6080')+';">'+(v?'TRUE':'FALSE')+'</span>' +
-        '</label>';
-    } else if (pd.t === 'sel') {
-      inp = '<select class="form-val" data-p="'+pd.n+'" onchange="setP(\''+pd.n+'\',this.value)">' +
-        pd.opts.map(function(o){ return '<option'+(o===v?' selected':'')+'>'+o+'</option>'; }).join('') +
-        '</select>';
-    } else if (pd.t === 'text') {
-      inp = '<input type="text" class="form-val" data-p="'+pd.n+'" value="'+v+'" oninput="setP(\''+pd.n+'\',this.value)">';
-    } else {
-      inp = '<input type="number" class="form-val" data-p="'+pd.n+'" value="'+v+'" step="any" oninput="setP(\''+pd.n+'\',parseFloat(this.value)||0)">';
-    }
-    var lbl = pd.n + (pd.u ? ' <span class="form-unit">['+pd.u+']</span>' : '');
-    return '<div class="form-row"><label class="form-lbl">'+lbl+'</label>'+inp+'</div>';
-  }).join('');
-}
-
-function setP(name, val) {
-  if (sel < 0) return;
-  cmds[sel].p[name] = val;
-  // Update summary in row
-  var rows = document.querySelectorAll('.row');
-  if (rows[sel]) {
-    var sm = rows[sel].querySelector('.rs');
-    if (sm) sm.textContent = summary(cmds[sel]);
-  }
-}
-
-// ── CRUD ──────────────────────────────────────────────────────
-function add(type) {
-  var c = mk(type); if (!c) return;
-  var at = sel >= 0 ? sel+1 : cmds.length;
-  cmds.splice(at, 0, c);
-  sel = at;
-  render();
-  showForm();
-  setTimeout(function() {
-    var rows = document.querySelectorAll('.row');
-    if (rows[sel]) rows[sel].scrollIntoView({block:'nearest', behavior:'smooth'});
-  }, 50);
-}
-
-function del(i) {
-  cmds.splice(i, 1);
-  sel = Math.min(sel, cmds.length-1);
-  render(); showForm();
-}
-
-function moveUp(i) {
-  if (i <= 0) return;
-  var t = cmds[i]; cmds[i] = cmds[i-1]; cmds[i-1] = t;
-  sel = i-1; render(); showForm();
-}
-
-function moveDn(i) {
-  if (i >= cmds.length-1) return;
-  var t = cmds[i]; cmds[i] = cmds[i+1]; cmds[i+1] = t;
-  sel = i+1; render(); showForm();
-}
-
-// ── KRL Export ────────────────────────────────────────────────
-function exportKRL() {
-  var out = ['DEF Main()'];
-  cmds.forEach(function(cmd) {
-    var p = cmd.p;
-    switch(cmd.type) {
-      case 'COMMENT':     out.push('; '+p.Text); break;
-      case 'TOOL':        out.push('BAS(#TOOL,'+p.ID+')'); break;
-      case 'BASE':        out.push('BAS(#BASE,'+p.ID+')'); break;
-      case 'FEED':        out.push('$VEL.CP = '+(p.Value/60000).toFixed(5)+' ; '+p.Value+' mm/min'); break;
-      case 'SPEED':       out.push('; Spindel '+p.RPM+' rpm '+p.Dir); break;
-      case 'EXTRUDE':
-        if (p.State) out.push('; Extrusion EIN: '+p.Flow+' l/min');
-        else         out.push('; Extrusion AUS');
-        break;
-      case 'DIGITAL_OUT': out.push('$OUT['+p.Nr+'] = '+(p.Wert?'TRUE':'FALSE')); break;
-      case 'DIGITAL_IN':  out.push(p.Var+' = $IN['+p.Nr+']'); break;
-      case 'ANALOG_OUT':  out.push('$ANOUT['+p.Channel+'] = '+p.Value); break;
-      case 'WAIT':        out.push(p.Mode==='TIME'?'WAIT SEC '+p.Zeit:'WAIT FOR $IN[]'); break;
-      case 'LIN':
-        if (p.Approx>0) out.push('$APO.CDIS = '+p.Approx);
-        out.push('$VEL.CP = '+(p.Feed/60000).toFixed(5));
-        out.push('LIN {X '+p.X+', Y '+p.Y+', Z '+p.Z+', A '+p.A+', B '+p.B+', C '+p.C+'}'+(p.Approx>0?' C_DIS':'')); break;
-      case 'CIRC':
-        out.push('CIRC {X '+p.HX+', Y '+p.HY+', Z '+p.HZ+'},{X '+p.X+', Y '+p.Y+', Z '+p.Z+', A '+p.A+', B '+p.B+', C '+p.C+'}'); break;
-      case 'AXIS':
-        out.push('PTP {A1 '+p.A1+', A2 '+p.A2+', A3 '+p.A3+', A4 '+p.A4+', A5 '+p.A5+', A6 '+p.A6+'}'); break;
-      case 'LOOP':  out.push(p.Anzahl>0?'FOR _i = 1 TO '+p.Anzahl:'LOOP'); break;
-      case 'ENDLOOP': out.push('ENDLOOP'); break;
-      case 'FOR':   out.push('FOR '+p.Var+' = '+p.Von+' TO '+p.Bis+' STEP '+p.Schritt); break;
-      case 'NEXT':  out.push('ENDFOR'); break;
-    }
-  });
-  out.push('END');
-  var krl = out.join('\n');
-
-  // Copy to clipboard
-  if (navigator.clipboard) {
-    navigator.clipboard.writeText(krl).then(function() {
-      alert('✓ KRL in Zwischenablage kopiert');
-    });
+    // Position params
+    var posP=params.filter(function(p){return POS_KEYS.includes(p.n);});
+    var movP=params.filter(function(p){return MOVE_KEYS.includes(p.n);});
+    html+='<div class="pgroup">Position / Orientierung</div>';
+    html+='<table class="ptable">'+posP.map(function(pd){return prow(pd,cmd);}).join('')+'</table>';
+    html+='<div class="pgroup">Bewegungsparameter</div>';
+    html+='<table class="ptable">'+movP.map(function(pd){return prow(pd,cmd);}).join('')+'</table>';
+  } else if(cmd.type==='CALL'){
+    var progOpts=progs.map(function(pg){return pg.name;}).filter(function(n){return n!==progs[curProg].name;});
+    if(!progOpts.length)progOpts=['Sequence1'];
+    html+='<table class="ptable">'+
+      prow({n:'Target',t:'sel',v:cmd.p.Target,opts:progOpts},cmd)+
+      prow({n:'Params',t:'text',v:cmd.p.Params},cmd)+
+      prow({n:'RetVar',t:'text',v:cmd.p.RetVar},cmd)+
+    '</table>';
   } else {
-    // Fallback: show in textarea
-    var ta = document.createElement('textarea');
-    ta.value = krl;
-    ta.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;z-index:9999;font-family:monospace;font-size:12px;background:#050d1a;color:#9ecfea;padding:10px;border:none';
-    document.body.appendChild(ta);
-    ta.focus(); ta.select();
-    var closeBtn = document.createElement('button');
-    closeBtn.textContent = '✕ Schließen';
-    closeBtn.style.cssText = 'position:fixed;top:5px;right:5px;z-index:10000;background:#f05500;color:#fff;border:none;padding:8px 16px;cursor:pointer;font-size:14px;border-radius:3px';
-    closeBtn.onclick = function(){ document.body.removeChild(ta); document.body.removeChild(closeBtn); };
-    document.body.appendChild(closeBtn);
+    html+='<table class="ptable">'+params.map(function(pd){return prow(pd,cmd);}).join('')+'</table>';
   }
+  pb.innerHTML=html;
 }
 
-// ── KRL Import ────────────────────────────────────────────────
-function importKRL() {
-  var input = prompt('KRL Code einfügen:');
-  if (!input) return;
-  var lines = input.split(/\r?\n/);
-  cmds = []; sel = -1;
-  lines.forEach(function(line) {
-    line = line.trim();
-    if (!line || line.startsWith('DEF ') || line === 'END') return;
-    var m;
-    if (line.startsWith(';')) {
-      cmds.push(Object.assign(mk('COMMENT'), {p:{Text:line.slice(1).trim()}}));
-    } else if ((m=line.match(/^LIN\s+\{([^}]+)\}/i))) {
-      var c=mk('LIN');
-      [...m[1].matchAll(/([XYZABC])\s+([-\d.]+)/g)].forEach(function(q){c.p[q[1]]=parseFloat(q[2]);});
-      cmds.push(c);
-    } else if ((m=line.match(/^PTP\s+\{A1/i))) {
-      var c=mk('AXIS');
-      [...line.matchAll(/A([1-6])\s+([-\d.]+)/g)].forEach(function(q){c.p['A'+q[1]]=parseFloat(q[2]);});
-      cmds.push(c);
-    } else if ((m=line.match(/^\$VEL\.CP\s*=\s*([\d.]+)/i))) {
-      var c=mk('FEED'); c.p.Value=Math.round(parseFloat(m[1])*60000); cmds.push(c);
-    } else if ((m=line.match(/^\$OUT\[(\d+)\]\s*=\s*(TRUE|FALSE)/i))) {
-      var c=mk('DIGITAL_OUT'); c.p.Nr=parseInt(m[1]); c.p.Wert=m[2]==='TRUE'; cmds.push(c);
-    } else if ((m=line.match(/^WAIT\s+SEC\s+([\d.]+)/i))) {
-      var c=mk('WAIT'); c.p.Mode='TIME'; c.p.Zeit=parseFloat(m[1]); cmds.push(c);
-    } else if ((m=line.match(/^BAS\(#TOOL,(\d+)\)/i))) {
-      var c=mk('TOOL'); c.p.ID=parseInt(m[1]); cmds.push(c);
-    } else if ((m=line.match(/^BAS\(#BASE,(\d+)\)/i))) {
-      var c=mk('BASE'); c.p.ID=parseInt(m[1]); cmds.push(c);
-    }
-  });
-  render(); showForm();
-}
-
-// ── XML Export ────────────────────────────────────────────────
-function exportXML() {
-  var lines = ['<?xml version="1.0" encoding="UTF-8"?>',
-    '<RobotProgram name="Program" version="1.0" language="ReitzRobotXML">',
-    '  <Sub name="Main">'];
-  cmds.forEach(function(cmd) {
-    lines.push('    <Command type="'+cmd.type+'">');
-    Object.entries(cmd.p).forEach(function(kv) {
-      lines.push('      <Param name="'+kv[0]+'" value="'+kv[1]+'"/>');
-    });
-    lines.push('    </Command>');
-  });
-  lines.push('  </Sub>', '</RobotProgram>');
-  var xml = lines.join('\n');
-  var blob = new Blob([xml], {type:'application/xml'});
-  var a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = 'program.xml';
-  a.click();
-}
-
-// ── Drag & Drop ───────────────────────────────────────────────
-var dragIdx = -1, dragEl = null, dragClone = null, dropIdx = -1;
-
-function setupDragDrop(listEl) {
-  listEl.addEventListener('touchstart', onDragStart, {passive:false});
-  listEl.addEventListener('touchmove',  onDragMove,  {passive:false});
-  listEl.addEventListener('touchend',   onDragEnd,   {passive:false});
-  listEl.addEventListener('mousedown',  onDragStart, {passive:false});
-}
-
-function getDragRow(e) {
-  var t = e.touches ? e.touches[0] : e;
-  var el = document.elementFromPoint(t.clientX, t.clientY);
-  return el ? el.closest('[data-i]') : null;
-}
-
-function getClientY(e) { return e.touches ? e.touches[0].clientY : e.clientY; }
-
-function onDragStart(e) {
-  var row = getDragRow(e);
-  if (!row || e.target.closest('[data-act]')) return;
-  dragIdx = parseInt(row.getAttribute('data-i'));
-  dragEl  = row;
-  dropIdx = dragIdx;
-  row.style.opacity = '0.4';
-  e.preventDefault();
-}
-
-function onDragMove(e) {
-  if (dragIdx < 0) return;
-  e.preventDefault();
-  var y = getClientY(e);
-  var list = document.getElementById('list');
-  var rows = list.querySelectorAll('[data-i]');
-  var newDrop = dragIdx;
-  rows.forEach(function(r) {
-    var rect = r.getBoundingClientRect();
-    if (y > rect.top && y < rect.bottom) {
-      newDrop = parseInt(r.getAttribute('data-i'));
-    }
-  });
-  if (newDrop !== dropIdx) {
-    dropIdx = newDrop;
-    rows.forEach(function(r) { r.style.borderTop = ''; r.style.borderBottom = ''; });
-    var targetRow = list.querySelector('[data-i="'+dropIdx+'"]');
-    if (targetRow && dropIdx !== dragIdx) {
-      if (dropIdx < dragIdx) targetRow.style.borderTop = '2px solid #f05500';
-      else targetRow.style.borderBottom = '2px solid #f05500';
-    }
+function prow(pd,cmd){
+  var v=cmd.p[pd.n]!==undefined?cmd.p[pd.n]:pd.v;
+  var tip=TIPS[pd.n]||'';
+  var tipEl=tip?'<span class="tip" data-tip="'+tip.replace(/"/g,"'")+'"></span>':'';
+  var inp;
+  if(pd.t==='bool'){
+    inp='<input type="checkbox" onchange="setP(\''+pd.n+'\',this.checked)"'+(v?' checked':'')+' style="margin:0">';
+  }else if(pd.t==='sel'||pd.t==='prog'){
+    var opts=pd.opts||[];
+    inp='<select class="pinp" onchange="setP(\''+pd.n+'\',this.value)" style="padding:3px 5px">'+
+      opts.map(function(o){return'<option'+(o===v?' selected':'')+'>'+o+'</option>';}).join('')+'</select>';
+  }else if(pd.t==='text'){
+    inp='<input type="text" class="pinp" value="'+String(v).replace(/"/g,'&quot;')+'" oninput="setP(\''+pd.n+'\',this.value)">';
+  }else{
+    inp='<input type="number" class="pinp" value="'+v+'" step="any" oninput="setP(\''+pd.n+'\',parseFloat(this.value)||0)">';
   }
+  return'<tr><td>'+pd.n+tipEl+'</td><td>'+inp+'</td><td>'+(pd.u||'')+'</td></tr>';
 }
 
-function onDragEnd(e) {
-  if (dragIdx < 0) return;
-  if (dragEl) dragEl.style.opacity = '';
-  var list = document.getElementById('list');
-  list.querySelectorAll('[data-i]').forEach(function(r) {
-    r.style.borderTop = ''; r.style.borderBottom = '';
-  });
-  if (dropIdx !== dragIdx && dropIdx >= 0 && dropIdx < cmds.length) {
-    var moved = cmds.splice(dragIdx, 1)[0];
-    var target = dropIdx > dragIdx ? dropIdx - 1 : dropIdx;
-    cmds.splice(target, 0, moved);
-    sel = target;
-    render(); showForm();
-  }
-  dragIdx = -1; dropIdx = -1; dragEl = null;
-  document.removeEventListener('mouseup', onDragEnd);
+function setP(n,v){
+  var cc=cmds();if(sel<0||sel>=cc.length)return;
+  cc[sel].p[n]=v;
+  var rows=document.querySelectorAll('.row');
+  if(rows[sel]){var s=rows[sel].querySelector('.rs');if(s)s.textContent=sum(cc[sel]);}
 }
-document.addEventListener('mouseup', onDragEnd);
 
-// Aktuelle Position übernehmen / Anfahren (Kommunikation mit Simulator)
-function posGetCurrent() {
-  // Versuche Position vom Simulator über postMessage
-  if (window.parent && window.parent !== window) {
-    window.parent.postMessage({type:'GET_POSITION'}, '*');
-  } else {
-    alert('Funktion verfügbar wenn DRCODE im Simulator eingebettet ist');
-  }
+function add(type){
+  var c=mk(type);if(!c)return;
+  var at=sel>=0?sel+1:cmds().length;
+  cmds().splice(at,0,c);sel=at;
+  renderList();showForm();
+  setTimeout(function(){var rows=document.querySelectorAll('.row');if(rows[sel])rows[sel].scrollIntoView({block:'nearest',behavior:'smooth'});},50);
 }
-function posGoto() {
-  if (sel < 0) return;
-  var cmd = cmds[sel];
-  if (window.parent && window.parent !== window) {
-    window.parent.postMessage({type:'GOTO_POSITION', cmd: cmd}, '*');
-  } else {
-    alert('Funktion verfügbar wenn DRCODE im Simulator eingebettet ist');
-  }
+function del(i){cmds().splice(i,1);sel=Math.min(sel,cmds().length-1);renderList();showForm();}
+function moveUp(i){if(i<=0)return;var c=cmds();var t=c[i];c[i]=c[i-1];c[i-1]=t;sel=i-1;renderList();showForm();}
+function moveDn(i){var c=cmds();if(i>=c.length-1)return;var t=c[i];c[i]=c[i+1];c[i+1]=t;sel=i+1;renderList();showForm();}
+
+// Drag & Drop
+var dIdx=-1,dEl=null;
+function setupDrag(el){
+  el.addEventListener('touchstart',dS,{passive:false});
+  el.addEventListener('touchmove',dM,{passive:false});
+  el.addEventListener('touchend',dE,{passive:false});
+  el.addEventListener('mousedown',dS,{passive:false});
 }
-// Empfange Positions-Update vom Simulator
-window.addEventListener('message', function(e) {
-  if (e.data && e.data.type === 'POSITION_DATA' && sel >= 0) {
-    var p = e.data.pos;
-    var cmd = cmds[sel];
-    if (cmd && p) {
-      ['X','Y','Z','A','B','C'].forEach(function(k){ if(p[k]!==undefined) cmd.p[k]=parseFloat(p[k].toFixed(3)); });
-      render(); showForm();
-    }
+function dS(e){var r=e.target.closest('[data-i]');if(!r||e.target.closest('[data-a]'))return;dIdx=parseInt(r.getAttribute('data-i'));dEl=r;r.style.opacity='.4';e.preventDefault();}
+function dM(e){
+  if(dIdx<0)return;e.preventDefault();
+  var y=e.touches?e.touches[0].clientY:e.clientY,x=e.touches?e.touches[0].clientX:e.clientX;
+  document.querySelectorAll('.row').forEach(function(r){r.classList.remove('drag-over-top');});
+  var hit=document.elementFromPoint(x,y);
+  var tgt=hit?hit.closest('[data-i]'):null;
+  if(tgt){var ti=parseInt(tgt.getAttribute('data-i'));if(ti!==dIdx)tgt.classList.add('drag-over-top');}
+}
+function dE(e){
+  if(dIdx<0)return;
+  if(dEl)dEl.style.opacity='';
+  var over=document.querySelector('.drag-over-top');
+  if(over){
+    var ti=parseInt(over.getAttribute('data-i'));
+    over.classList.remove('drag-over-top');
+    var c=cmds(),m=c.splice(dIdx,1)[0];
+    c.splice(ti>dIdx?ti-1:ti,0,m);sel=ti>dIdx?ti-1:ti;
+    renderList();showForm();
+  }
+  dIdx=-1;dEl=null;
+}
+document.addEventListener('mouseup',dE);
+
+// Resize
+(function(){
+  var rh=document.getElementById('rh'),list=document.getElementById('list');
+  var drag=false,sY,sH;
+  function ds(e){drag=true;sY=e.touches?e.touches[0].clientY:e.clientY;sH=list.offsetHeight;e.preventDefault();}
+  function dm(e){if(!drag)return;var d=(e.touches?e.touches[0].clientY:e.clientY)-sY;list.style.height=Math.max(60,Math.min(500,sH+d))+'px';}
+  function du(){drag=false;}
+  rh.addEventListener('mousedown',ds);rh.addEventListener('touchstart',ds,{passive:false});
+  document.addEventListener('mousemove',dm);document.addEventListener('touchmove',dm,{passive:false});
+  document.addEventListener('mouseup',du);document.addEventListener('touchend',du);
+})();
+
+// Actions
+function posGetCurrent(){
+  if(window.parent&&window.parent!==window)window.parent.postMessage({type:'GET_POSITION'},'*');
+  else alert('Verfügbar wenn DRCODE im Simulator eingebettet ist.');
+}
+function posGoto(){
+  var cc=cmds();if(sel<0)return;
+  if(window.parent&&window.parent!==window)window.parent.postMessage({type:'GOTO_POSITION',cmd:cc[sel]},'*');
+  else alert('Verfügbar wenn DRCODE im Simulator eingebettet ist.');
+}
+window.addEventListener('message',function(e){
+  if(e.data&&e.data.type==='POSITION_DATA'&&sel>=0){
+    var p=e.data.pos,cc=cmds();
+    if(p&&cc[sel]){['X','Y','Z','A','B','C'].forEach(function(k){if(p[k]!==undefined)cc[sel].p[k]=parseFloat(p[k].toFixed(3));});renderList();showForm();}
   }
 });
 
-// ── Init ──────────────────────────────────────────────────────
-buildPalette();
+// KRL Export
+var FU={'mm/min':function(v){return(v/60000).toFixed(5);},'mm/s':function(v){return(v/1000).toFixed(5);},'m/min':function(v){return(v/60).toFixed(5);},'m/s':function(v){return v.toFixed(5);}};
+function toKRL(cc,nm){
+  var out=['DEF '+nm+'()'];
+  cc.forEach(function(cmd){
+    var p=cmd.p,fu=(FU[p.Einheit]||FU['mm/min']);
+    if(p.Aktiv===false){out.push('; [DEAKTIVIERT] '+cmd.type);return;}
+    switch(cmd.type){
+      case 'COMMENT':     out.push('; '+p.Text);break;
+      case 'TOOL':        out.push('BAS(#TOOL,'+p.ID+')');break;
+      case 'BASE':        out.push('BAS(#BASE,'+p.ID+')');break;
+      case 'FEED':        out.push('$VEL.CP='+FU[p.Einheit||'mm/min'](p.Value)+' ; '+p.Value+' '+p.Einheit);break;
+      case 'SPEED':       out.push('; Spindel '+p.RPM+' rpm '+p.Dir);break;
+      case 'EXTRUDE':     out.push(p.State?'; Extrusion EIN '+p.Flow+' l/min':'; Extrusion AUS');break;
+      case 'DIGITAL_OUT': out.push('$OUT['+p.Nr+']='+(p.Wert?'TRUE':'FALSE'));break;
+      case 'DIGITAL_IN':  out.push(p.Var+'=$IN['+p.Nr+']');break;
+      case 'ANALOG_OUT':  out.push('$ANOUT['+p.Channel+']='+p.Value);break;
+      case 'WAIT':        out.push(p.Mode==='TIME'?'WAIT SEC '+p.Zeit:'WAIT FOR $IN[]');break;
+      case 'LIN':
+        if(p.Basis&&p.Basis!=='WORLD')out.push('$BASE='+p.Basis);
+        if(p.Werkzeug)out.push('$TOOL='+p.Werkzeug);
+        if(p.MaxGeschw)out.push('$VEL.CP='+FU['mm/s'](p.MaxGeschw)+' ; '+p.MaxGeschw+' mm/s');
+        if(p.Approx>0)out.push('$APO.CDIS='+p.Approx);
+        out.push('LIN {X '+p.X+', Y '+p.Y+', Z '+p.Z+', A '+p.A+', B '+p.B+', C '+p.C+'}'+(p.Approx>0?' C_DIS':''));break;
+      case 'CIRC':
+        if(p.Basis&&p.Basis!=='WORLD')out.push('$BASE='+p.Basis);
+        out.push('CIRC {X '+p.HX+', Y '+p.HY+', Z '+p.HZ+'},{X '+p.X+', Y '+p.Y+', Z '+p.Z+', A '+p.A+', B '+p.B+', C '+p.C+'}');break;
+      case 'AXIS':
+        if(p.Speed)out.push('$VEL_AXIS[1]='+p.Speed);
+        out.push('PTP {A1 '+p.A1+', A2 '+p.A2+', A3 '+p.A3+', A4 '+p.A4+', A5 '+p.A5+', A6 '+p.A6+'}');break;
+      case 'LOOP':        out.push(p.Anzahl>0?'FOR _i=1 TO '+p.Anzahl:'LOOP');break;
+      case 'ENDLOOP':     out.push('ENDLOOP');break;
+      case 'FOR':         out.push('FOR '+p.Var+'='+p.Von+' TO '+p.Bis+' STEP '+p.Schritt);break;
+      case 'NEXT':        out.push('ENDFOR');break;
+      case 'CALL':
+        if(p.RetVar)out.push(p.RetVar+'='+p.Target+'('+p.Params+')');
+        else out.push(p.Target+'('+(p.Params||'')+')');break;
+    }
+  });
+  out.push('END');return out.join('\n');
+}
+
+function exportKRL(){
+  var all=progs.map(function(pg){return toKRL(pg.cmds,pg.name);}).join('\n\n');
+  if(navigator.clipboard){navigator.clipboard.writeText(all).then(function(){alert('✓ KRL kopiert ('+progs.length+' Programme)');});}
+  else{var ta=document.createElement('textarea');ta.value=all;ta.style.cssText='position:fixed;top:0;left:0;width:100%;height:100%;z-index:9999;font-family:monospace;font-size:13px;background:#0d1117;color:#e6edf3;padding:12px;border:none;outline:none';var cb=document.createElement('button');cb.textContent='✕ Schließen';cb.style.cssText='position:fixed;top:8px;right:8px;z-index:10000;background:#f05500;color:#fff;border:none;padding:10px 18px;cursor:pointer;font-size:14px;border-radius:4px';cb.onclick=function(){document.body.removeChild(ta);document.body.removeChild(cb);};document.body.appendChild(ta);document.body.appendChild(cb);ta.focus();ta.select();}
+}
+
+function importKRL(){
+  var input=prompt('KRL einfügen:');if(!input)return;
+  var lines=input.split(/\r?\n/);progs[curProg].cmds=[];sel=-1;
+  lines.forEach(function(line){
+    line=line.trim();if(!line||line.match(/^DEF /i)||line==='END')return;
+    var m;
+    if(line.startsWith(';')){var c=mk('COMMENT');c.p.Text=line.slice(1).trim();cmds().push(c);}
+    else if((m=line.match(/^LIN\s+\{([^}]+)\}/i))){var c=mk('LIN');[...m[1].matchAll(/([XYZABC])\s+([-\d.]+)/g)].forEach(function(q){c.p[q[1]]=parseFloat(q[2]);});cmds().push(c);}
+    else if((m=line.match(/^PTP\s+\{A1/i))){var c=mk('AXIS');[...line.matchAll(/A([1-6])\s+([-\d.]+)/g)].forEach(function(q){c.p['A'+q[1]]=parseFloat(q[2]);});cmds().push(c);}
+    else if((m=line.match(/^\$VEL\.CP\s*=\s*([\d.]+)/i))){var c=mk('FEED');c.p.Value=Math.round(parseFloat(m[1])*60000);cmds().push(c);}
+    else if((m=line.match(/^\$OUT\[(\d+)\]\s*=\s*(TRUE|FALSE)/i))){var c=mk('DIGITAL_OUT');c.p.Nr=parseInt(m[1]);c.p.Wert=m[2]==='TRUE';cmds().push(c);}
+    else if((m=line.match(/^WAIT\s+SEC\s+([\d.]+)/i))){var c=mk('WAIT');c.p.Zeit=parseFloat(m[1]);cmds().push(c);}
+    else if((m=line.match(/^BAS\(#TOOL,(\d+)\)/i))){var c=mk('TOOL');c.p.ID=parseInt(m[1]);cmds().push(c);}
+    else if((m=line.match(/^BAS\(#BASE,(\d+)\)/i))){var c=mk('BASE');c.p.ID=parseInt(m[1]);cmds().push(c);}
+    else if((m=line.match(/^(\w+)\s*=\s*(\w+)\(([^)]*)\)/i))){var c=mk('CALL');c.p.RetVar=m[1];c.p.Target=m[2];c.p.Params=m[3];cmds().push(c);}
+    else if((m=line.match(/^(\w+)\(([^)]*)\)/i))){var c=mk('CALL');c.p.Target=m[1];c.p.Params=m[2];cmds().push(c);}
+  });
+  renderList();showForm();
+}
+
+function exportXML(){
+  var r=['<?xml version="1.0" encoding="UTF-8"?>','<RobotProgram version="1.0" language="ReitzRobotXML">'];
+  progs.forEach(function(pg){r.push('  <Sub name="'+pg.name+'">');pg.cmds.forEach(function(cmd){r.push('    <Command type="'+cmd.type+'">');Object.entries(cmd.p).forEach(function(kv){r.push('      <Param name="'+kv[0]+'" value="'+kv[1]+'"/>');});r.push('    </Command>');});r.push('  </Sub>');});
+  r.push('</RobotProgram>');
+  var blob=new Blob([r.join('\n')],{type:'application/xml'});var a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='program.xml';a.click();
+}
+
+buildPalette();renderTabs();renderList();
 </script>
 </body>
 </html>
