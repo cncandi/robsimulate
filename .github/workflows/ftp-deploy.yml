@@ -2,23 +2,43 @@ name: FTP Deploy
 
 on:
   push:
-    branches: [main]
+    branches: [main, develop]
   workflow_dispatch:
 
 jobs:
-  deploy:
+  deploy-main:
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: FTP Upload
+      - name: FTP Upload main
         uses: SamKirkland/FTP-Deploy-Action@v4.3.5
         with:
           server: ftp.fastmill.biz
           username: robsimul@cnc-technik.de
           password: ${{ secrets.FTP_PASSWORD }}
           server-dir: /
+          protocol: ftp
+          port: 21
+          timeout: 60000
+          log-level: standard
+
+  deploy-develop:
+    if: github.ref == 'refs/heads/develop'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: FTP Upload develop preview
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+        with:
+          server: ftp.fastmill.biz
+          username: robsimul@cnc-technik.de
+          password: ${{ secrets.FTP_PASSWORD }}
+          server-dir: /dev/
           protocol: ftp
           port: 21
           timeout: 60000
