@@ -120,6 +120,7 @@ var DEFS = {
   FEED:        {ic:'⚡',lb:'Vorschub',   bg:'#2a1500',p:[{n:'Value',t:'num',v:1000},{n:'Einheit',t:'sel',v:'mm/min',opts:['mm/min','mm/s','m/min','m/s']}]},
   SPEED:       {ic:'🔄',lb:'Spindel',    bg:'#2a1500',p:[{n:'RPM',       t:'num', v:12000,u:'rpm'},
                   {n:'Dir',t:'sel',v:'CW',opts:['CW','CCW']}]},
+  EXTRUDE:     {ic:'💧',lb:'Extrusion',  bg:'#002030',p:[{n:'Flow',t:'num',v:1.0,u:'l/min'},{n:'State',t:'bool',v:true}]},
   DIGITAL_OUT: {ic:'●', lb:'Dig. Ausgang',bg:'#001830',p:[{n:'Nr',      t:'int', v:1},
                   {n:'Wert',t:'bool',v:true}]},
   DIGITAL_IN:  {ic:'○', lb:'Dig. Eingang',bg:'#001020',p:[{n:'Nr',      t:'int', v:1},
@@ -227,6 +228,7 @@ function summary(cmd) {
     case 'FEED':        return p.Value+' mm/min';
     case 'SPEED':       return p.RPM+' rpm '+p.Dir;
     case 'DIGITAL_OUT': return '$OUT['+p.Nr+']='+(p.Wert?'TRUE':'FALSE');
+    case 'EXTRUDE':     return (p.State?'EIN':'AUS')+' '+p.Flow+' l/min';
     case 'WAIT':        return p.Mode==='TIME'?p.Zeit+'s':'Signal';
     case 'FOR':         return p.Var+'='+p.Von+'…'+p.Bis;
     default:            return '';
@@ -343,6 +345,10 @@ function exportKRL() {
       case 'BASE':        out.push('BAS(#BASE,'+p.ID+')'); break;
       case 'FEED':        out.push('$VEL.CP = '+(p.Value/60000).toFixed(5)+' ; '+p.Value+' mm/min'); break;
       case 'SPEED':       out.push('; Spindel '+p.RPM+' rpm '+p.Dir); break;
+      case 'EXTRUDE':
+        if (p.State) out.push('; Extrusion EIN: '+p.Flow+' l/min');
+        else         out.push('; Extrusion AUS');
+        break;
       case 'DIGITAL_OUT': out.push('$OUT['+p.Nr+'] = '+(p.Wert?'TRUE':'FALSE')); break;
       case 'DIGITAL_IN':  out.push(p.Var+' = $IN['+p.Nr+']'); break;
       case 'ANALOG_OUT':  out.push('$ANOUT['+p.Channel+'] = '+p.Value); break;
