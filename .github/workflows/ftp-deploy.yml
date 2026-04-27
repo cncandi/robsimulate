@@ -1,44 +1,24 @@
-name: FTP Deploy → cnc-technik.de/robsimul
+name: FTP Deploy
 
 on:
   push:
-    branches: [main, develop]
+    branches: [main]
   workflow_dispatch:
 
 jobs:
-  deploy-main:
-    if: github.ref == 'refs/heads/main'
+  deploy:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: FTP Upload main → /robsimul/
+      - name: FTP Upload
         uses: SamKirkland/FTP-Deploy-Action@v4.3.5
         with:
           server: ftp.fastmill.biz
           username: robsimul@cnc-technik.de
           password: ${{ secrets.FTP_PASSWORD }}
           server-dir: /
-          protocol: ftp
-          port: 21
-          timeout: 60000
-          log-level: standard
-
-  deploy-develop:
-    if: github.ref == 'refs/heads/develop'
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: FTP Upload develop → /robsimul-dev/
-        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
-        with:
-          server: ftp.fastmill.biz
-          username: robsimul@cnc-technik.de
-          password: ${{ secrets.FTP_PASSWORD }}
-          server-dir: /robsimul-dev/
           protocol: ftp
           port: 21
           timeout: 60000
