@@ -11,13 +11,13 @@
 }
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
 html,body{height:100%;overflow:hidden}
-body{background:var(--bg0);color:var(--txt);font-family:'Consolas','Courier New',monospace;font-size:13px;display:flex;flex-direction:column}
+body{background:var(--bg0);color:var(--txt);font-family:'Consolas','Courier New',monospace;font-size:17px;display:flex;flex-direction:column}
 
 /* ── Header ── */
-.hdr{height:44px;background:var(--bg2);border-bottom:2px solid var(--acc);display:flex;align-items:center;gap:8px;padding:0 10px;flex-shrink:0}
-.hdr-logo{color:var(--acc);font-weight:bold;font-size:1.1em;letter-spacing:2px}
-.hdr-sub{color:var(--txt2);font-size:.78em}
-.hdr-btn{background:var(--bg3);color:var(--txt);border:1px solid var(--bdr);border-radius:3px;padding:4px 12px;cursor:pointer;font-family:inherit;font-size:.78em;flex-shrink:0}
+.hdr{height:56px;background:var(--bg2);border-bottom:2px solid var(--acc);display:flex;align-items:center;gap:8px;padding:0 12px;flex-shrink:0}
+.hdr-logo{color:var(--acc);font-weight:bold;font-size:1.3em;letter-spacing:2px}
+.hdr-sub{color:var(--txt2);font-size:.9em}
+.hdr-btn{background:var(--bg3);color:var(--txt);border:1px solid var(--bdr);border-radius:4px;padding:8px 18px;cursor:pointer;font-family:inherit;font-size:.95em;flex-shrink:0;min-height:40px}
 .hdr-btn:active{background:var(--acc);color:#fff;border-color:var(--acc)}
 .hdr-btn.acc{color:var(--acc);border-color:var(--acc)}
 
@@ -29,19 +29,19 @@ body{background:var(--bg0);color:var(--txt);font-family:'Consolas','Courier New'
 
 /* Palette */
 .palette{background:var(--bg2);border-bottom:1px solid var(--bdr);padding:5px;display:flex;flex-wrap:wrap;gap:3px;flex-shrink:0}
-.pb{display:inline-flex;align-items:center;gap:3px;background:var(--bg3);border:1px solid var(--bdr);border-radius:3px;padding:3px 6px;cursor:pointer;font-family:inherit;font-size:.72em;color:var(--txt2);-webkit-user-select:none;user-select:none}
+.pb{display:inline-flex;align-items:center;gap:4px;background:var(--bg3);border:1px solid var(--bdr);border-radius:4px;padding:7px 10px;cursor:pointer;font-family:inherit;font-size:.9em;color:var(--txt2);-webkit-user-select:none;user-select:none;min-height:38px}
 .pb:active{border-color:var(--acc);color:var(--acc);background:#0f2030}
 .pb .ic{border-radius:2px;padding:0 2px}
 
 /* List */
 .list{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch}
-.row{display:flex;align-items:center;gap:4px;padding:8px 8px;border-bottom:1px solid #060e1a;-webkit-user-select:none;user-select:none}
+.row{display:flex;align-items:center;gap:6px;padding:12px 8px;border-bottom:1px solid #060e1a;-webkit-user-select:none;user-select:none;min-height:52px}
 .row.sel{background:#0f2030;border-left:3px solid var(--acc);padding-left:5px}
-.row .ri{width:22px;height:20px;border-radius:3px;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:.9em}
-.row .rt{color:var(--acc);font-weight:bold;font-size:.75em;width:76px;flex-shrink:0}
-.row .rs{flex:1;color:var(--txt2);font-size:.72em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.row .ri{width:30px;height:28px;border-radius:4px;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:1.1em}
+.row .rt{color:var(--acc);font-weight:bold;font-size:.9em;width:90px;flex-shrink:0}
+.row .rs{flex:1;color:var(--txt2);font-size:.85em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .row .rb{display:flex;gap:2px;flex-shrink:0}
-.rb button{background:var(--bg3);border:1px solid var(--bdr);color:var(--txt);border-radius:2px;padding:2px 7px;cursor:pointer;font-size:.7em;font-family:inherit}
+.rb button{background:var(--bg3);border:1px solid var(--bdr);color:var(--txt);border-radius:3px;padding:6px 12px;cursor:pointer;font-size:.85em;font-family:inherit;min-height:34px}
 .rb button:active{border-color:var(--acc);color:var(--acc)}
 .rb .del:active{border-color:#f05500;color:#f05500}
 
@@ -50,19 +50,19 @@ body{background:var(--bg0);color:var(--txt);font-family:'Consolas','Courier New'
 
 /* ── Right: Formular ── */
 .right{flex:1;display:flex;flex-direction:column;min-width:0;background:var(--bg1)}
-.form-hdr{background:var(--bg2);border-bottom:1px solid var(--bdr);padding:8px 10px;font-size:.8em;font-weight:bold;color:var(--acc);flex-shrink:0;min-height:38px;display:flex;align-items:center;gap:6px}
+.form-hdr{background:var(--bg2);border-bottom:1px solid var(--bdr);padding:10px 12px;font-size:1em;font-weight:bold;color:var(--acc);flex-shrink:0;min-height:48px;display:flex;align-items:center;gap:8px}
 .form-body{flex:1;overflow-y:auto;padding:8px 10px;-webkit-overflow-scrolling:touch}
 .form-row{display:flex;align-items:center;gap:6px;margin-bottom:6px}
-.form-lbl{flex:0 0 auto;color:var(--txt2);font-size:.75em;width:90px}
-.form-unit{color:var(--txt3);font-size:.7em}
-.form-val{flex:1;background:var(--bg3);color:#f8b060;border:1px solid var(--bdr);border-radius:3px;padding:5px 7px;font-family:inherit;font-size:.85em;outline:none;min-width:0;-webkit-appearance:none}
+.form-lbl{flex:0 0 auto;color:var(--txt2);font-size:.9em;width:110px}
+.form-unit{color:var(--txt3);font-size:.8em}
+.form-val{flex:1;background:var(--bg3);color:#f8b060;border:1px solid var(--bdr);border-radius:4px;padding:9px 10px;font-family:inherit;font-size:1em;outline:none;min-width:0;-webkit-appearance:none;min-height:42px}
 .form-val:focus{border-color:var(--acc)}
 input[type=number].form-val{text-align:right}
-input[type=checkbox]{width:18px;height:18px;accent-color:var(--acc);cursor:pointer;flex-shrink:0}
+input[type=checkbox]{width:24px;height:24px;accent-color:var(--acc);cursor:pointer;flex-shrink:0}
 
 /* ── Actions ── */
-.actions{padding:5px 8px;display:flex;gap:5px;border-top:1px solid var(--bdr);background:var(--bg2);flex-shrink:0}
-.actions button{flex:1;background:var(--bg3);color:var(--txt);border:1px solid var(--bdr);border-radius:3px;padding:6px 4px;cursor:pointer;font-family:inherit;font-size:.75em}
+.actions{padding:7px 8px;display:flex;gap:6px;border-top:1px solid var(--bdr);background:var(--bg2);flex-shrink:0}
+.actions button{flex:1;background:var(--bg3);color:var(--txt);border:1px solid var(--bdr);border-radius:4px;padding:10px 4px;cursor:pointer;font-family:inherit;font-size:.9em;min-height:44px}
 .actions button:active{border-color:var(--acc);color:var(--acc)}
 .actions .acc-btn{color:var(--acc);border-color:var(--acc)}
 
