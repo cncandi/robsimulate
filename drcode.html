@@ -1,0 +1,436 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DRCODE – Robot Programmeditor</title>
+<style>
+:root{
+  --bg0:#030912;--bg1:#050d1a;--bg2:#07111e;--bg3:#0a1a2e;
+  --acc:#f05500;--bdr:#1a3050;--txt:#9ecfea;--txt2:#3a6080;--txt3:#1e3a55;
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;overflow:hidden}
+body{background:var(--bg0);color:var(--txt);font-family:'Consolas','Courier New',monospace;font-size:13px;display:flex;flex-direction:column}
+
+/* ── Header ── */
+.hdr{height:44px;background:var(--bg2);border-bottom:2px solid var(--acc);display:flex;align-items:center;gap:8px;padding:0 10px;flex-shrink:0}
+.hdr-logo{color:var(--acc);font-weight:bold;font-size:1.1em;letter-spacing:2px}
+.hdr-sub{color:var(--txt2);font-size:.78em}
+.hdr-btn{background:var(--bg3);color:var(--txt);border:1px solid var(--bdr);border-radius:3px;padding:4px 12px;cursor:pointer;font-family:inherit;font-size:.78em;flex-shrink:0}
+.hdr-btn:active{background:var(--acc);color:#fff;border-color:var(--acc)}
+.hdr-btn.acc{color:var(--acc);border-color:var(--acc)}
+
+/* ── Layout ── */
+.body{display:flex;flex:1;min-height:0}
+
+/* ── Left: Befehlsliste ── */
+.left{width:55%;border-right:2px solid var(--acc);display:flex;flex-direction:column;min-width:0}
+
+/* Palette */
+.palette{background:var(--bg2);border-bottom:1px solid var(--bdr);padding:5px;display:flex;flex-wrap:wrap;gap:3px;flex-shrink:0}
+.pb{display:inline-flex;align-items:center;gap:3px;background:var(--bg3);border:1px solid var(--bdr);border-radius:3px;padding:3px 6px;cursor:pointer;font-family:inherit;font-size:.72em;color:var(--txt2);-webkit-user-select:none;user-select:none}
+.pb:active{border-color:var(--acc);color:var(--acc);background:#0f2030}
+.pb .ic{border-radius:2px;padding:0 2px}
+
+/* List */
+.list{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch}
+.row{display:flex;align-items:center;gap:4px;padding:8px 8px;border-bottom:1px solid #060e1a;-webkit-user-select:none;user-select:none}
+.row.sel{background:#0f2030;border-left:3px solid var(--acc);padding-left:5px}
+.row .ri{width:22px;height:20px;border-radius:3px;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:.9em}
+.row .rt{color:var(--acc);font-weight:bold;font-size:.75em;width:76px;flex-shrink:0}
+.row .rs{flex:1;color:var(--txt2);font-size:.72em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.row .rb{display:flex;gap:2px;flex-shrink:0}
+.rb button{background:var(--bg3);border:1px solid var(--bdr);color:var(--txt);border-radius:2px;padding:2px 7px;cursor:pointer;font-size:.7em;font-family:inherit}
+.rb button:active{border-color:var(--acc);color:var(--acc)}
+.rb .del:active{border-color:#f05500;color:#f05500}
+
+/* Empty state */
+.empty{color:var(--txt3);text-align:center;padding:30px 10px;font-size:.85em;line-height:2}
+
+/* ── Right: Formular ── */
+.right{flex:1;display:flex;flex-direction:column;min-width:0;background:var(--bg1)}
+.form-hdr{background:var(--bg2);border-bottom:1px solid var(--bdr);padding:8px 10px;font-size:.8em;font-weight:bold;color:var(--acc);flex-shrink:0;min-height:38px;display:flex;align-items:center;gap:6px}
+.form-body{flex:1;overflow-y:auto;padding:8px 10px;-webkit-overflow-scrolling:touch}
+.form-row{display:flex;align-items:center;gap:6px;margin-bottom:6px}
+.form-lbl{flex:0 0 auto;color:var(--txt2);font-size:.75em;width:90px}
+.form-unit{color:var(--txt3);font-size:.7em}
+.form-val{flex:1;background:var(--bg3);color:#f8b060;border:1px solid var(--bdr);border-radius:3px;padding:5px 7px;font-family:inherit;font-size:.85em;outline:none;min-width:0;-webkit-appearance:none}
+.form-val:focus{border-color:var(--acc)}
+input[type=number].form-val{text-align:right}
+input[type=checkbox]{width:18px;height:18px;accent-color:var(--acc);cursor:pointer;flex-shrink:0}
+
+/* ── Actions ── */
+.actions{padding:5px 8px;display:flex;gap:5px;border-top:1px solid var(--bdr);background:var(--bg2);flex-shrink:0}
+.actions button{flex:1;background:var(--bg3);color:var(--txt);border:1px solid var(--bdr);border-radius:3px;padding:6px 4px;cursor:pointer;font-family:inherit;font-size:.75em}
+.actions button:active{border-color:var(--acc);color:var(--acc)}
+.actions .acc-btn{color:var(--acc);border-color:var(--acc)}
+
+/* Scrollbar */
+::-webkit-scrollbar{width:4px}
+::-webkit-scrollbar-track{background:var(--bg1)}
+::-webkit-scrollbar-thumb{background:var(--bdr);border-radius:2px}
+</style>
+</head>
+<body>
+
+<div class="hdr">
+  <span class="hdr-logo">DRCODE</span>
+  <span class="hdr-sub">Datentechnik Reitz</span>
+  <div style="flex:1"></div>
+  <button class="hdr-btn acc" onclick="exportKRL()" title="KRL-Code erzeugen">→ KRL</button>
+  <button class="hdr-btn" onclick="importKRL()" title="KRL importieren">← KRL</button>
+  <button class="hdr-btn" onclick="exportXML()" title="XML speichern">💾</button>
+</div>
+
+<div class="body">
+
+  <!-- Befehlsliste -->
+  <div class="left">
+    <div class="palette" id="palette"></div>
+    <div class="list" id="list">
+      <div class="empty">⬆ Befehl aus der Palette wählen<br>oder ← KRL importieren</div>
+    </div>
+  </div>
+
+  <!-- Parameter-Formular -->
+  <div class="right">
+    <div class="form-hdr" id="form-hdr">Parameter</div>
+    <div class="form-body" id="form-body">
+      <div style="color:var(--txt3);font-size:.8em;padding:20px 5px;line-height:2">
+        Befehl in der Liste antippen<br>um Parameter zu bearbeiten
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+'use strict';
+
+// ── Befehls-Definitionen ──────────────────────────────────────
+var DEFS = {
+  COMMENT:     {ic:'💬',lb:'Kommentar',  bg:'#1a2a3a',p:[{n:'Text',      t:'text',v:''}]},
+  TOOL:        {ic:'🔧',lb:'Werkzeug',   bg:'#102a10',p:[{n:'ID',        t:'int', v:1},
+                  {n:'X',t:'num',v:0,u:'mm'},{n:'Y',t:'num',v:0,u:'mm'},{n:'Z',t:'num',v:0,u:'mm'},
+                  {n:'A',t:'num',v:0,u:'°'},{n:'B',t:'num',v:0,u:'°'},{n:'C',t:'num',v:0,u:'°'}]},
+  BASE:        {ic:'📐',lb:'Basis',      bg:'#10102a',p:[{n:'ID',        t:'int', v:1},
+                  {n:'X',t:'num',v:0,u:'mm'},{n:'Y',t:'num',v:0,u:'mm'},{n:'Z',t:'num',v:0,u:'mm'},
+                  {n:'A',t:'num',v:0,u:'°'},{n:'B',t:'num',v:0,u:'°'},{n:'C',t:'num',v:0,u:'°'}]},
+  FEED:        {ic:'⚡',lb:'Vorschub',   bg:'#2a1500',p:[{n:'Value',     t:'num', v:1000,u:'mm/min'}]},
+  SPEED:       {ic:'🔄',lb:'Spindel',    bg:'#2a1500',p:[{n:'RPM',       t:'num', v:12000,u:'rpm'},
+                  {n:'Dir',t:'sel',v:'CW',opts:['CW','CCW']}]},
+  DIGITAL_OUT: {ic:'●', lb:'Dig. Ausgang',bg:'#001830',p:[{n:'Nr',      t:'int', v:1},
+                  {n:'Wert',t:'bool',v:true}]},
+  DIGITAL_IN:  {ic:'○', lb:'Dig. Eingang',bg:'#001020',p:[{n:'Nr',      t:'int', v:1},
+                  {n:'Var',t:'text',v:'bIn'}]},
+  ANALOG_OUT:  {ic:'〰',lb:'Ana. Ausgang',bg:'#001830',p:[{n:'Channel',  t:'int', v:1},
+                  {n:'Value',t:'num',v:0},{n:'Unit',t:'sel',v:'%',opts:['V','%']}]},
+  WAIT:        {ic:'⏱',lb:'Warten',     bg:'#1a1a30',p:[{n:'Mode',      t:'sel', v:'TIME',opts:['TIME','SIGNAL']},
+                  {n:'Zeit',t:'num',v:1.0,u:'s'}]},
+  LIN:         {ic:'→', lb:'Linear',    bg:'#002510',p:[
+                  {n:'X',t:'num',v:0,u:'mm'},{n:'Y',t:'num',v:0,u:'mm'},{n:'Z',t:'num',v:0,u:'mm'},
+                  {n:'A',t:'num',v:0,u:'°'},{n:'B',t:'num',v:0,u:'°'},{n:'C',t:'num',v:0,u:'°'},
+                  {n:'Feed',t:'num',v:1000,u:'mm/min'},{n:'Approx',t:'num',v:0,u:'mm'}]},
+  CIRC:        {ic:'⌒', lb:'Kreis',     bg:'#001a0c',p:[
+                  {n:'HX',t:'num',v:0,u:'mm'},{n:'HY',t:'num',v:0,u:'mm'},{n:'HZ',t:'num',v:0,u:'mm'},
+                  {n:'X',t:'num',v:0,u:'mm'},{n:'Y',t:'num',v:0,u:'mm'},{n:'Z',t:'num',v:0,u:'mm'},
+                  {n:'A',t:'num',v:0,u:'°'},{n:'B',t:'num',v:0,u:'°'},{n:'C',t:'num',v:0,u:'°'},
+                  {n:'Feed',t:'num',v:1000,u:'mm/min'}]},
+  AXIS:        {ic:'🤖',lb:'Achspunkt',  bg:'#1a1000',p:[
+                  {n:'A1',t:'num',v:0,u:'°'},{n:'A2',t:'num',v:-90,u:'°'},{n:'A3',t:'num',v:90,u:'°'},
+                  {n:'A4',t:'num',v:0,u:'°'},{n:'A5',t:'num',v:0,u:'°'},{n:'A6',t:'num',v:0,u:'°'},
+                  {n:'Speed',t:'num',v:20,u:'%'}]},
+  LOOP:        {ic:'🔁',lb:'Schleife',   bg:'#1a0a2a',p:[{n:'Anzahl',   t:'int', v:0}]},
+  ENDLOOP:     {ic:'⤵', lb:'Ende Schl.',bg:'#1a0a2a',p:[]},
+  FOR:         {ic:'🔢',lb:'Zähler',     bg:'#1a0a2a',p:[{n:'Var',      t:'text',v:'i'},
+                  {n:'Von',t:'num',v:1},{n:'Bis',t:'num',v:10},{n:'Schritt',t:'num',v:1}]},
+  NEXT:        {ic:'⤵', lb:'Nächste',   bg:'#1a0a2a',p:[]},
+};
+
+// ── State ─────────────────────────────────────────────────────
+var cmds = [], sel = -1, nid = 1;
+
+function mk(type) {
+  var d = DEFS[type]; if (!d) return null;
+  var p = {}; d.p.forEach(function(x){ p[x.n] = x.v; });
+  return {type:type, p:p, id:nid++};
+}
+
+// ── Palette aufbauen ──────────────────────────────────────────
+function buildPalette() {
+  var pal = document.getElementById('palette');
+  Object.keys(DEFS).forEach(function(type) {
+    var d = DEFS[type];
+    var btn = document.createElement('button');
+    btn.className = 'pb';
+    btn.innerHTML = '<span class="ic" style="background:'+d.bg+'">'+d.ic+'</span>'+type;
+    btn.title = d.lb;
+    btn.addEventListener('click', function(){ add(type); });
+    pal.appendChild(btn);
+  });
+}
+
+// ── Render Liste ──────────────────────────────────────────────
+function render() {
+  var el = document.getElementById('list');
+  if (!cmds.length) {
+    el.innerHTML = '<div class="empty">⬆ Befehl aus der Palette wählen<br>oder ← KRL importieren</div>';
+    return;
+  }
+  var indent = 0, OPEN = ['LOOP','FOR'], CLOSE = ['ENDLOOP','NEXT'];
+  el.innerHTML = cmds.map(function(cmd, i) {
+    var d = DEFS[cmd.type] || {ic:'?',lb:cmd.type,bg:'#111'};
+    if (CLOSE.includes(cmd.type)) indent = Math.max(0, indent-1);
+    var ind = indent;
+    if (OPEN.includes(cmd.type)) indent++;
+    var s = i === sel;
+    return '<div class="row'+(s?' sel':'')+'" data-i="'+i+'" style="padding-left:'+(8+ind*10)+'px'+(s?';padding-left:'+(5+ind*10)+'px':'')+'">' +
+      '<span class="ri" style="background:'+d.bg+'">'+d.ic+'</span>' +
+      '<span class="rt">'+cmd.type+'</span>' +
+      '<span class="rs">'+summary(cmd)+'</span>' +
+      '<span class="rb">' +
+        '<button data-act="up" data-i="'+i+'" title="Hoch">↑</button>' +
+        '<button data-act="dn" data-i="'+i+'" title="Runter">↓</button>' +
+        '<button data-act="del" data-i="'+i+'" class="del" title="Löschen">✕</button>' +
+      '</span>' +
+    '</div>';
+  }).join('');
+
+  // Event delegation
+  el.onclick = function(e) {
+    var btn = e.target.closest('[data-act]');
+    var row = e.target.closest('[data-i]');
+    if (!row) return;
+    var i = parseInt(row.getAttribute('data-i'));
+    if (btn) {
+      var act = btn.getAttribute('data-act');
+      if (act==='up')  moveUp(i);
+      else if (act==='dn')  moveDn(i);
+      else if (act==='del') del(i);
+    } else {
+      selectCmd(i);
+    }
+  };
+}
+
+function summary(cmd) {
+  var p = cmd.p;
+  switch(cmd.type) {
+    case 'COMMENT':     return p.Text || '';
+    case 'LIN': case 'CIRC': return 'X:'+p.X+' Y:'+p.Y+' Z:'+p.Z;
+    case 'AXIS':        return 'A1:'+p.A1+'° A2:'+p.A2+'° A3:'+p.A3+'°';
+    case 'TOOL': case 'BASE': return 'ID '+p.ID;
+    case 'FEED':        return p.Value+' mm/min';
+    case 'SPEED':       return p.RPM+' rpm '+p.Dir;
+    case 'DIGITAL_OUT': return '$OUT['+p.Nr+']='+(p.Wert?'TRUE':'FALSE');
+    case 'WAIT':        return p.Mode==='TIME'?p.Zeit+'s':'Signal';
+    case 'FOR':         return p.Var+'='+p.Von+'…'+p.Bis;
+    default:            return '';
+  }
+}
+
+// ── Formular ──────────────────────────────────────────────────
+function selectCmd(i) {
+  sel = i;
+  render();
+  showForm();
+  // Scroll into view
+  var rows = document.querySelectorAll('.row');
+  if (rows[i]) rows[i].scrollIntoView({block:'nearest', behavior:'smooth'});
+}
+
+function showForm() {
+  var hdr = document.getElementById('form-hdr');
+  var body = document.getElementById('form-body');
+  if (sel < 0 || sel >= cmds.length) {
+    hdr.innerHTML = 'Parameter';
+    body.innerHTML = '<div style="color:var(--txt3);font-size:.8em;padding:20px 5px;line-height:2">Befehl in der Liste antippen<br>um Parameter zu bearbeiten</div>';
+    return;
+  }
+  var cmd = cmds[sel], d = DEFS[cmd.type];
+  hdr.innerHTML = '<span style="background:'+d.bg+';border-radius:3px;padding:1px 4px">'+d.ic+'</span> '+d.lb;
+
+  if (!d.p.length) {
+    body.innerHTML = '<div style="color:var(--txt2);font-size:.8em;padding:10px 0">Keine Parameter</div>';
+    return;
+  }
+
+  body.innerHTML = d.p.map(function(pd) {
+    var v = cmd.p[pd.n] !== undefined ? cmd.p[pd.n] : pd.v;
+    var inp;
+    if (pd.t === 'bool') {
+      inp = '<label style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:3px 0">' +
+        '<input type="checkbox"'+(v?' checked':'')+' data-p="'+pd.n+'" onchange="setP(\''+pd.n+'\',this.checked)">' +
+        '<span style="color:'+(v?'#44ee88':'#3a6080')+';">'+(v?'TRUE':'FALSE')+'</span>' +
+        '</label>';
+    } else if (pd.t === 'sel') {
+      inp = '<select class="form-val" data-p="'+pd.n+'" onchange="setP(\''+pd.n+'\',this.value)">' +
+        pd.opts.map(function(o){ return '<option'+(o===v?' selected':'')+'>'+o+'</option>'; }).join('') +
+        '</select>';
+    } else if (pd.t === 'text') {
+      inp = '<input type="text" class="form-val" data-p="'+pd.n+'" value="'+v+'" oninput="setP(\''+pd.n+'\',this.value)">';
+    } else {
+      inp = '<input type="number" class="form-val" data-p="'+pd.n+'" value="'+v+'" step="any" oninput="setP(\''+pd.n+'\',parseFloat(this.value)||0)">';
+    }
+    var lbl = pd.n + (pd.u ? ' <span class="form-unit">['+pd.u+']</span>' : '');
+    return '<div class="form-row"><label class="form-lbl">'+lbl+'</label>'+inp+'</div>';
+  }).join('');
+}
+
+function setP(name, val) {
+  if (sel < 0) return;
+  cmds[sel].p[name] = val;
+  // Update summary in row
+  var rows = document.querySelectorAll('.row');
+  if (rows[sel]) {
+    var sm = rows[sel].querySelector('.rs');
+    if (sm) sm.textContent = summary(cmds[sel]);
+  }
+}
+
+// ── CRUD ──────────────────────────────────────────────────────
+function add(type) {
+  var c = mk(type); if (!c) return;
+  var at = sel >= 0 ? sel+1 : cmds.length;
+  cmds.splice(at, 0, c);
+  sel = at;
+  render();
+  showForm();
+  setTimeout(function() {
+    var rows = document.querySelectorAll('.row');
+    if (rows[sel]) rows[sel].scrollIntoView({block:'nearest', behavior:'smooth'});
+  }, 50);
+}
+
+function del(i) {
+  cmds.splice(i, 1);
+  sel = Math.min(sel, cmds.length-1);
+  render(); showForm();
+}
+
+function moveUp(i) {
+  if (i <= 0) return;
+  var t = cmds[i]; cmds[i] = cmds[i-1]; cmds[i-1] = t;
+  sel = i-1; render(); showForm();
+}
+
+function moveDn(i) {
+  if (i >= cmds.length-1) return;
+  var t = cmds[i]; cmds[i] = cmds[i+1]; cmds[i+1] = t;
+  sel = i+1; render(); showForm();
+}
+
+// ── KRL Export ────────────────────────────────────────────────
+function exportKRL() {
+  var out = ['DEF Main()'];
+  cmds.forEach(function(cmd) {
+    var p = cmd.p;
+    switch(cmd.type) {
+      case 'COMMENT':     out.push('; '+p.Text); break;
+      case 'TOOL':        out.push('BAS(#TOOL,'+p.ID+')'); break;
+      case 'BASE':        out.push('BAS(#BASE,'+p.ID+')'); break;
+      case 'FEED':        out.push('$VEL.CP = '+(p.Value/60000).toFixed(5)+' ; '+p.Value+' mm/min'); break;
+      case 'SPEED':       out.push('; Spindel '+p.RPM+' rpm '+p.Dir); break;
+      case 'DIGITAL_OUT': out.push('$OUT['+p.Nr+'] = '+(p.Wert?'TRUE':'FALSE')); break;
+      case 'DIGITAL_IN':  out.push(p.Var+' = $IN['+p.Nr+']'); break;
+      case 'ANALOG_OUT':  out.push('$ANOUT['+p.Channel+'] = '+p.Value); break;
+      case 'WAIT':        out.push(p.Mode==='TIME'?'WAIT SEC '+p.Zeit:'WAIT FOR $IN[]'); break;
+      case 'LIN':
+        if (p.Approx>0) out.push('$APO.CDIS = '+p.Approx);
+        out.push('$VEL.CP = '+(p.Feed/60000).toFixed(5));
+        out.push('LIN {X '+p.X+', Y '+p.Y+', Z '+p.Z+', A '+p.A+', B '+p.B+', C '+p.C+'}'+(p.Approx>0?' C_DIS':'')); break;
+      case 'CIRC':
+        out.push('CIRC {X '+p.HX+', Y '+p.HY+', Z '+p.HZ+'},{X '+p.X+', Y '+p.Y+', Z '+p.Z+', A '+p.A+', B '+p.B+', C '+p.C+'}'); break;
+      case 'AXIS':
+        out.push('PTP {A1 '+p.A1+', A2 '+p.A2+', A3 '+p.A3+', A4 '+p.A4+', A5 '+p.A5+', A6 '+p.A6+'}'); break;
+      case 'LOOP':  out.push(p.Anzahl>0?'FOR _i = 1 TO '+p.Anzahl:'LOOP'); break;
+      case 'ENDLOOP': out.push('ENDLOOP'); break;
+      case 'FOR':   out.push('FOR '+p.Var+' = '+p.Von+' TO '+p.Bis+' STEP '+p.Schritt); break;
+      case 'NEXT':  out.push('ENDFOR'); break;
+    }
+  });
+  out.push('END');
+  var krl = out.join('\n');
+
+  // Copy to clipboard
+  if (navigator.clipboard) {
+    navigator.clipboard.writeText(krl).then(function() {
+      alert('✓ KRL in Zwischenablage kopiert');
+    });
+  } else {
+    // Fallback: show in textarea
+    var ta = document.createElement('textarea');
+    ta.value = krl;
+    ta.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;z-index:9999;font-family:monospace;font-size:12px;background:#050d1a;color:#9ecfea;padding:10px;border:none';
+    document.body.appendChild(ta);
+    ta.focus(); ta.select();
+    var closeBtn = document.createElement('button');
+    closeBtn.textContent = '✕ Schließen';
+    closeBtn.style.cssText = 'position:fixed;top:5px;right:5px;z-index:10000;background:#f05500;color:#fff;border:none;padding:8px 16px;cursor:pointer;font-size:14px;border-radius:3px';
+    closeBtn.onclick = function(){ document.body.removeChild(ta); document.body.removeChild(closeBtn); };
+    document.body.appendChild(closeBtn);
+  }
+}
+
+// ── KRL Import ────────────────────────────────────────────────
+function importKRL() {
+  var input = prompt('KRL Code einfügen:');
+  if (!input) return;
+  var lines = input.split(/\r?\n/);
+  cmds = []; sel = -1;
+  lines.forEach(function(line) {
+    line = line.trim();
+    if (!line || line.startsWith('DEF ') || line === 'END') return;
+    var m;
+    if (line.startsWith(';')) {
+      cmds.push(Object.assign(mk('COMMENT'), {p:{Text:line.slice(1).trim()}}));
+    } else if ((m=line.match(/^LIN\s+\{([^}]+)\}/i))) {
+      var c=mk('LIN');
+      [...m[1].matchAll(/([XYZABC])\s+([-\d.]+)/g)].forEach(function(q){c.p[q[1]]=parseFloat(q[2]);});
+      cmds.push(c);
+    } else if ((m=line.match(/^PTP\s+\{A1/i))) {
+      var c=mk('AXIS');
+      [...line.matchAll(/A([1-6])\s+([-\d.]+)/g)].forEach(function(q){c.p['A'+q[1]]=parseFloat(q[2]);});
+      cmds.push(c);
+    } else if ((m=line.match(/^\$VEL\.CP\s*=\s*([\d.]+)/i))) {
+      var c=mk('FEED'); c.p.Value=Math.round(parseFloat(m[1])*60000); cmds.push(c);
+    } else if ((m=line.match(/^\$OUT\[(\d+)\]\s*=\s*(TRUE|FALSE)/i))) {
+      var c=mk('DIGITAL_OUT'); c.p.Nr=parseInt(m[1]); c.p.Wert=m[2]==='TRUE'; cmds.push(c);
+    } else if ((m=line.match(/^WAIT\s+SEC\s+([\d.]+)/i))) {
+      var c=mk('WAIT'); c.p.Mode='TIME'; c.p.Zeit=parseFloat(m[1]); cmds.push(c);
+    } else if ((m=line.match(/^BAS\(#TOOL,(\d+)\)/i))) {
+      var c=mk('TOOL'); c.p.ID=parseInt(m[1]); cmds.push(c);
+    } else if ((m=line.match(/^BAS\(#BASE,(\d+)\)/i))) {
+      var c=mk('BASE'); c.p.ID=parseInt(m[1]); cmds.push(c);
+    }
+  });
+  render(); showForm();
+}
+
+// ── XML Export ────────────────────────────────────────────────
+function exportXML() {
+  var lines = ['<?xml version="1.0" encoding="UTF-8"?>',
+    '<RobotProgram name="Program" version="1.0" language="ReitzRobotXML">',
+    '  <Sub name="Main">'];
+  cmds.forEach(function(cmd) {
+    lines.push('    <Command type="'+cmd.type+'">');
+    Object.entries(cmd.p).forEach(function(kv) {
+      lines.push('      <Param name="'+kv[0]+'" value="'+kv[1]+'"/>');
+    });
+    lines.push('    </Command>');
+  });
+  lines.push('  </Sub>', '</RobotProgram>');
+  var xml = lines.join('\n');
+  var blob = new Blob([xml], {type:'application/xml'});
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'program.xml';
+  a.click();
+}
+
+// ── Init ──────────────────────────────────────────────────────
+buildPalette();
+</script>
+</body>
+</html>
