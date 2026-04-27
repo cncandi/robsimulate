@@ -2,7 +2,7 @@ name: FTP Deploy → cnc-technik.de/robsimul
 
 on:
   push:
-    branches: [main]
+    branches: [main,develop]
   workflow_dispatch:
 
 jobs:
