@@ -1,0 +1,28 @@
+name: Develop Preview
+
+on:
+  push:
+    branches:
+      - develop
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout develop
+        uses: actions/checkout@v4
+        with:
+          ref: develop
+
+      - name: FTP Upload develop preview
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+        with:
+          server: ftp.fastmill.biz
+          username: robsimul@cnc-technik.de
+          password: ${{ secrets.FTP_PASSWORD }}
+          server-dir: /dev/
+          protocol: ftp
+          port: 21
+          timeout: 60000
+          log-level: standard
