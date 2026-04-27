@@ -54,16 +54,10 @@ button,input,textarea,select{touch-action:manipulation}
   header h1 .brand-logo{font-size:1rem!important;margin-right:0!important}
   .dot{display:none}
   #app-version{font-size:.78rem!important;padding:5px 9px}
-  .tb{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;max-height:none;padding:8px;background:var(--bg1);border-bottom:1px solid var(--bdr)}
+  .tb{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;max-height:none;padding:8px;background:var(--bg1);border-bottom:1px solid var(--bdr)}
   .tb .slbl,.tb .sv,.tb input[type=range].ss,.tb .sep{display:none!important}
-  .tb .sbtn{display:none!important;width:100%;min-height:48px;text-align:center;font-size:.82em;border-radius:8px;padding:8px 6px}
-  #b-playfwd,#b-stop,#btn-robot3d{display:block!important}
-  #b-playfwd{background:var(--acc)!important;color:#fff!important;border-color:#c04200!important;font-weight:bold}
-  #b-stop{color:var(--warn)!important;border-color:var(--warn)!important;background:rgba(255,170,0,.08)!important}
-  #btn-robot3d{color:var(--acc)!important;border-color:var(--acc)!important;background:rgba(240,85,0,.08)!important}
-  #b-stop::after{content:' Reset'}
-  #btn-robot3d{font-size:0!important}
-  #btn-robot3d::after{content:'STL Laden';font-size:.82rem!important}
+  .tb .sbtn{width:100%;min-height:48px;text-align:center;font-size:.78em;border-radius:8px;padding:8px 6px}
+  #b-start,#b-playrev,#b-steprev,#b-end,#btn-tcp-trace,#btn-bg,#btn-steuer,#btn-axmap,#btn-grid{display:none!important}
   .main{display:flex;flex-direction:column;min-height:0;overflow:hidden}
   .vp{order:1;flex:0 0 52dvh!important;height:52dvh!important;min-height:380px!important;max-height:58dvh;background:var(--bg0)}
   #c3d{width:100%!important;height:100%!important;min-height:380px!important;display:block!important}
@@ -85,7 +79,8 @@ button,input,textarea,select{touch-action:manipulation}
 }
 
 @media (max-width:430px){
-  .tb{grid-template-columns:repeat(3,1fr)}
+  .tb{grid-template-columns:repeat(2,1fr)}
+  #btn-robot3d,#btn-bg,#btn-grid{display:none!important}
   .vp{flex-basis:54dvh!important;height:54dvh!important;min-height:400px!important}
   #c3d{min-height:400px!important}
   .ep{height:24dvh;min-height:155px}.info-panel{height:17dvh;min-height:110px}
