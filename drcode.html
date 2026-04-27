@@ -117,7 +117,7 @@ var DEFS = {
   BASE:        {ic:'📐',lb:'Basis',      bg:'#10102a',p:[{n:'ID',        t:'int', v:1},
                   {n:'X',t:'num',v:0,u:'mm'},{n:'Y',t:'num',v:0,u:'mm'},{n:'Z',t:'num',v:0,u:'mm'},
                   {n:'A',t:'num',v:0,u:'°'},{n:'B',t:'num',v:0,u:'°'},{n:'C',t:'num',v:0,u:'°'}]},
-  FEED:        {ic:'⚡',lb:'Vorschub',   bg:'#2a1500',p:[{n:'Value',     t:'num', v:1000,u:'mm/min'}]},
+  FEED:        {ic:'⚡',lb:'Vorschub',   bg:'#2a1500',p:[{n:'Value',t:'num',v:1000},{n:'Einheit',t:'sel',v:'mm/min',opts:['mm/min','mm/s','m/min','m/s']}]},
   SPEED:       {ic:'🔄',lb:'Spindel',    bg:'#2a1500',p:[{n:'RPM',       t:'num', v:12000,u:'rpm'},
                   {n:'Dir',t:'sel',v:'CW',opts:['CW','CCW']}]},
   DIGITAL_OUT: {ic:'●', lb:'Dig. Ausgang',bg:'#001830',p:[{n:'Nr',      t:'int', v:1},
@@ -128,16 +128,16 @@ var DEFS = {
                   {n:'Value',t:'num',v:0},{n:'Unit',t:'sel',v:'%',opts:['V','%']}]},
   WAIT:        {ic:'⏱',lb:'Warten',     bg:'#1a1a30',p:[{n:'Mode',      t:'sel', v:'TIME',opts:['TIME','SIGNAL']},
                   {n:'Zeit',t:'num',v:1.0,u:'s'}]},
-  LIN:         {ic:'→', lb:'Linear',    bg:'#002510',p:[
+  LIN:         {ic:'→', lb:'Linear',    bg:'#002510',action:true,p:[
                   {n:'X',t:'num',v:0,u:'mm'},{n:'Y',t:'num',v:0,u:'mm'},{n:'Z',t:'num',v:0,u:'mm'},
                   {n:'A',t:'num',v:0,u:'°'},{n:'B',t:'num',v:0,u:'°'},{n:'C',t:'num',v:0,u:'°'},
                   {n:'Feed',t:'num',v:1000,u:'mm/min'},{n:'Approx',t:'num',v:0,u:'mm'}]},
-  CIRC:        {ic:'⌒', lb:'Kreis',     bg:'#001a0c',p:[
+  CIRC:        {ic:'⌒', lb:'Kreis',     bg:'#001a0c',action:true,p:[
                   {n:'HX',t:'num',v:0,u:'mm'},{n:'HY',t:'num',v:0,u:'mm'},{n:'HZ',t:'num',v:0,u:'mm'},
                   {n:'X',t:'num',v:0,u:'mm'},{n:'Y',t:'num',v:0,u:'mm'},{n:'Z',t:'num',v:0,u:'mm'},
                   {n:'A',t:'num',v:0,u:'°'},{n:'B',t:'num',v:0,u:'°'},{n:'C',t:'num',v:0,u:'°'},
                   {n:'Feed',t:'num',v:1000,u:'mm/min'}]},
-  AXIS:        {ic:'🤖',lb:'Achspunkt',  bg:'#1a1000',p:[
+  AXIS:        {ic:'🤖',lb:'Achspunkt',  bg:'#1a1000',action:true,p:[
                   {n:'A1',t:'num',v:0,u:'°'},{n:'A2',t:'num',v:-90,u:'°'},{n:'A3',t:'num',v:90,u:'°'},
                   {n:'A4',t:'num',v:0,u:'°'},{n:'A5',t:'num',v:0,u:'°'},{n:'A6',t:'num',v:0,u:'°'},
                   {n:'Speed',t:'num',v:20,u:'%'}]},
@@ -212,6 +212,9 @@ function render() {
       selectCmd(i);
     }
   };
+
+  // Drag & Drop
+  setupDragDrop(el);
 }
 
 function summary(cmd) {
@@ -256,7 +259,15 @@ function showForm() {
     return;
   }
 
-  body.innerHTML = d.p.map(function(pd) {
+  // Aktions-Buttons für Bewegungsbefehle
+  var actionBtns = '';
+  if (d.action) {
+    actionBtns = '<div style="display:flex;gap:8px;margin-bottom:10px">' +
+      '<button onclick="posGetCurrent()" style="flex:1;background:#0a1a2e;color:#44aaff;border:1px solid #1a3050;border-radius:4px;padding:9px 6px;font-family:inherit;font-size:.85em;cursor:pointer;min-height:42px">📍 Akt. Position</button>' +
+      '<button onclick="posGoto()" style="flex:1;background:#0a1a2e;color:#44cc88;border:1px solid #1a3050;border-radius:4px;padding:9px 6px;font-family:inherit;font-size:.85em;cursor:pointer;min-height:42px">▶ Anfahren</button>' +
+      '</div>';
+  }
+  body.innerHTML = actionBtns + d.p.map(function(pd) {
     var v = cmd.p[pd.n] !== undefined ? cmd.p[pd.n] : pd.v;
     var inp;
     if (pd.t === 'bool') {
@@ -428,6 +439,107 @@ function exportXML() {
   a.download = 'program.xml';
   a.click();
 }
+
+// ── Drag & Drop ───────────────────────────────────────────────
+var dragIdx = -1, dragEl = null, dragClone = null, dropIdx = -1;
+
+function setupDragDrop(listEl) {
+  listEl.addEventListener('touchstart', onDragStart, {passive:false});
+  listEl.addEventListener('touchmove',  onDragMove,  {passive:false});
+  listEl.addEventListener('touchend',   onDragEnd,   {passive:false});
+  listEl.addEventListener('mousedown',  onDragStart, {passive:false});
+}
+
+function getDragRow(e) {
+  var t = e.touches ? e.touches[0] : e;
+  var el = document.elementFromPoint(t.clientX, t.clientY);
+  return el ? el.closest('[data-i]') : null;
+}
+
+function getClientY(e) { return e.touches ? e.touches[0].clientY : e.clientY; }
+
+function onDragStart(e) {
+  var row = getDragRow(e);
+  if (!row || e.target.closest('[data-act]')) return;
+  dragIdx = parseInt(row.getAttribute('data-i'));
+  dragEl  = row;
+  dropIdx = dragIdx;
+  row.style.opacity = '0.4';
+  e.preventDefault();
+}
+
+function onDragMove(e) {
+  if (dragIdx < 0) return;
+  e.preventDefault();
+  var y = getClientY(e);
+  var list = document.getElementById('list');
+  var rows = list.querySelectorAll('[data-i]');
+  var newDrop = dragIdx;
+  rows.forEach(function(r) {
+    var rect = r.getBoundingClientRect();
+    if (y > rect.top && y < rect.bottom) {
+      newDrop = parseInt(r.getAttribute('data-i'));
+    }
+  });
+  if (newDrop !== dropIdx) {
+    dropIdx = newDrop;
+    rows.forEach(function(r) { r.style.borderTop = ''; r.style.borderBottom = ''; });
+    var targetRow = list.querySelector('[data-i="'+dropIdx+'"]');
+    if (targetRow && dropIdx !== dragIdx) {
+      if (dropIdx < dragIdx) targetRow.style.borderTop = '2px solid #f05500';
+      else targetRow.style.borderBottom = '2px solid #f05500';
+    }
+  }
+}
+
+function onDragEnd(e) {
+  if (dragIdx < 0) return;
+  if (dragEl) dragEl.style.opacity = '';
+  var list = document.getElementById('list');
+  list.querySelectorAll('[data-i]').forEach(function(r) {
+    r.style.borderTop = ''; r.style.borderBottom = '';
+  });
+  if (dropIdx !== dragIdx && dropIdx >= 0 && dropIdx < cmds.length) {
+    var moved = cmds.splice(dragIdx, 1)[0];
+    var target = dropIdx > dragIdx ? dropIdx - 1 : dropIdx;
+    cmds.splice(target, 0, moved);
+    sel = target;
+    render(); showForm();
+  }
+  dragIdx = -1; dropIdx = -1; dragEl = null;
+  document.removeEventListener('mouseup', onDragEnd);
+}
+document.addEventListener('mouseup', onDragEnd);
+
+// Aktuelle Position übernehmen / Anfahren (Kommunikation mit Simulator)
+function posGetCurrent() {
+  // Versuche Position vom Simulator über postMessage
+  if (window.parent && window.parent !== window) {
+    window.parent.postMessage({type:'GET_POSITION'}, '*');
+  } else {
+    alert('Funktion verfügbar wenn DRCODE im Simulator eingebettet ist');
+  }
+}
+function posGoto() {
+  if (sel < 0) return;
+  var cmd = cmds[sel];
+  if (window.parent && window.parent !== window) {
+    window.parent.postMessage({type:'GOTO_POSITION', cmd: cmd}, '*');
+  } else {
+    alert('Funktion verfügbar wenn DRCODE im Simulator eingebettet ist');
+  }
+}
+// Empfange Positions-Update vom Simulator
+window.addEventListener('message', function(e) {
+  if (e.data && e.data.type === 'POSITION_DATA' && sel >= 0) {
+    var p = e.data.pos;
+    var cmd = cmds[sel];
+    if (cmd && p) {
+      ['X','Y','Z','A','B','C'].forEach(function(k){ if(p[k]!==undefined) cmd.p[k]=parseFloat(p[k].toFixed(3)); });
+      render(); showForm();
+    }
+  }
+});
 
 // ── Init ──────────────────────────────────────────────────────
 buildPalette();
