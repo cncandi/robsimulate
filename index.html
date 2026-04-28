@@ -301,7 +301,7 @@
 <!-- Achsenkarte (Axis Optimizer Map) -->
 <div id="axis-map-panel">
   <div id="amp-hdr">
-    <span id="amp-title">📊 Achsenkarte · Redundanter Achsenoptimierer</span>
+    <span id="amp-title">📊 Achsenkarte</span><span id="amp-info" style="color:var(--txt2);font-size:.75em;margin-left:8px">—</span>
     <div class="amp-tab-group">
       <button class="amp-tab on">AxisA6 · Werkzeug-Drehachse</button>
     </div>
@@ -309,32 +309,20 @@
   </div>
   <div id="amp-body">
     <div id="amp-sidebar">
-      <div style="color:var(--acc);font-size:.78em;font-weight:bold;margin-bottom:6px">Kollisions Plan</div>
-      <div class="amp-legend-row"><div class="amp-legend-dot" style="background:#cc3333"></div><span class="amp-legend-lbl">nicht Erreichbar</span></div>
-      <div class="amp-legend-row"><div class="amp-legend-dot" style="background:#cc44aa"></div><span class="amp-legend-lbl">Endschalter</span></div>
-      <div class="amp-legend-row"><div class="amp-legend-dot" style="background:#ff8800"></div><span class="amp-legend-lbl">Singularitäten (A5≈0)</span></div>
-      <div class="amp-legend-row"><div class="amp-legend-dot" style="background:#1a3050"></div><span class="amp-legend-lbl">Gültiger Bereich</span></div>
-      <div class="amp-legend-row"><div class="amp-legend-dot" style="background:#ffee00"></div><span class="amp-legend-lbl">Aktueller Weg</span></div>
-      <div style="border-top:1px solid #1a3050;margin:8px 0"></div>
-      <div style="color:var(--acc);font-size:.78em;font-weight:bold;margin-bottom:4px">DP-Solver Parameter</div>
-      <div class="amp-legend-row" style="justify-content:space-between;margin-bottom:3px"><span class="amp-legend-lbl" style="font-size:.8em">A4 Gewicht</span><input type="number" min="0.1" max="20" step="0.1" id="dp-wA4" value="4" oninput="dpSolverApplySettings()" style="width:52px;background:var(--bg3);color:var(--acc);border:1px solid var(--bdr);border-radius:3px;padding:1px 4px;text-align:right;font-size:.82em;font-family:inherit"></div>
-      <div class="amp-legend-row" style="justify-content:space-between;margin-bottom:3px"><span class="amp-legend-lbl" style="font-size:.8em">A5 Gewicht</span><input type="number" min="0.1" max="20" step="0.1" id="dp-wA5" value="5" oninput="dpSolverApplySettings()" style="width:52px;background:var(--bg3);color:var(--acc);border:1px solid var(--bdr);border-radius:3px;padding:1px 4px;text-align:right;font-size:.82em;font-family:inherit"></div>
-      <div class="amp-legend-row" style="justify-content:space-between;margin-bottom:3px"><span class="amp-legend-lbl" style="font-size:.8em">A6 Gewicht</span><input type="number" min="0.01" max="5" step="0.05" id="dp-wA6" value="0.25" oninput="dpSolverApplySettings()" style="width:52px;background:var(--bg3);color:var(--acc);border:1px solid var(--bdr);border-radius:3px;padding:1px 4px;text-align:right;font-size:.82em;font-family:inherit"></div>
-      <div class="amp-legend-row" style="justify-content:space-between;margin-bottom:3px"><span class="amp-legend-lbl" style="font-size:.8em">Config-Switch</span><input type="number" min="0" max="50000" step="500" id="dp-wSwitch" value="5000" oninput="dpSolverApplySettings()" style="width:52px;background:var(--bg3);color:var(--acc);border:1px solid var(--bdr);border-radius:3px;padding:1px 4px;text-align:right;font-size:.82em;font-family:inherit"></div>
-      <div class="amp-legend-row" style="justify-content:space-between;margin-bottom:3px"><span class="amp-legend-lbl" style="font-size:.8em">A6 Kopien ±</span><input type="number" min="0" max="3" step="1" id="dp-a6copies" value="1" oninput="dpSolverApplySettings()" style="width:52px;background:var(--bg3);color:var(--acc);border:1px solid var(--bdr);border-radius:3px;padding:1px 4px;text-align:right;font-size:.82em;font-family:inherit"></div>
-      <div class="amp-legend-row" style="justify-content:space-between;margin-bottom:3px"><span class="amp-legend-lbl" style="font-size:.8em">Sicherheit °</span><input type="number" min="0" max="15" step="1" id="dp-safety" value="3" oninput="dpSolverApplySettings()" style="width:52px;background:var(--bg3);color:var(--acc);border:1px solid var(--bdr);border-radius:3px;padding:1px 4px;text-align:right;font-size:.82em;font-family:inherit"></div>
-      <div class="amp-legend-row" style="justify-content:space-between;margin-bottom:3px"><span class="amp-legend-lbl" style="font-size:.8em">TCP-Tol. mm</span><input type="number" min="0.1" max="20" step="0.1" id="dp-tcptol" value="2" oninput="dpSolverApplySettings()" style="width:52px;background:var(--bg3);color:var(--acc);border:1px solid var(--bdr);border-radius:3px;padding:1px 4px;text-align:right;font-size:.82em;font-family:inherit"></div>
-      <div class="amp-legend-row" style="justify-content:space-between;margin-bottom:3px"><span class="amp-legend-lbl" style="font-size:.8em">Sing.-Schwelle</span><input type="number" min="0.001" max="0.1" step="0.001" id="dp-singthresh" value="0.01" oninput="dpSolverApplySettings()" style="width:52px;background:var(--bg3);color:var(--acc);border:1px solid var(--bdr);border-radius:3px;padding:1px 4px;text-align:right;font-size:.82em;font-family:inherit"></div>
-      <div style="border-top:1px solid #1a3050;margin:8px 0"></div>
-      <div style="color:var(--acc);font-size:.78em;font-weight:bold;margin-bottom:4px">Optimierung</div>
-      <button class="amp-sbtn" onclick="ampAutoOptimize()">▶ Erstelle Plan</button>
-      <button class="amp-sbtn" style="margin-top:3px" onclick="ampApplyPath()">✓ Weg übernehmen</button>
-      <div style="display:flex;align-items:center;gap:8px;flex:1;min-width:0">
-        <div class="amp-info" id="amp-info" style="flex:1">Nach PARSE: Karte wird automatisch berechnet.</div>
-        <div id="amp-progress-wrap" style="display:none;position:absolute;top:0;left:0;right:0;height:12px;z-index:20;background:#0a1a2e">
-          <div id="amp-progress-bar" style="height:100%;width:0%;background:linear-gradient(90deg,#f05500,#ff8800);transition:width .15s ease"></div>
-        </div>
+      <button class="amp-sbtn" onclick="ampAutoOptimize()" style="font-size:.95em;padding:6px 8px">▶ Plan</button>
+      <button class="amp-sbtn" onclick="ampApplyPath()" style="font-size:.95em;padding:6px 8px;margin-top:4px">✓ Übern.</button>
+      <div id="amp-progress-wrap" style="display:none;height:12px;margin-top:6px;background:#0a1a2e;border-radius:4px;overflow:hidden;border:1px solid #1a3050">
+        <div id="amp-progress-bar" style="height:100%;width:0%;background:linear-gradient(90deg,#f05500,#ff8800);transition:width .15s ease"></div>
       </div>
+      <!-- DP-Solver IDs bleiben erhalten (werden von dpSolverApplySettings gebraucht) -->
+      <input type="hidden" id="dp-wA4" value="4">
+      <input type="hidden" id="dp-wA5" value="5">
+      <input type="hidden" id="dp-wA6" value="0.25">
+      <input type="hidden" id="dp-wSwitch" value="5000">
+      <input type="hidden" id="dp-a6copies" value="1">
+      <input type="hidden" id="dp-safety" value="3">
+      <input type="hidden" id="dp-tcptol" value="2">
+      <input type="hidden" id="dp-singthresh" value="0.01">
     </div>
     <div id="amp-canvas-wrap">
       <canvas id="amp-yaxis" width="42" style="position:absolute;left:0;top:0;pointer-events:none"></canvas>

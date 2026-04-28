@@ -1215,9 +1215,9 @@ function ampBuild() {
   // Fortschrittsbalken anzeigen
   var _progWrap = document.getElementById('amp-progress-wrap');
   var _progBar  = document.getElementById('amp-progress-bar');
-  if (_progWrap) { _progWrap.style.display = 'block'; _progWrap.style.opacity = '1'; }
+  if (_progWrap) _progWrap.style.display = 'block';
   if (_progBar)  { _progBar.style.width = '0%'; _progBar.style.transition = 'none'; }
-  document.getElementById('amp-info').textContent = 'Berechne Achsenkarte…';
+  document.getElementById('amp-info').textContent = 'Berechnung…';
 
   function processChunk() {
     var chunkEnd = Math.min(_col + 5, COLS);  // 5 Spalten pro Frame
@@ -1281,7 +1281,7 @@ function ampBuild() {
 
     _col = chunkEnd;
     var pct = Math.round(_col / COLS * 100);
-    document.getElementById('amp-info').textContent = 'Berechne… ' + pct + '%';
+    document.getElementById('amp-info').textContent = pct + '%';
     if (_progBar) _progBar.style.width = pct + '%';
     if (_col < COLS) {
       setTimeout(processChunk, 16);  // 1 Frame Pause → Browser kann rendern
@@ -1414,7 +1414,7 @@ function ampDraw(canvas, W, H) {
     var yctx = yaxisEl.getContext('2d');
     yctx.clearRect(0, 0, 42, H);
     yctx.fillStyle = '#3a6080';
-    yctx.font = '10px monospace';
+    yctx.font = 'bold 20px monospace';
     yctx.textAlign = 'right';
     var range = A6_MAX - A6_MIN;
     var step  = range <= 90 ? 15 : range <= 180 ? 30 : 60;
