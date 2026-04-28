@@ -1661,22 +1661,27 @@ function ampApplyPath() {
     }
   }
 
-  canvas.addEventListener('mousedown', function(e) {
+  function onDragStart(e) {
     if (!ampCols) return;
-    var idx = nearestWaypoint(e);
+    var ee = e.touches ? e.touches[0] : e;
+    var idx = nearestWaypoint(ee);
     if (idx >= 0) {
       dragWptIdx = idx;
       ampDragging = true;
-      rubberBand(idx, getDeg(e));
+      rubberBand(idx, getDeg(ee));
       ampDraw(canvas, canvas.width, canvas.height);
+      e.preventDefault();
     }
-  });
+  }
+  canvas.addEventListener('mousedown', onDragStart);
+  canvas.addEventListener('touchstart', onDragStart, {passive:false});
 
-  canvas.addEventListener('mousemove', function(e) {
+  function onDragMove(e) {
     if (!ampCols) return;
+    var ee = e.touches ? e.touches[0] : e;
     // Tooltip
     var r = canvas.getBoundingClientRect();
-    var px = e.clientX - r.left;
+    var px = ee.clientX - r.left;
     var col = Math.round(px / (canvas.width-1) * (ampCols-1));
     col = Math.max(0, Math.min(ampCols-1, col));
     var deg = getDeg(e);
@@ -1692,7 +1697,7 @@ function ampApplyPath() {
     tooltip.style.top  = (e.offsetY-28)+'px';
 
     // Cursor: Zeiger wenn nahe an Zielpunkt
-    var near = nearestWaypoint(e);
+    var near = nearestWaypoint(ee);
     canvas.style.cursor = near >= 0 ? 'ns-resize' : 'default';
 
     if (near >= 0 && !ampDragging) {
@@ -1702,7 +1707,8 @@ function ampApplyPath() {
     }
 
     if (!ampDragging || dragWptIdx < 0) return;
-    var newDeg = getDeg(e);
+    var newDeg = getDeg(ee);
+    e.preventDefault();
     rubberBand(dragWptIdx, newDeg);
     ampDraw(canvas, canvas.width, canvas.height);
 
@@ -1740,16 +1746,19 @@ function ampApplyPath() {
         applyAngles(fallback);
       }
     }
-  });
+  }
+  canvas.addEventListener('mousemove', onDragMove);
+  canvas.addEventListener('touchmove', onDragMove, {passive:false});
 
-  canvas.addEventListener('mouseup', function() {
-    ampDragging = false;
-    dragWptIdx = -1;
-  });
-  canvas.addEventListener('mouseleave', function() {
+  function onDragEnd() {
     ampDragging = false;
     dragWptIdx = -1;
     canvas.style.cursor = 'default';
+  }
+  canvas.addEventListener('mouseup', onDragEnd);
+  canvas.addEventListener('touchend', onDragEnd);
+  canvas.addEventListener('mouseleave', function() {
+    onDragEnd();
     if (tooltip) tooltip.style.display = 'none';
   });
 })();
