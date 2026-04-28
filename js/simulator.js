@@ -1818,6 +1818,28 @@ function ampApplyPath() {
   canvas.addEventListener('mousemove', onDragMove);
   canvas.addEventListener('touchmove', onDragMove, {passive:false});
 
+  // Catmull-Rom Spline durch n Stützstellen
+  function catmullRom(points, t) {
+    var n = points.length;
+    if (n === 0) return 0;
+    if (n === 1) return points[0].y;
+    var seg = t * (n-1);
+    var i = Math.floor(seg);
+    if (i >= n-1) return points[n-1].y;
+    var u = seg - i;
+    var p0 = points[Math.max(0, i-1)].y;
+    var p1 = points[i].y;
+    var p2 = points[i+1].y;
+    var p3 = points[Math.min(n-1, i+2)].y;
+    var u2 = u*u, u3 = u2*u;
+    return 0.5 * (
+      (2*p1) +
+      (-p0 + p2) * u +
+      (2*p0 - 5*p1 + 4*p2 - p3) * u2 +
+      (-p0 + 3*p1 - 3*p2 + p3) * u3
+    );
+  }
+
   function onDragEnd() {
     if (!ampDragging) { canvas.style.cursor = 'default'; return; }
 
@@ -1879,12 +1901,23 @@ function ampApplyPath() {
         } else if (c > stuetz[stuetz.length-1].col) {
           newPath[c] = stuetz[stuetz.length-1].y;
         } else {
-          // Lineare Interpolation zwischen Stützstellen
+          // Catmull-Rom mit lokalem Parameter
           var c0 = stuetz[iL].col, c1 = stuetz[iL+1].col;
           var range = c1 - c0;
           if (range <= 0) { newPath[c] = stuetz[iL].y; continue; }
-          var t = (c - c0) / range;
-          var val = stuetz[iL].y + (stuetz[iL+1].y - stuetz[iL].y) * t;
+          var localU = (c - c0) / range;
+          // Aus den 4 Stützstellen interpolieren
+          var p0 = stuetz[Math.max(0, iL-1)].y;
+          var p1 = stuetz[iL].y;
+          var p2 = stuetz[iL+1].y;
+          var p3 = stuetz[Math.min(stuetz.length-1, iL+2)].y;
+          var u = localU, u2 = u*u, u3 = u2*u;
+          var val = 0.5 * (
+            (2*p1) +
+            (-p0 + p2) * u +
+            (2*p0 - 5*p1 + 4*p2 - p3) * u2 +
+            (-p0 + 3*p1 - 3*p2 + p3) * u3
+          );
           newPath[c] = Math.max(A6_MIN, Math.min(A6_MAX, val));
         }
       }
