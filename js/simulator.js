@@ -1273,12 +1273,8 @@ function ampBuild(force) {
       if (a6t < a6L.min || a6t > a6L.max) {
         ampMap[col * ROWS + row] = 1; return null;
       }
-      // Neue Orientierung: nur Rz ändert sich
-      var Anew = posA + (a6t - a6Ref);
-      while (Anew >  180) Anew -= 360;
-      while (Anew <= -180) Anew += 360;
-      // Vollständige IK — alle Achsen frei
-      var res = solveIKFast(posX, posY, posZ, Anew, posB, posC, warmQ);
+      // Map-Y IST direkt der A-Winkel (Rz). B und C bleiben aus Programm-Pose.
+      var res = solveIKFast(posX, posY, posZ, a6t, posB, posC, warmQ);
       if (!res.ok) { ampMap[col * ROWS + row] = 1; return null; }
       var q = res.angles;
       // Alle Achslimits prüfen
@@ -1796,15 +1792,9 @@ function ampApplyPath() {
       var pA2 = posD2.A !== undefined ? posD2.A : (posD2[3]||0);
       var pB2 = posD2.B !== undefined ? posD2.B : (posD2[4]||0);
       var pC2 = posD2.C !== undefined ? posD2.C : (posD2[5]||0);
-      // Rz_new = Rz_ref + (A6_new - A6_ref) — nur erster Euler-Winkel ändert sich
+      // Drag-Y IST direkt der A-Winkel (Rz). B und C aus Programm-Pose.
       var newDeg = window._dragCurDeg;
-      var a6RefD = angD2[5];
-      var AnewD2 = pA2 + (newDeg - a6RefD);
-      while(AnewD2 >  180) AnewD2 -= 360;
-      while(AnewD2 <= -180) AnewD2 += 360;
-      // Vollständige IK: TCP-Position bleibt, nur Orientierung ändert sich
-      // Warm-Start: aktuelle Winkel des Trajektorie-Punkts
-      var resD = solveIKFast(pX2, pY2, pZ2, AnewD2, pB2, pC2, angD2);
+      var resD = solveIKFast(pX2, pY2, pZ2, newDeg, pB2, pC2, angD2);
       if (resD.ok) {
         applyAngles(resD.angles);
       } else {
