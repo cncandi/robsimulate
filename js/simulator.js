@@ -133,7 +133,7 @@ function solveIK(tx, ty, tz, ta, tb, tc, initAngles) {
   const clamp=(v,lo,hi)=>Math.max(lo,Math.min(hi,v));
   const tp = [tx, ty, tz];
   const Rt = rotZYX(ta, tb, tc);
-  const dt=0.3, lam=0.5, tolP=0.5, tolO=0.5;
+  const dt=0.3, lam=0.5, tolP=1.0, tolO=1.0;
 
   const starts = [
     initAngles || jointAngles.slice(),
@@ -179,7 +179,7 @@ function solveIK(tx, ty, tz, ta, tb, tc, initAngles) {
     }
     if (bestScore<(tolP+tolO)*1.5) break;
   }
-  return {angles:bestQ, score:bestScore, ok: bestScore<20};
+  return {angles:bestQ, score:bestScore, ok: bestScore<30};
 }
 
 // IK mit fixiertem A6 — nur A1-A5 werden optimiert
@@ -187,11 +187,14 @@ function solveIKFixedA6(tx, ty, tz, ta, tb, tc, a6fixed, initAngles) {
   const clamp=(v,lo,hi)=>Math.max(lo,Math.min(hi,v));
   const tp = [tx, ty, tz];
   const Rt = rotZYX(ta, tb, tc);
-  const dt=0.3, lam=0.5, tolP=0.5, tolO=0.5;
+  const dt=0.3, lam=0.5, tolP=1.0, tolO=1.0;
 
   var starts = [
     initAngles ? initAngles.slice() : jointAngles.slice(),
     [0,-90,90,0,0,a6fixed],
+    [0,-90,90,0,-45,a6fixed],
+    [0,-90,90,-90,0,a6fixed],
+    [0,-90,90,90,0,a6fixed],
   ];
   // Setze in allen Starts A6 auf a6fixed
   starts.forEach(function(s){ s[5] = a6fixed; });
@@ -202,7 +205,7 @@ function solveIKFixedA6(tx, ty, tz, ta, tb, tc, a6fixed, initAngles) {
   for (var si=0; si<starts.length; si++) {
     var q = starts[si].slice();
     q[5] = a6fixed;  // A6 immer fixiert
-    for (var iter=0; iter<80; iter++) {
+    for (var iter=0; iter<150; iter++) {
       var e=err6(q, tp, Rt);
       var eP=Math.sqrt(e[0]*e[0]+e[1]*e[1]+e[2]*e[2]);
       var eO=Math.sqrt(e[3]*e[3]+e[4]*e[4]+e[5]*e[5]);
@@ -1503,16 +1506,20 @@ function ampDraw(canvas, W, H) {
     yctx.font = 'bold 20px monospace';
     yctx.textAlign = 'right';
     var range = A6_MAX - A6_MIN;
-    // Immer 20°-Schritte
+    var lastLabelPy = -999;
+    // 20°-Schritte, Labels nur wenn kein Überschreiben
     for (var yd = A6_MIN; yd <= A6_MAX + 0.1; yd += 20) {
       var frac = (yd - A6_MIN) / range;
       var py4  = Math.round((1 - frac) * (H - 1));  // +180 oben, -180 unten
-      yctx.fillStyle = yd === 0 ? '#ffee00' : (Math.abs(yd) % 60 === 0 ? '#9ecfea' : '#3a6080');
-      yctx.fillText(yd.toFixed(0) + '°', 38, py4 + 4);
-      // Tick
-      
-      yctx.fillStyle = '#1a3050';
-      yctx.fillRect(38, py4, 4, 1);
+      // Tick immer
+      yctx.fillStyle = '#2a4060';
+      yctx.fillRect(35, py4, 7, 1);
+      // Label nur bei ausreichend Abstand
+      if (Math.abs(py4 - lastLabelPy) >= 22) {
+        yctx.fillStyle = yd === 0 ? '#ffee00' : (Math.abs(yd) % 60 === 0 ? '#c0e0ff' : '#3a6080');
+        yctx.fillText(yd.toFixed(0) + '°', 38, py4 + 6);
+        lastLabelPy = py4;
+      }
     }
   }
 
