@@ -1142,11 +1142,40 @@ function setAmpAxis(ax) {
 const SING_THRESH = 6;
 // A6_MIN/MAX dynamisch aus JOINTS_DEF[5]
 var A6_MIN = JOINTS_DEF[5].min, A6_MAX = JOINTS_DEF[5].max;
-function ampBuild() {
+// Hash über Programm-Positionen + Achsgrenzen — Map nur neu bauen wenn sich was ändert
+function _ampHash() {
+  if (!parsedData || !parsedData.positions || !parsedData.positions.length) return '';
+  var parts = [];
+  for (var i=0; i<parsedData.positions.length; i++) {
+    var p = parsedData.positions[i];
+    parts.push(p.X+','+p.Y+','+p.Z+','+p.A+','+p.B+','+p.C);
+  }
+  // Achsgrenzen mit reinhashen (Änderung der Limits → neu rechnen)
+  for (var k=0; k<6; k++) parts.push(JOINTS_DEF[k].min+','+JOINTS_DEF[k].max);
+  return parts.join('|');
+}
+
+function ampBuild(force) {
   // A6_MIN/MAX immer aktuell aus JOINTS_DEF laden
   A6_MIN = JOINTS_DEF[5].min;
   A6_MAX = JOINTS_DEF[5].max;
   if (!trajectory.length) return;
+  // Dirty-Check: nur neu bauen wenn sich Programm oder Limits geändert haben
+  var hash = _ampHash();
+  if (!force && hash === window._ampLastHash && ampMap && ampMap.length === ampCols * ampRows) {
+    // Nur neu zeichnen, keine Neuberechnung
+    var canvasD = document.getElementById('amp-canvas');
+    if (canvasD) {
+      var WD = canvasD.parentElement.clientWidth - 42;
+      var HD = canvasD.parentElement.clientHeight - 30;
+      if (WD > 100 && HD > 50) {
+        canvasD.width = WD; canvasD.height = HD;
+        ampDraw(canvasD, WD, HD);
+      }
+    }
+    return;
+  }
+  window._ampLastHash = hash;
   const canvas = document.getElementById('amp-canvas');
   const wrap   = document.getElementById('amp-canvas-wrap');
   const W = Math.max(1, wrap.clientWidth  - 42);
@@ -1377,7 +1406,7 @@ function ampDraw(canvas, W, H) {
   ctx.fillRect(0, 0, W, pyLimTop);              // above max
 
   // User path (yellow, thick) — während Drag: gespeicherter Pfad
-  var drawPath = (ampDragging && typeof dragPathSave !== 'undefined' && dragPathSave) ? dragPathSave : ampUserPath;
+  var drawPath = (ampDragging && window._dragPathSave) ? window._dragPathSave : ampUserPath;
   ctx.strokeStyle='#ffee00'; ctx.lineWidth=2.5; ctx.setLineDash([]);
   ctx.beginPath();
   for (let px = 0; px < W; px++) {
@@ -1389,11 +1418,11 @@ function ampDraw(canvas, W, H) {
   ctx.stroke();
 
   // Gummiband: zeigt neuen Punkt während Drag
-  if (ampDragging && typeof dragStartCol !== 'undefined' && dragStartCol >= 0) {
-    var pxS = Math.round(dragStartCol / Math.max(1,ampCols-1) * (W-1));
-    var pyS = H - ((dragStartDeg - A6_MIN) / (A6_MAX - A6_MIN)) * H;
-    var pxC = Math.round(dragCurCol / Math.max(1,ampCols-1) * (W-1));
-    var pyC = H - ((dragCurDeg - A6_MIN) / (A6_MAX - A6_MIN)) * H;
+  if (ampDragging && window._dragStartCol >= 0) {
+    var pxS = Math.round(window._dragStartCol / Math.max(1,ampCols-1) * (W-1));
+    var pyS = H - ((window._dragStartDeg - A6_MIN) / (A6_MAX - A6_MIN)) * H;
+    var pxC = Math.round(window._dragCurCol / Math.max(1,ampCols-1) * (W-1));
+    var pyC = H - ((window._dragCurDeg - A6_MIN) / (A6_MAX - A6_MIN)) * H;
     // Gummilinie
     ctx.strokeStyle = '#ff8800'; ctx.lineWidth = 2; ctx.setLineDash([6,4]);
     ctx.beginPath(); ctx.moveTo(pxS, pyS); ctx.lineTo(pxC, pyC); ctx.stroke();
@@ -1404,7 +1433,7 @@ function ampDraw(canvas, W, H) {
     ctx.fillStyle='#ffaa00'; ctx.beginPath(); ctx.arc(pxC,pyC,5,0,Math.PI*2); ctx.fill();
     // A6-Wert anzeigen
     ctx.fillStyle='#fff'; ctx.font='bold 11px monospace';
-    ctx.fillText(dragCurDeg.toFixed(1)+'°', pxC+8, pyC-6);
+    ctx.fillText(window._dragCurDeg.toFixed(1)+'°', pxC+8, pyC-6);
   }
 
   // Y-Achse Labels
@@ -1645,7 +1674,12 @@ function ampApplyPath() {
   if (!canvas) return;
   const tooltip = document.getElementById('amp-tooltip');
 
-  var dragStartCol = -1, dragCurCol = -1, dragStartDeg = 0, dragCurDeg = 0, dragPathSave = null;
+  // Drag-Variablen GLOBAL damit ampDraw sie sehen kann
+  window._dragStartCol = -1;
+  window._dragCurCol = -1;
+  window._dragStartDeg = 0;
+  window._dragCurDeg = 0;
+  window._dragPathSave = null;
 
   function getDeg(e) {
     var r = canvas.getBoundingClientRect();
@@ -1707,11 +1741,11 @@ function ampApplyPath() {
   function onDragStart(e) {
     if (!ampCols || !ampUserPath.length) return;
     var ee = e.touches ? e.touches[0] : e;
-    dragStartCol = getCol(ee);
-    dragStartDeg = ampUserPath[dragStartCol] || 0;
-    dragCurCol   = dragStartCol;
-    dragCurDeg   = getDeg(ee);
-    dragPathSave = ampUserPath.slice();
+    window._dragStartCol = getCol(ee);
+    window._dragStartDeg = ampUserPath[window._dragStartCol] || 0;
+    window._dragCurCol   = window._dragStartCol;
+    window._dragCurDeg   = getDeg(ee);
+    window._dragPathSave = ampUserPath.slice();
     ampDragging  = true;
     ampDraw(canvas, canvas.width, canvas.height);
     e.preventDefault();
@@ -1744,8 +1778,8 @@ function ampApplyPath() {
 
     if (!ampDragging) return;
     e.preventDefault();
-    dragCurCol = col;
-    dragCurDeg = getDeg(ee);
+    window._dragCurCol = col;
+    window._dragCurDeg = getDeg(ee);
     ampDraw(canvas, canvas.width, canvas.height);  // nur Preview
 
     // Roboter live: Trajektorie-Punkt an aktueller Spalte
@@ -1763,6 +1797,7 @@ function ampApplyPath() {
       var pB2 = posD2.B !== undefined ? posD2.B : (posD2[4]||0);
       var pC2 = posD2.C !== undefined ? posD2.C : (posD2[5]||0);
       // Rz_new = Rz_ref + (A6_new - A6_ref) — nur erster Euler-Winkel ändert sich
+      var newDeg = window._dragCurDeg;
       var a6RefD = angD2[5];
       var AnewD2 = pA2 + (newDeg - a6RefD);
       while(AnewD2 >  180) AnewD2 -= 360;
