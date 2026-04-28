@@ -1202,30 +1202,73 @@ function ampBuild() {
     return Math.min(lo, refLen - 1);
   }
 
-  for (let col=0; col<COLS; col++) {
-    const tidx = arcToTidx(col);
-    // Referenz-Trajektorie für Map (nicht durch Weg-Übernahme geändert)
+  // ── Analytische Wrist-Dekomposition ─────────────────────────
+  // R_wrist = Rx(-A4)*Ry(A5)*Rx(-A6)  [FK_SIGNS: -1,+1,-1]
+  // Gegeben A6_test → A4,A5 analytisch berechnen:
+  //   Rw = R_wrist_needed * Rx(A6_test)  [A6 herausrechnen]
+  //   A5  = asin(Rw[0][2])
+  //   A4  = atan2(-Rw[2][1], Rw[1][1])
+  var DEG = Math.PI/180, RAD = 180/Math.PI;
+  function mRx(a){return[[1,0,0],[0,Math.cos(a),-Math.sin(a)],[0,Math.sin(a),Math.cos(a)]];}
+  function mT(M){return M[0].map(function(_,i){return M.map(function(r){return r[i];});});}
+  function mMul(A,B){return A.map(function(r){return B[0].map(function(_,j){return r.reduce(function(s,v,k){return s+v*B[k][j];},0);});});}
+
+  // TCP-Frame: fkAll gibt R am Flansch × R_tcp
+  // R_tcp (konstant aus TCP_DEF)
+  var R_fc = [[0,0,1],[0,1,0],[-1,0,0]]; // Ry(90°) für standard TCP offset
+  var R_usr = rotZYX(TCP_DEF.a, TCP_DEF.b, TCP_DEF.c);
+  var R_tcp = mMul(R_fc, R_usr);
+  var R_tcp_inv = mT(R_tcp);
+
+  for (var col=0; col<COLS; col++) {
+    var tidx = arcToTidx(col);
     var refTraj = trajectoryRef.length ? trajectoryRef : trajectory;
-    const ang  = refTraj[Math.min(tidx, refTraj.length-1)].angles;
-    const a4   = ang[3];
-    const a5   = ang[4];
-    const a6   = ang[5];
-    const isSing = isSingular(ang);
+    var entry = refTraj[Math.min(tidx, refTraj.length-1)];
+    var ang = entry.angles;
 
-    for (let row=0; row<ROWS; row++) {
-      const a6t  = A6_MIN + (row / (ROWS-1)) * (A6_MAX - A6_MIN);
-      const delta = a6t - a6;
-      const a4new = a4 - delta;  // A4 compensation
+    // R_arm = FK mit A4=A5=A6=0 (nur Armteil A1,A2,A3)
+    var qArm = [ang[0], ang[1], ang[2], 0, 0, 0];
+    var R_arm = fkAll(qArm).rot_final;
 
-      const a6ok = (a6t >= a6L.min && a6t <= a6L.max);
-      const a4ok = (a4new >= a4L.min && a4new <= a4L.max);
-      const inLim = a6ok && a4ok;
+    // Zielorientierung aus TCP-Pose
+    var pos = entry.pos;
+    var posA = pos.A !== undefined ? pos.A : (pos[3]||0);
+    var posB = pos.B !== undefined ? pos.B : (pos[4]||0);
+    var posC = pos.C !== undefined ? pos.C : (pos[5]||0);
+    var R_target = rotZYX(posA, posB, posC);
 
-      let status;
-      if (!inLim && isSing) status = 3;
-      else if (!inLim)       status = 1;
-      else if (isSing)       status = 2;
-      else                   status = 0;
+    // Benötigte Wrist-Rotation: R_arm^T * R_target * R_tcp^-1
+    var R_wrist_needed = mMul(mMul(mT(R_arm), R_target), R_tcp_inv);
+
+    for (var row=0; row<ROWS; row++) {
+      var a6t = A6_MIN + (row / (ROWS-1)) * (A6_MAX - A6_MIN);
+
+      // A6 außerhalb Limits
+      if (a6t < a6L.min || a6t > a6L.max) {
+        ampMap[col * ROWS + row] = 1; continue;
+      }
+
+      // Rx(A6_test) herausrechnen: Rw = R_wrist_needed * Rx(A6_test)
+      var Rw = mMul(R_wrist_needed, mRx(a6t * DEG));
+
+      // Zerlegung Rx(-A4)*Ry(A5): Rw[0][2]=sin(A5), Rw[2][1]=-sin(A4), Rw[1][1]=cos(A4)
+      var s5 = Math.max(-1, Math.min(1, Rw[0][2]));
+      var a5t = Math.asin(s5) * RAD;
+      var a4t = Math.atan2(-Rw[2][1], Rw[1][1]) * RAD;
+
+      // Limits prüfen
+      var a4L2 = JOINTS_DEF[3], a5L2 = JOINTS_DEF[4];
+      var inLim = (a4t >= a4L2.min && a4t <= a4L2.max &&
+                   a5t >= a5L2.min && a5t <= a5L2.max);
+
+      // Singularität: A5 nahe 0°
+      var isSing2 = Math.abs(a5t) < SING_THRESH;
+
+      var status;
+      if (!inLim && isSing2) status = 3;
+      else if (!inLim)        status = 1;
+      else if (isSing2)       status = 2;
+      else                    status = 0;
       ampMap[col * ROWS + row] = status;
     }
   }
