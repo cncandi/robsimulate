@@ -1375,6 +1375,28 @@ function ampDraw(canvas, W, H) {
   }
   ctx.stroke();
 
+  // Y-Achse Labels
+  var yaxisEl = document.getElementById('amp-yaxis');
+  if (yaxisEl) {
+    yaxisEl.height = H;
+    var yctx = yaxisEl.getContext('2d');
+    yctx.clearRect(0, 0, 42, H);
+    yctx.fillStyle = '#3a6080';
+    yctx.font = '10px monospace';
+    yctx.textAlign = 'right';
+    var range = A6_MAX - A6_MIN;
+    var step  = range <= 180 ? 30 : 90;
+    for (var yd = A6_MIN; yd <= A6_MAX + 0.1; yd += step) {
+      var frac = (yd - A6_MIN) / range;
+      var py4  = Math.round((1 - frac) * (H - 1));  // +180 oben, -180 unten
+      yctx.fillStyle = yd === 0 ? '#9ecfea' : '#3a6080';
+      yctx.fillText(yd.toFixed(0) + '°', 38, py4 + 4);
+      // Tick
+      yctx.fillStyle = '#1a3050';
+      yctx.fillRect(38, py4, 4, 1);
+    }
+  }
+
   // Cursor drawn on amp-cursor overlay canvas
 
   // First and last control points (draggable diamonds)
@@ -1696,8 +1718,46 @@ function ampApplyPath() {
     }
 
     if (!ampDragging || dragWptIdx < 0) return;
-    rubberBand(dragWptIdx, getDeg(e));
+    var newDeg = getDeg(e);
+    rubberBand(dragWptIdx, newDeg);
     ampDraw(canvas, canvas.width, canvas.height);
+
+    // Roboter live bewegen: A4,A5 analytisch für neues A6
+    var pi = dragWptIdx;
+    var N  = parsedData.positions.length;
+    var refTraj = trajectoryRef.length ? trajectoryRef : trajectory;
+    var tidxD = Math.round(pi / Math.max(1,N-1) * (refTraj.length-1));
+    tidxD = Math.max(0, Math.min(refTraj.length-1, tidxD));
+    var entryD = refTraj[tidxD];
+    if (entryD) {
+      var angD  = entryD.angles;
+      var a6Ref = angD[5];
+      var posD  = entryD.pos;
+      var pA = posD.A !== undefined ? posD.A : (posD[3]||0);
+      var pB = posD.B !== undefined ? posD.B : (posD[4]||0);
+      var pC = posD.C !== undefined ? posD.C : (posD[5]||0);
+      // Rz_new = Rz_ref + (A6_new - A6_ref)
+      var AnewD = pA + (newDeg - a6Ref);
+      while(AnewD >  180) AnewD -= 360;
+      while(AnewD <= -180) AnewD += 360;
+      // Analytisch A4, A5
+      var qArmD = [angD[0], angD[1], angD[2], 0, 0, 0];
+      var R_armD = fkAll(qArmD).rot_final;
+      function mRxD(a){return[[1,0,0],[0,Math.cos(a),-Math.sin(a)],[0,Math.sin(a),Math.cos(a)]];}
+      function mTD(M){return M[0].map(function(_,i){return M.map(function(r){return r[i];});});}
+      function mMulD(A,B){return A.map(function(r){return B[0].map(function(_,j){return r.reduce(function(s,v,k){return s+v*B[k][j];},0);});});}
+      var R_fc2 = [[0,0,1],[0,1,0],[-1,0,0]];
+      var R_usr2 = rotZYX(TCP_DEF.a, TCP_DEF.b, TCP_DEF.c);
+      var R_tcp2 = mMulD(R_fc2, R_usr2);
+      var R_tgt2 = rotZYX(AnewD, pB, pC);
+      var R_wr2  = mMulD(mMulD(mTD(R_armD), R_tgt2), mTD(R_tcp2));
+      var Rw2    = mMulD(R_wr2, mRxD(newDeg * Math.PI/180));
+      var s5D = Math.max(-1,Math.min(1,Rw2[0][2]));
+      var a5D = Math.asin(s5D) * 180/Math.PI;
+      var a4D = Math.atan2(-Rw2[2][1], Rw2[1][1]) * 180/Math.PI;
+      var newQ = [angD[0], angD[1], angD[2], a4D, a5D, newDeg];
+      applyAngles(newQ);
+    }
   });
 
   canvas.addEventListener('mouseup', function() {
