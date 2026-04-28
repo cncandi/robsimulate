@@ -302,6 +302,13 @@
 <div id="axis-map-panel">
   <div id="amp-hdr">
     <span id="amp-title">📊 Achsenkarte</span><span id="amp-info" style="color:var(--txt2);font-size:.75em;margin-left:8px">—</span>
+    <div style="display:flex;align-items:center;gap:5px;margin-left:12px;flex-shrink:0">
+      <span style="color:#3a6080;font-size:.72em;white-space:nowrap">Auflösung</span>
+      <input type="range" id="amp-res" min="20" max="200" step="10" value="80"
+        style="width:80px;accent-color:#f05500;cursor:pointer"
+        oninput="document.getElementById('amp-res-val').textContent=this.value;window._ampLastHash='';ampBuild();">
+      <span id="amp-res-val" style="color:#f05500;font-size:.72em;min-width:28px">80</span>
+    </div>
     <div class="amp-tab-group">
       <button class="amp-tab on">AxisA6 · Werkzeug-Drehachse</button>
     </div>

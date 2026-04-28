@@ -191,8 +191,7 @@ function solveIKFixedA6(tx, ty, tz, ta, tb, tc, a6fixed, initAngles) {
 
   var starts = [
     initAngles ? initAngles.slice() : jointAngles.slice(),
-    [0,-90,90,0,0,a6fixed], [0,-90,90,0,-45,a6fixed],
-    [0,-90,90,-90,-45,a6fixed], [0,-90,90,90,-45,a6fixed],
+    [0,-90,90,0,0,a6fixed],
   ];
   // Setze in allen Starts A6 auf a6fixed
   starts.forEach(function(s){ s[5] = a6fixed; });
@@ -203,7 +202,7 @@ function solveIKFixedA6(tx, ty, tz, ta, tb, tc, a6fixed, initAngles) {
   for (var si=0; si<starts.length; si++) {
     var q = starts[si].slice();
     q[5] = a6fixed;  // A6 immer fixiert
-    for (var iter=0; iter<300; iter++) {
+    for (var iter=0; iter<80; iter++) {
       var e=err6(q, tp, Rt);
       var eP=Math.sqrt(e[0]*e[0]+e[1]*e[1]+e[2]*e[2]);
       var eO=Math.sqrt(e[3]*e[3]+e[4]*e[4]+e[5]*e[5]);
@@ -1243,8 +1242,10 @@ function ampBuild(force) {
   canvas.style.position = 'absolute'; canvas.style.left = '42px';
 
   // Grid: 300 cols × 180 rows (2° per row from -360 to +360)
-  const COLS = Math.min(trajectory.length, 300);
-  const ROWS = 180;
+  var resEl = document.getElementById('amp-res');
+  var res = resEl ? parseInt(resEl.value) : 80;
+  const COLS = Math.min(trajectory.length, res * 2);
+  const ROWS = res;
   ampCols = COLS; ampRows = ROWS;
   ampMap  = new Uint8Array(COLS * ROWS);
 
