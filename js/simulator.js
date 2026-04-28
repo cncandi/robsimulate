@@ -1207,11 +1207,16 @@ function ampBuild() {
   }
 
   // ── Vollständige IK pro Zelle (Spec Kap. 9) ─────────────────
-  // Alle Achsen A1-A6 dürfen sich bewegen.
-  // Bidirektionaler Scan von Referenz-A6 für Performance.
-  // Warm-Start aus benachbarter Zeile.
+  // Async Chunk-Processing: Browser friert nicht ein
+  var _col = 0;
+  var _canvas = canvas, _W = W, _H = H;
+  var _totalDist = totalDist;
 
-  for (var col=0; col<COLS; col++) {
+  document.getElementById('amp-info').textContent = 'Berechne Map… 0%';
+
+  function processChunk() {
+    var chunkEnd = Math.min(_col + 10, COLS);
+    for (var col = _col; col < chunkEnd; col++) {
     var tidx = arcToTidx(col);
     var refTraj = trajectoryRef.length ? trajectoryRef : trajectory;
     var entry = refTraj[Math.min(tidx, refTraj.length-1)];
@@ -1269,39 +1274,52 @@ function ampBuild() {
     }
   }
 
+    _col = chunkEnd;
+    var pct = Math.round(_col / COLS * 100);
+    document.getElementById('amp-info').textContent = 'Berechne Map… ' + pct + '%';
+    if (_col < COLS) {
+      setTimeout(processChunk, 0);
+    } else {
+      // Fertig — zeichnen
+      _finishBuild(_canvas, _W, _H, _totalDist);
+    }
+  }
+  setTimeout(processChunk, 0);
+}
+
+function _finishBuild(canvas, W, H, totalDist) {
+  var COLS = ampCols, ROWS = ampRows;
   // Auto path aus aktuellen Trajektorie-Winkeln
   ampAutoPath = [];
-  for (let col=0; col<COLS; col++) {
-    const tidx=Math.round(col/(COLS-1)*(trajectory.length-1));
+  for (var col=0; col<COLS; col++) {
+    var tidx=Math.round(col/Math.max(1,COLS-1)*(trajectory.length-1));
     ampAutoPath.push(trajectory[tidx].angles[5]);
   }
-  // UserPath NUR überschreiben wenn noch kein Weg vorhanden oder Größe passt nicht
   if (!ampUserPath.length || ampUserPath.length !== COLS) {
     ampUserPath = ampAutoPath.slice();
   } else {
-    // Vorhandenen Weg auf neue Spaltenzahl interpolieren
     var oldPath = ampUserPath.slice();
     var oldLen  = oldPath.length;
-    // ampUserPath bleibt erhalten beim Schließen
+    var newPath = [];
     for (var ci = 0; ci < COLS; ci++) {
       var f = ci / Math.max(1, COLS-1) * (oldLen-1);
       var i0 = Math.floor(f), i1 = Math.min(i0+1, oldLen-1);
-      ampUserPath.push(oldPath[i0] + (oldPath[i1]-oldPath[i0])*(f-i0));
+      newPath.push(oldPath[i0] + (oldPath[i1]-oldPath[i0])*(f-i0));
     }
+    ampUserPath = newPath;
   }
 
   ampDraw(canvas, W, H);
   ampBuildXAxis(COLS, totalDist);
 
-  // Stats
-  let sing=0, lim=0, valid=0;
-  for (let i=0; i<COLS*ROWS; i++) {
-    const s=ampMap[i];
+  var sing=0, lim=0, valid=0;
+  for (var i=0; i<COLS*ROWS; i++) {
+    var s=ampMap[i];
     if(s===2||s===3)sing++;else if(s===1)lim++;else valid++;
   }
-  const pct=v=>Math.round(v/(COLS*ROWS)*100);
+  var pct=function(v){return Math.round(v/(COLS*ROWS)*100);};
   document.getElementById('amp-info').textContent =
-    `${COLS}×${ROWS} Zellen · Gültig: ${pct(valid)}% · Limit: ${pct(lim)}% · Singularitäten: ${pct(sing)}%`;
+    COLS+'×'+ROWS+' Zellen · Gültig: '+pct(valid)+'% · Limit: '+pct(lim)+'% · Sing.: '+pct(sing)+'%';
 }
 
 function ampDraw(canvas, W, H) {
