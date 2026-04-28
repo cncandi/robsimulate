@@ -3361,12 +3361,70 @@ window.addEventListener('keydown',e=>{
   if(e.key==='F11'){e.preventDefault();toggleGrid();return;}
   if(inEditor)return;
   if(e.key===' '){e.preventDefault();document.getElementById('b-stop').click();}
-  if(e.key==='ArrowRight'){e.preventDefault();document.getElementById('b-stepfwd').click();}
-  if(e.key==='ArrowLeft'){e.preventDefault();document.getElementById('b-steprev').click();}
   if(e.key==='Home'){e.preventDefault();document.getElementById('b-start').click();}
   if(e.key==='End'){e.preventDefault();document.getElementById('b-end').click();}
   if(e.key==='Escape'){deselectPosition();}
+  // Touchpad-freundliche Steuerung
+  if(e.key==='s'||e.key==='S'){e.preventDefault();fitAllToView();return;}
+  // Pan mit Cursortasten, Rotation mit Shift+Cursor
+  if(e.key.indexOf('Arrow')===0){
+    e.preventDefault();
+    var step = e.shiftKey ? 8 : 50;  // Shift = Rotation in Grad, normal = Pan in mm
+    if(e.shiftKey){
+      // Rotation: Theta/Phi anpassen
+      if(e.key==='ArrowLeft')  orbitState.theta -= step*Math.PI/180;
+      if(e.key==='ArrowRight') orbitState.theta += step*Math.PI/180;
+      if(e.key==='ArrowUp')    orbitState.phi   = Math.max(0.1, orbitState.phi - step*Math.PI/180);
+      if(e.key==='ArrowDown')  orbitState.phi   = Math.min(Math.PI-0.1, orbitState.phi + step*Math.PI/180);
+    } else {
+      // Pan: orbitTarget verschieben in Bildschirm-Ebene
+      var camDir = new THREE.Vector3();
+      activeCam.getWorldDirection(camDir);
+      var right = new THREE.Vector3().crossVectors(camDir, activeCam.up).normalize();
+      var up    = new THREE.Vector3().crossVectors(right, camDir).normalize();
+      if(e.key==='ArrowLeft')  orbitTarget.addScaledVector(right, -step);
+      if(e.key==='ArrowRight') orbitTarget.addScaledVector(right,  step);
+      if(e.key==='ArrowUp')    orbitTarget.addScaledVector(up,     step);
+      if(e.key==='ArrowDown')  orbitTarget.addScaledVector(up,    -step);
+    }
+    updateCamera();
+    return;
+  }
+  // + / - Zoom
+  if(e.key==='+'||e.key==='='){e.preventDefault();orbitState.radius=Math.max(200,orbitState.radius*0.85);orthoHalfSize=Math.max(200,orthoHalfSize*0.85);updateCamera();return;}
+  if(e.key==='-'){e.preventDefault();orbitState.radius=Math.min(50000,orbitState.radius*1.18);orthoHalfSize=Math.min(50000,orthoHalfSize*1.18);updateCamera();return;}
 });
+
+// Alles ins Bild bringen (Roboter + Pfad + Trace)
+function fitAllToView() {
+  var box = new THREE.Box3();
+  // Roboter-Pivots
+  if (typeof pivots !== 'undefined' && pivots.length) {
+    pivots.forEach(function(p) {
+      var pos = new THREE.Vector3();
+      p.getWorldPosition(pos);
+      box.expandByPoint(pos);
+    });
+  }
+  // Programm-Pfad
+  if (parsedData && parsedData.positions) {
+    parsedData.positions.forEach(function(p) {
+      box.expandByPoint(new THREE.Vector3(p.X, p.Y, p.Z));
+    });
+  }
+  // Trace-Punkte
+  if (typeof tcpTracePoints !== 'undefined' && tcpTracePoints.length) {
+    tcpTracePoints.forEach(function(p) { box.expandByPoint(p); });
+  }
+  if (box.isEmpty()) return;
+  var ctr = new THREE.Vector3();
+  box.getCenter(ctr);
+  var span = box.getSize(new THREE.Vector3()).length();
+  orbitTarget.copy(ctr);
+  orbitState.radius = Math.max(600, span * 1.4);
+  orthoHalfSize = Math.max(500, span * 0.6);
+  updateCamera();
+}
 
 // ═══════════════════════════════════════════════════
 // PATH BUILDING
