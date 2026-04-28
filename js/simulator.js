@@ -1172,7 +1172,7 @@ function toggleAxisMap() {
   if (p.classList.contains('visible')) ampAlignToViewport();
   document.getElementById('btn-axmap').classList.toggle('on', p.classList.contains('visible'));
   if (p.classList.contains('visible') && trajectory.length > 0) {
-    setTimeout(ampBuild, 50);  // auf Anforderung wenn Map geöffnet wird
+    // Map wird erst bei Klick auf ▶ Plan berechnet
   }
 }
 
@@ -1641,25 +1641,16 @@ function ampApplyPath() {
       const a6target = ampUserPath[col0] + (ampUserPath[col1]-ampUserPath[col0]) * frac;
       const a6clamped = Math.max(JOINTS_DEF[5].min, Math.min(JOINTS_DEF[5].max, a6target));
 
-      // Strategie: A6 direkt setzen, A4 kompensiert die Differenz
-      // (haelt Wrist-Orientierung konstant: delta_A4 = -delta_A6)
+      // Vollständige IK mit fixiertem A6 — TCP-Position bleibt exakt
       const curAngles = trajectory[tidx].angles.slice();
-      const deltaA6 = a6clamped - curAngles[5];
-      const newAngles = curAngles.slice();
-      newAngles[5] = a6clamped;
-      // A4-Kompensation (Wrist-Redundanz)
-      const a4new = curAngles[3] - deltaA6;
-      if (a4new >= JOINTS_DEF[3].min && a4new <= JOINTS_DEF[3].max) {
-        newAngles[3] = a4new;
-      }
-      // Feinkorrektur: IK mit festem A6 startend
       const pos = trajectory[tidx].pos;
-      const res = solveIK(pos.X, pos.Y, pos.Z, pos.A, pos.B, pos.C, newAngles);
-      if (res.ok && Math.abs(res.angles[5] - a6clamped) < 15) {
-        // IK-Lösung nahe am gewünschten A6 → übernehmen
+      const res = solveIKFixedA6(pos.X, pos.Y, pos.Z, pos.A, pos.B, pos.C, a6clamped, curAngles);
+      if (res.ok) {
         trajectory[tidx].angles = res.angles;
       } else {
-        // IK weicht zu stark ab → direkte Winkel verwenden
+        // Fallback: nur A6 direkt setzen
+        const newAngles = curAngles.slice();
+        newAngles[5] = a6clamped;
         trajectory[tidx].angles = newAngles;
         errCount++;
       }
@@ -2510,7 +2501,7 @@ function computeIKTable(positions) {
   buildTrajectory(positions, ikTable);
   // Rebuild axis map if open
   const amp = document.getElementById('axis-map-panel');
-  if ((amp&&amp.classList).contains('visible')) setTimeout(ampBuild, 100);
+  // Map wird manuell ausgelöst (Plan-Button)
 }
 
 // ═══════════════════════════════════════════════════
@@ -4323,7 +4314,7 @@ function dpSolverApplySettings() {
   if (parsedData && parsedData.positions.length > 0) {
     computeIKTable(parsedData.positions);
     var ampPanel = document.getElementById('axis-map-panel');
-    if (ampPanel && ampPanel.classList.contains('visible')) ampBuild();
+    // Map wird manuell ausgelöst
     document.getElementById('amp-info').textContent = 'DP-Solver: Parameter aktualisiert, Plan neu berechnet.';
   }
 }

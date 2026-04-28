@@ -316,8 +316,9 @@
   </div>
   <div id="amp-body">
     <div id="amp-sidebar">
-      <button class="amp-sbtn" onclick="ampAutoOptimize()" style="font-size:.95em;padding:6px 8px">▶ Plan</button>
-      <button class="amp-sbtn" onclick="ampApplyPath()" style="font-size:.95em;padding:6px 8px;margin-top:4px">✓ Übern.</button>
+      <button class="amp-sbtn" onclick="ampBuild(true)" title="Karte berechnen" style="font-size:1.4em;padding:6px 8px;line-height:1">⬛</button>
+      <button class="amp-sbtn" onclick="ampAutoOptimize()" title="Optimalen Weg planen" style="font-size:1.4em;padding:6px 8px;margin-top:4px;line-height:1">🔀</button>
+      <button class="amp-sbtn" onclick="ampApplyPath()" title="Weg in KRL übernehmen" style="font-size:1.4em;padding:6px 8px;margin-top:4px;line-height:1">✅</button>
       <div id="amp-progress-wrap" style="display:none;height:12px;margin-top:6px;background:#0a1a2e;border-radius:4px;overflow:hidden;border:1px solid #1a3050">
         <div id="amp-progress-bar" style="height:100%;width:0%;background:linear-gradient(90deg,#f05500,#ff8800);transition:width .15s ease"></div>
       </div>
