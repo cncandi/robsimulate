@@ -1227,19 +1227,16 @@ function ampBuild() {
     var entry = refTraj[Math.min(tidx, refTraj.length-1)];
     var ang = entry.angles;
 
-    // R_arm = FK mit A4=A5=A6=0 (nur Armteil A1,A2,A3)
-    var qArm = [ang[0], ang[1], ang[2], 0, 0, 0];
-    var R_arm = fkAll(qArm).rot_final;
-
-    // Zielorientierung aus TCP-Pose
+    // Referenz-A6 und Orientierung aus Trajektorie
+    var a6Ref = ang[5];
     var pos = entry.pos;
     var posA = pos.A !== undefined ? pos.A : (pos[3]||0);
     var posB = pos.B !== undefined ? pos.B : (pos[4]||0);
     var posC = pos.C !== undefined ? pos.C : (pos[5]||0);
-    var R_target = rotZYX(posA, posB, posC);
 
-    // Benötigte Wrist-Rotation: R_arm^T * R_target * R_tcp^-1
-    var R_wrist_needed = mMul(mMul(mT(R_arm), R_target), R_tcp_inv);
+    // R_arm = FK nur mit A1,A2,A3 (Armteil, Position bestimmt)
+    var qArm = [ang[0], ang[1], ang[2], 0, 0, 0];
+    var R_arm = fkAll(qArm).rot_final;
 
     for (var row=0; row<ROWS; row++) {
       var a6t = A6_MIN + (row / (ROWS-1)) * (A6_MAX - A6_MIN);
@@ -1249,15 +1246,29 @@ function ampBuild() {
         ampMap[col * ROWS + row] = 1; continue;
       }
 
-      // Rx(A6_test) herausrechnen: Rw = R_wrist_needed * Rx(A6_test)
-      var Rw = mMul(R_wrist_needed, mRx(a6t * DEG));
+      // A6-Änderung dreht TCP nur um seine Z-Achse → ändert nur Rz (Euler A):
+      // Rz_new = Rz_ref + (a6t - a6Ref)
+      var delta = a6t - a6Ref;
+      var Anew = posA + delta;
+      // Normalize -180..180
+      while (Anew >  180) Anew -= 360;
+      while (Anew <= -180) Anew += 360;
 
-      // Zerlegung Rx(-A4)*Ry(A5): Rw[0][2]=sin(A5), Rw[2][1]=-sin(A4), Rw[1][1]=cos(A4)
+      // Neue Ziel-Rotation
+      var R_target_new = rotZYX(Anew, posB, posC);
+
+      // Benötigte Wrist-Rotation: R_arm^T * R_target_new * R_tcp^-1
+      var R_wrist = mMul(mMul(mT(R_arm), R_target_new), R_tcp_inv);
+
+      // Rx(a6t) herausrechnen: Rw = R_wrist * Rx(a6t)
+      var Rw = mMul(R_wrist, mRx(a6t * DEG));
+
+      // Zerlegung Rx(-A4)*Ry(A5)
       var s5 = Math.max(-1, Math.min(1, Rw[0][2]));
       var a5t = Math.asin(s5) * RAD;
       var a4t = Math.atan2(-Rw[2][1], Rw[1][1]) * RAD;
 
-      // Limits prüfen
+      // Limits A4, A5 prüfen
       var a4L2 = JOINTS_DEF[3], a5L2 = JOINTS_DEF[4];
       var inLim = (a4t >= a4L2.min && a4t <= a4L2.max &&
                    a5t >= a5L2.min && a5t <= a5L2.max);
