@@ -1336,9 +1336,11 @@ function ampBuild(force) {
       if (a6t < a6L.min || a6t > a6L.max) {
         ampMap[col * ROWS + row] = 1; return null;
       }
-      // Map-Y IST der A6-Gelenkwinkel (laut ENCY-Doku)
-      // A6 wird fixiert, A1-A5 werden gelöst für gegebene TCP-Pose
-      var res = solveIKFixedA6(posX, posY, posZ, posA, posB, posC, a6t, warmQ);
+      // A6=0 entspricht A(Rz)=-180. Formel: A_ik = map_y - 180
+      var Aik = a6t - 180;
+      while (Aik >  180) Aik -= 360;
+      while (Aik <= -180) Aik += 360;
+      var res = solveIKFast(posX, posY, posZ, Aik, posB, posC, warmQ);
       if (!res.ok) { ampMap[col * ROWS + row] = 1; return null; }
       var q = res.angles;
       // Alle Achslimits prüfen
@@ -1852,9 +1854,12 @@ function ampApplyPath() {
       var pA2 = posD2.A !== undefined ? posD2.A : (posD2[3]||0);
       var pB2 = posD2.B !== undefined ? posD2.B : (posD2[4]||0);
       var pC2 = posD2.C !== undefined ? posD2.C : (posD2[5]||0);
-      // Drag: A6 festhalten, A1-A5 lösen
+      // Drag: A_ik = map_y - 180
       var newDeg = window._dragCurDeg;
-      var resD = solveIKFixedA6(pX2, pY2, pZ2, pA2, pB2, pC2, newDeg, angD2);
+      var AikD = newDeg - 180;
+      while (AikD >  180) AikD -= 360;
+      while (AikD <= -180) AikD += 360;
+      var resD = solveIKFast(pX2, pY2, pZ2, AikD, pB2, pC2, angD2);
       if (resD.ok) {
         applyAngles(resD.angles);
       } else {
