@@ -1428,10 +1428,31 @@ function ampDraw(canvas, W, H) {
   // Alle Zielpunkte als Punkte auf der Planlinie
   if (ampUserPath.length > 0 && parsedData.positions.length > 1) {
     var N_pts = parsedData.positions.length;
+    var arcLen = window._ampArcLen || [];
+    var totalArc = arcLen.length > 0 ? arcLen[arcLen.length-1] : 0;
+    var refTrajD = trajectoryRef.length ? trajectoryRef : trajectory;
+
     for (var pi = 0; pi < N_pts; pi++) {
-      var pxP = (pi / (N_pts - 1)) * (W - 1);
-      // A6 von der Planlinie (nicht vom IK-Solver) — Punkt liegt IMMER auf der Linie
-      var col_idx = Math.round(pi / Math.max(1, N_pts-1) * (ampCols-1));
+      // Bogenlängen-Position des Endpunkts berechnen
+      var pos_pi = parsedData.positions[pi];
+      var bestArc = 0;
+      if (pos_pi && arcLen.length > 1 && totalArc > 0) {
+        // Finde den Trajektorie-Punkt der diesem Endpunkt am nächsten liegt
+        var minDist = Infinity;
+        for (var ti = 0; ti < refTrajD.length; ti++) {
+          var tp = refTrajD[ti].pos;
+          var tX = tp.X !== undefined ? tp.X : (tp[0]||0);
+          var tY = tp.Y !== undefined ? tp.Y : (tp[1]||0);
+          var tZ = tp.Z !== undefined ? tp.Z : (tp[2]||0);
+          var dd = (pos_pi.X-tX)*(pos_pi.X-tX)+(pos_pi.Y-tY)*(pos_pi.Y-tY)+(pos_pi.Z-tZ)*(pos_pi.Z-tZ);
+          if (dd < minDist) { minDist = dd; bestArc = arcLen[ti] || 0; }
+        }
+      } else {
+        bestArc = (pi / Math.max(1, N_pts-1)) * totalArc;
+      }
+      var frac_x = totalArc > 0 ? bestArc / totalArc : pi / Math.max(1, N_pts-1);
+      var pxP = frac_x * (W - 1);
+      var col_idx = Math.round(frac_x * (ampCols-1));
       col_idx = Math.max(0, Math.min(ampCols-1, col_idx));
       var a6 = ampUserPath[col_idx] !== undefined ? ampUserPath[col_idx] : 0;
       var pyP = H - ((a6 - A6_MIN) / (A6_MAX - A6_MIN)) * H;
@@ -1636,8 +1657,27 @@ function ampApplyPath() {
     var N = parsedData.positions.length;
     if (N < 1 || !ampUserPath.length) return -1;
     var bestIdx = -1, bestDist = 20; // max 20px Fangradius
+    var arcLenD = window._ampArcLen || [];
+    var totArcD = arcLenD.length > 0 ? arcLenD[arcLenD.length-1] : 0;
+    var refTrajN = trajectoryRef.length ? trajectoryRef : trajectory;
     for (var pi = 0; pi < N; pi++) {
-      var pxP = (pi / Math.max(1, N-1)) * (canvas.width - 1);
+      var pos_pi2 = parsedData.positions[pi];
+      var bestArcN = 0;
+      if (pos_pi2 && arcLenD.length > 1 && totArcD > 0) {
+        var minD2 = Infinity;
+        for (var ti2 = 0; ti2 < refTrajN.length; ti2++) {
+          var tp2 = refTrajN[ti2].pos;
+          var tX2 = tp2.X !== undefined ? tp2.X : (tp2[0]||0);
+          var tY2 = tp2.Y !== undefined ? tp2.Y : (tp2[1]||0);
+          var tZ2 = tp2.Z !== undefined ? tp2.Z : (tp2[2]||0);
+          var dd2 = (pos_pi2.X-tX2)*(pos_pi2.X-tX2)+(pos_pi2.Y-tY2)*(pos_pi2.Y-tY2)+(pos_pi2.Z-tZ2)*(pos_pi2.Z-tZ2);
+          if (dd2 < minD2) { minD2 = dd2; bestArcN = arcLenD[ti2] || 0; }
+        }
+      } else {
+        bestArcN = (pi / Math.max(1, N-1)) * totArcD;
+      }
+      var fxN = totArcD > 0 ? bestArcN / totArcD : pi / Math.max(1, N-1);
+      var pxP = fxN * (canvas.width - 1);
       var col = Math.round(pi / Math.max(1, N-1) * (ampCols-1));
       col = Math.max(0, Math.min(ampCols-1, col));
       var a6 = ampUserPath[col] !== undefined ? ampUserPath[col] : 0;
