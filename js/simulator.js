@@ -27,9 +27,9 @@ const JOINTS_DEF = [
   {name:'A1',off:[150,0,450],  min:-170,max:170, axis:'Rz'},
   {name:'A2',off:[610,0,0],   min:-185,max:65,  axis:'Ry'},
   {name:'A3',off:[0,0,200],   min:-120,max:180, axis:'Ry'},
-  {name:'A4',off:[630,0,0],   min:-185,max:185, axis:'Rx'},
+  {name:'A4',off:[630,0,0],   min:-165,max:165, axis:'Rx'},
   {name:'A5',off:[80,0,0],    min:-115,max:140, axis:'Ry'},
-  {name:'A6',off:[0,0,0],     min:-360,max:360, axis:'Rx'}
+  {name:'A6',off:[0,0,0],     min:-180,max:180, axis:'Rx'}
 ];
 
 const TCP_DEF = {x:364.5, y:0, z:46.5, a:0, b:90, c:0};
@@ -1140,7 +1140,7 @@ function setAmpAxis(ax) {
 // Hält Handgelenks-Orientierung annähernd konstant.
 // ═══════════════════════════════════════════════════
 const SING_THRESH = 6;
-const A6_MIN = -360, A6_MAX = 360;
+const A6_MIN = -180, A6_MAX = 180;
 function ampBuild() {
   if (!trajectory.length) return;
   const canvas = document.getElementById('amp-canvas');
@@ -3486,28 +3486,23 @@ $APO.CDIS = 0.5000
 $BASE = $WORLD
 ;$BASE={X 0, Y 0, Z 0, A 0, B 0, C 0}
 $ACT_BASE=0
-$TOOL=TOOL_DATA[1]
-;$TOOL={X 252.042, Y 0.754, Z 194.356, A 0, B 90, C 0}
-$ACT_TOOL=1
-LIN {X 1200, Y -200, Z 800, A 180, B 0, C 180} C_DIS
-$VEL.CP=0
-$BASE = $WORLD
-;$BASE={X 0, Y 0, Z 0, A 0, B 0, C 0}
-$ACT_BASE=0
+$TOOL=TOOL_DATA[24]
+;$TOOL={X 374.5, Y 0, Z 46.5, A 0, B 90, C 0}
+$ACT_TOOL=24
 $advance=5
 $VEL.CP=0.167
-LIN {X 1200, Y -200, Z 810, A 180, B 0, C 180} C_DIS
-LIN {X 1200, Y -200, Z 802, A 180, B 0, C 180} C_DIS
+PTP {A1 -19.000, A2 -56.735, A3 134.892, A4 -92.636, A5 89.448, A6 168.170}
 $VEL.CP=0.003
-LIN {X 1200, Y -200, Z 800, A 180, B 0, C 180} C_DIS
-LIN {X 900, Y -200, Z 800, A 180, B 0, C 180} C_DIS
-LIN {X 900, Y 200, Z 800, A 180, B 0, C 180} C_DIS
-LIN {X 1200, Y 200, Z 800, A 180, B 0, C 180} C_DIS
-LIN {X 1200, Y -200, Z 800, A 180, B 0, C 180} C_DIS
+LIN {X 730, Y 385, Z 10, A -73.693, B 0, C 180} C_DIS
+LIN {X 730, Y 385, Z 0, A -73.693, B 0, C 180} C_DIS
+LIN {X 1150, Y 385, Z 0, A -82.99, B 0, C 180} C_DIS
+LIN {X 1150, Y -175, Z 0, A -110.153, B 0, C 180} C_DIS
+LIN {X 730, Y -175, Z 0, A -114.981, B 0, C 180} C_DIS
+LIN {X 730, Y 385, Z 0, A -73.693, B 0, C 180} C_DIS
 $VEL.CP=0.167
-LIN {X 1200, Y -200, Z 810, A 180, B 0, C 180} C_DIS
-END
-`;
+LIN {X 730, Y 385, Z 10, A -73.693, B 0, C 180} C_DIS
+PTP {A1 0.000, A2 -90.000, A3 90.000, A4 0.000, A5 0.000, A6 0.000}
+END`;
 
 
 // STL-Dateien werden per fetch aus ./stl/ geladen
