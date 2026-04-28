@@ -1504,24 +1504,21 @@ function ampDraw(canvas, W, H) {
     yaxisEl.height = H;
     var yctx = yaxisEl.getContext('2d');
     yctx.clearRect(0, 0, 42, H);
-    yctx.font = '11px monospace';
+    yctx.font = 'bold 14px monospace';
     yctx.textAlign = 'right';
     var range = A6_MAX - A6_MIN;
-    var fontSize = 11;
-    var lastLabelPy = -999;
-    for (var yd = A6_MIN; yd <= A6_MAX + 0.1; yd += 20) {
+    // Nur 5 Labels: -180, -90, 0, +90, +180
+    var labels = [A6_MIN, -90, 0, 90, A6_MAX];
+    labels.forEach(function(yd) {
       var frac = (yd - A6_MIN) / range;
       var py4 = Math.round((1 - frac) * (H - 1));
       // Tick
-      yctx.fillStyle = Math.abs(yd) % 60 === 0 || yd === 0 ? '#3a6080' : '#1e2e40';
-      yctx.fillRect(34, py4, 8, 1);
-      // Label nur wenn genug Platz (fontSize+2 px Abstand)
-      if (Math.abs(py4 - lastLabelPy) >= fontSize + 3) {
-        yctx.fillStyle = yd === 0 ? '#ffee00' : (Math.abs(yd) % 60 === 0 ? '#c0e0ff' : '#3a6080');
-        yctx.fillText(yd + '°', 40, py4 + 4);
-        lastLabelPy = py4;
-      }
-    }
+      yctx.fillStyle = '#3a6080';
+      yctx.fillRect(32, py4, 10, 1);
+      // Label
+      yctx.fillStyle = yd === 0 ? '#ffee00' : '#c0e0ff';
+      yctx.fillText(yd + '°', 40, py4 + 5);
+    });
   }
 
   // Cursor drawn on amp-cursor overlay canvas
