@@ -1725,41 +1725,39 @@ function ampApplyPath() {
     rubberBand(dragWptIdx, newDeg);
     ampDraw(canvas, canvas.width, canvas.height);
 
-    // Roboter live bewegen: A4,A5 analytisch für neues A6
-    var pi = dragWptIdx;
-    var N  = parsedData.positions.length;
-    var refTraj = trajectoryRef.length ? trajectoryRef : trajectory;
-    var tidxD = Math.round(pi / Math.max(1,N-1) * (refTraj.length-1));
-    tidxD = Math.max(0, Math.min(refTraj.length-1, tidxD));
-    var entryD = refTraj[tidxD];
-    if (entryD) {
-      var angD  = entryD.angles;
-      var a6Ref = angD[5];
-      var posD  = entryD.pos;
-      var pA = posD.A !== undefined ? posD.A : (posD[3]||0);
-      var pB = posD.B !== undefined ? posD.B : (posD[4]||0);
-      var pC = posD.C !== undefined ? posD.C : (posD[5]||0);
-      // Rz_new = Rz_ref + (A6_new - A6_ref)
-      var AnewD = pA + (newDeg - a6Ref);
-      while(AnewD >  180) AnewD -= 360;
-      while(AnewD <= -180) AnewD += 360;
-      // Analytisch A4, A5
-      var qArmD = [angD[0], angD[1], angD[2], 0, 0, 0];
-      var R_armD = fkAll(qArmD).rot_final;
-      function mRxD(a){return[[1,0,0],[0,Math.cos(a),-Math.sin(a)],[0,Math.sin(a),Math.cos(a)]];}
-      function mTD(M){return M[0].map(function(_,i){return M.map(function(r){return r[i];});});}
-      function mMulD(A,B){return A.map(function(r){return B[0].map(function(_,j){return r.reduce(function(s,v,k){return s+v*B[k][j];},0);});});}
-      var R_fc2 = [[0,0,1],[0,1,0],[-1,0,0]];
-      var R_usr2 = rotZYX(TCP_DEF.a, TCP_DEF.b, TCP_DEF.c);
-      var R_tcp2 = mMulD(R_fc2, R_usr2);
-      var R_tgt2 = rotZYX(AnewD, pB, pC);
-      var R_wr2  = mMulD(mMulD(mTD(R_armD), R_tgt2), mTD(R_tcp2));
-      var Rw2    = mMulD(R_wr2, mRxD(newDeg * Math.PI/180));
-      var s5D = Math.max(-1,Math.min(1,Rw2[0][2]));
-      var a5D = Math.asin(s5D) * 180/Math.PI;
-      var a4D = Math.atan2(-Rw2[2][1], Rw2[1][1]) * 180/Math.PI;
-      var newQ = [angD[0], angD[1], angD[2], a4D, a5D, newDeg];
-      applyAngles(newQ);
+    // Roboter live bewegen: vollständige IK mit neuer Orientierung
+    // TCP-Position bleibt exakt auf dem Pfad — nur Rz (A6) ändert sich
+    var pi2 = dragWptIdx;
+    var N2  = parsedData.positions.length;
+    var refTraj2 = trajectoryRef.length ? trajectoryRef : trajectory;
+    var tidxD2 = Math.round(pi2 / Math.max(1,N2-1) * (refTraj2.length-1));
+    tidxD2 = Math.max(0, Math.min(refTraj2.length-1, tidxD2));
+    var entryD2 = refTraj2[tidxD2];
+    if (entryD2) {
+      var angD2 = entryD2.angles;
+      var posD2 = entryD2.pos;
+      var pX2 = posD2.X !== undefined ? posD2.X : (posD2[0]||0);
+      var pY2 = posD2.Y !== undefined ? posD2.Y : (posD2[1]||0);
+      var pZ2 = posD2.Z !== undefined ? posD2.Z : (posD2[2]||0);
+      var pA2 = posD2.A !== undefined ? posD2.A : (posD2[3]||0);
+      var pB2 = posD2.B !== undefined ? posD2.B : (posD2[4]||0);
+      var pC2 = posD2.C !== undefined ? posD2.C : (posD2[5]||0);
+      // Rz_new = Rz_ref + (A6_new - A6_ref) — nur erster Euler-Winkel ändert sich
+      var a6RefD = angD2[5];
+      var AnewD2 = pA2 + (newDeg - a6RefD);
+      while(AnewD2 >  180) AnewD2 -= 360;
+      while(AnewD2 <= -180) AnewD2 += 360;
+      // Vollständige IK: TCP-Position bleibt, nur Orientierung ändert sich
+      // Warm-Start: aktuelle Winkel des Trajektorie-Punkts
+      var resD = solveIKFast(pX2, pY2, pZ2, AnewD2, pB2, pC2, angD2);
+      if (resD.ok) {
+        applyAngles(resD.angles);
+      } else {
+        // Fallback: Trajektorie-Winkel mit A6 gesetzt
+        var fallback = angD2.slice();
+        fallback[5] = newDeg;
+        applyAngles(fallback);
+      }
     }
   });
 
