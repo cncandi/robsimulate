@@ -1206,85 +1206,66 @@ function ampBuild() {
     return Math.min(lo, refLen - 1);
   }
 
-  // ── Analytische Wrist-Dekomposition ─────────────────────────
-  // R_wrist = Rx(-A4)*Ry(A5)*Rx(-A6)  [FK_SIGNS: -1,+1,-1]
-  // Gegeben A6_test → A4,A5 analytisch berechnen:
-  //   Rw = R_wrist_needed * Rx(A6_test)  [A6 herausrechnen]
-  //   A5  = asin(Rw[0][2])
-  //   A4  = atan2(-Rw[2][1], Rw[1][1])
-  var DEG = Math.PI/180, RAD = 180/Math.PI;
-  function mRx(a){return[[1,0,0],[0,Math.cos(a),-Math.sin(a)],[0,Math.sin(a),Math.cos(a)]];}
-  function mT(M){return M[0].map(function(_,i){return M.map(function(r){return r[i];});});}
-  function mMul(A,B){return A.map(function(r){return B[0].map(function(_,j){return r.reduce(function(s,v,k){return s+v*B[k][j];},0);});});}
-
-  // TCP-Frame: fkAll gibt R am Flansch × R_tcp
-  // R_tcp (konstant aus TCP_DEF)
-  var R_fc = [[0,0,1],[0,1,0],[-1,0,0]]; // Ry(90°) für standard TCP offset
-  var R_usr = rotZYX(TCP_DEF.a, TCP_DEF.b, TCP_DEF.c);
-  var R_tcp = mMul(R_fc, R_usr);
-  var R_tcp_inv = mT(R_tcp);
+  // ── Vollständige IK pro Zelle (Spec Kap. 9) ─────────────────
+  // Alle Achsen A1-A6 dürfen sich bewegen.
+  // Bidirektionaler Scan von Referenz-A6 für Performance.
+  // Warm-Start aus benachbarter Zeile.
 
   for (var col=0; col<COLS; col++) {
     var tidx = arcToTidx(col);
     var refTraj = trajectoryRef.length ? trajectoryRef : trajectory;
     var entry = refTraj[Math.min(tidx, refTraj.length-1)];
     var ang = entry.angles;
-
-    // Referenz-A6 und Orientierung aus Trajektorie
-    var a6Ref = ang[5];
     var pos = entry.pos;
+    var posX = pos.X !== undefined ? pos.X : (pos[0]||0);
+    var posY = pos.Y !== undefined ? pos.Y : (pos[1]||0);
+    var posZ = pos.Z !== undefined ? pos.Z : (pos[2]||0);
     var posA = pos.A !== undefined ? pos.A : (pos[3]||0);
     var posB = pos.B !== undefined ? pos.B : (pos[4]||0);
     var posC = pos.C !== undefined ? pos.C : (pos[5]||0);
+    var a6Ref = ang[5];
 
-    // R_arm = FK nur mit A1,A2,A3 (Armteil, Position bestimmt)
-    var qArm = [ang[0], ang[1], ang[2], 0, 0, 0];
-    var R_arm = fkAll(qArm).rot_final;
+    // Referenz-Zeile (Startpunkt für den Scan)
+    var refRow = Math.round((a6Ref - A6_MIN) / (A6_MAX - A6_MIN) * (ROWS-1));
+    refRow = Math.max(0, Math.min(ROWS-1, refRow));
 
-    for (var row=0; row<ROWS; row++) {
+    function computeCell(row, warmQ) {
       var a6t = A6_MIN + (row / (ROWS-1)) * (A6_MAX - A6_MIN);
-
-      // A6 außerhalb Limits
       if (a6t < a6L.min || a6t > a6L.max) {
-        ampMap[col * ROWS + row] = 1; continue;
+        ampMap[col * ROWS + row] = 1; return null;
       }
-
-      // A6-Änderung dreht TCP nur um seine Z-Achse → ändert nur Rz (Euler A):
-      // Rz_new = Rz_ref + (a6t - a6Ref)
-      var delta = a6t - a6Ref;
-      var Anew = posA + delta;
-      // Normalize -180..180
+      // Neue Orientierung: nur Rz ändert sich
+      var Anew = posA + (a6t - a6Ref);
       while (Anew >  180) Anew -= 360;
       while (Anew <= -180) Anew += 360;
-
-      // Neue Ziel-Rotation
-      var R_target_new = rotZYX(Anew, posB, posC);
-
-      // Benötigte Wrist-Rotation: R_arm^T * R_target_new * R_tcp^-1
-      var R_wrist = mMul(mMul(mT(R_arm), R_target_new), R_tcp_inv);
-
-      // Rx(a6t) herausrechnen: Rw = R_wrist * Rx(a6t)
-      var Rw = mMul(R_wrist, mRx(a6t * DEG));
-
-      // Zerlegung Rx(-A4)*Ry(A5)
-      var s5 = Math.max(-1, Math.min(1, Rw[0][2]));
-      var a5t = Math.asin(s5) * RAD;
-      var a4t = Math.atan2(-Rw[2][1], Rw[1][1]) * RAD;
-
-      // Limits A4, A5 prüfen
-      var a4L2 = JOINTS_DEF[3], a5L2 = JOINTS_DEF[4];
-      var inLim = (a4t >= a4L2.min && a4t <= a4L2.max &&
-                   a5t >= a5L2.min && a5t <= a5L2.max);
-
+      // Vollständige IK — alle Achsen frei
+      var res = solveIKFast(posX, posY, posZ, Anew, posB, posC, warmQ);
+      if (!res.ok) { ampMap[col * ROWS + row] = 1; return null; }
+      var q = res.angles;
+      // Alle Achslimits prüfen
+      for (var k=0; k<6; k++) {
+        if (q[k] < JOINTS_DEF[k].min || q[k] > JOINTS_DEF[k].max) {
+          ampMap[col * ROWS + row] = 1; return q;
+        }
+      }
       // Singularität: A5 nahe 0°
-      var isSing2 = Math.abs(a5t) < SING_THRESH;
+      if (Math.abs(q[4]) < SING_THRESH) {
+        ampMap[col * ROWS + row] = 2; return q;
+      }
+      ampMap[col * ROWS + row] = 0; return q;
+    }
 
-      var status;
-      if (!inLim && isSing2) status = 3;
-      else if (!inLim)        status = 1;
-      else if (isSing2)       status = 2;
-      else                    status = 0;
-      ampMap[col * ROWS + row] = status;
+    // Aufwärts von refRow → ROWS-1
+    var prevQ = ang.slice();
+    for (var row=refRow; row<ROWS; row++) {
+      var q2 = computeCell(row, prevQ);
+      if (q2) prevQ = q2;
+    }
+    // Abwärts von refRow-1 → 0
+    prevQ = ang.slice();
+    for (var row=refRow-1; row>=0; row--) {
+      var q2 = computeCell(row, prevQ);
+      if (q2) prevQ = q2;
     }
   }
 
