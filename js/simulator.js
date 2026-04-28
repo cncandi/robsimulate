@@ -1436,60 +1436,28 @@ function ampDraw(canvas, W, H) {
     ctx.fillText(label, px2+13, py2+4);
   }
   // Alle Zielpunkte als Punkte auf der Planlinie
+  // Zielpunkt-Marker: vertikale Linien an exakten Positionen (kein Dot-Positionierungsproblem)
   if (ampUserPath.length > 0 && parsedData.positions.length > 1) {
-    var N_pts = parsedData.positions.length;
-    var arcLen = window._ampArcLen || [];
-    var totalArc = arcLen.length > 0 ? arcLen[arcLen.length-1] : 0;
-    var refTrajD = trajectoryRef.length ? trajectoryRef : trajectory;
-
-    for (var pi = 0; pi < N_pts; pi++) {
-      // segIdx: Trajektorie-Eintrag der exakt DIESEM Waypoint entspricht
-      // Suche letzten Trajektorie-Punkt mit segIdx === pi (in Reihenfolge!)
-      var bestArc = 0;
-      var found = false;
-      if (arcLen.length > 1 && totalArc > 0) {
-        for (var ti = refTrajD.length-1; ti >= 0; ti--) {
-          if (refTrajD[ti].segIdx === pi) {
-            bestArc = arcLen[ti] || 0;
-            found = true;
-            break;
-          }
-        }
-        if (!found) {
-          // Fallback: ersten Treffer vorwärts suchen
-          for (var ti = 0; ti < refTrajD.length; ti++) {
-            if (refTrajD[ti].segIdx === pi) {
-              bestArc = arcLen[ti] || 0;
-              break;
-            }
-          }
-        }
-      } else {
-        bestArc = (pi / Math.max(1, N_pts-1)) * totalArc;
+    var arcLen2 = window._ampArcLen || [];
+    var totalArc2 = arcLen2.length > 0 ? arcLen2[arcLen2.length-1] : 0;
+    var refTrajM = trajectoryRef.length ? trajectoryRef : trajectory;
+    ctx.setLineDash([3,3]);
+    ctx.lineWidth = 1;
+    for (var pi = 0; pi < parsedData.positions.length; pi++) {
+      var bestArc2 = 0;
+      for (var ti = refTrajM.length-1; ti >= 0; ti--) {
+        if (refTrajM[ti].segIdx === pi) { bestArc2 = arcLen2[ti] || 0; break; }
       }
-      var frac_x = totalArc > 0 ? bestArc / totalArc : pi / Math.max(1, N_pts-1);
-      var pxP = frac_x * (W - 1);
-      var col_idx = Math.round(frac_x * (ampCols-1));
-      col_idx = Math.max(0, Math.min(ampCols-1, col_idx));
-      var a6 = ampUserPath[col_idx] !== undefined ? ampUserPath[col_idx] : 0;
-      var pyP = H - ((a6 - A6_MIN) / (A6_MAX - A6_MIN)) * H;
-      pyP = Math.max(3, Math.min(H-3, pyP));
-      // Farbe je nach Bereichsstatus an dieser Stelle
-      var row_idx = Math.round((a6 - A6_MIN) / (A6_MAX - A6_MIN) * (ampRows-1));
-      row_idx = Math.max(0, Math.min(ampRows-1, row_idx));
-      var status = ampMap ? (ampMap[col_idx * ampRows + row_idx] || 0) : 0;
-      var dotColor = status === 0 ? '#00ddaa' : status === 1 ? '#ff60c0' : status === 2 ? '#ff8800' : '#ff3030';
-      ctx.fillStyle = dotColor;
-      ctx.strokeStyle = 'rgba(0,0,0,0.7)';
-      ctx.lineWidth = 1.5;
-      ctx.beginPath();
-      ctx.arc(pxP, pyP, 8, 0, Math.PI * 2);
-      ctx.fill(); ctx.stroke();
-      // Positionsnummer
-      ctx.fillStyle = 'rgba(255,255,255,0.8)';
-      ctx.font = 'bold 8px monospace';
-      ctx.fillText(pi + 1, pxP + 6, pyP - 3);
+      var fx2 = totalArc2 > 0 ? bestArc2 / totalArc2 : pi / Math.max(1, parsedData.positions.length-1);
+      var pxM = Math.round(fx2 * (W-1));
+      ctx.strokeStyle = 'rgba(255,238,0,0.35)';
+      ctx.beginPath(); ctx.moveTo(pxM, 0); ctx.lineTo(pxM, H); ctx.stroke();
+      // Nummer
+      ctx.fillStyle = 'rgba(255,238,0,0.7)';
+      ctx.font = '9px monospace';
+      ctx.fillText(pi+1, pxM+2, 10);
     }
+    ctx.setLineDash([]);
   }
   drawCtrlPt(0,           '#00ff88', 'P1 ↕');
   drawCtrlPt(ampCols-1,   '#00aaff', 'Pn ↕');
@@ -1698,48 +1666,31 @@ function ampApplyPath() {
     return bestIdx;
   }
 
-  // Gummiband-Interpolation: bewege Punkt pi auf Wert newDeg,
-  // interpoliere linear zu den Nachbarn
   function rubberBand(pi, newDeg) {
-    var N = parsedData.positions.length;
-    if (N < 1) return;
-    // Setze diesen Punkt
-    var col = Math.round(pi / Math.max(1, N-1) * (ampCols-1));
-    col = Math.max(0, Math.min(ampCols-1, col));
-    ampUserPath[col] = newDeg;
+    var col = Math.round(pi / Math.max(1, parsedData.positions.length-1) * (ampCols-1));
+    rubberBandCol(col, newDeg);
+  }
 
-    // Interpoliere von vorherigem Zielpunkt bis zu diesem
-    if (pi > 0) {
-      var colPrev = Math.round((pi-1) / Math.max(1, N-1) * (ampCols-1));
-      var valPrev = ampUserPath[colPrev];
-      var colCurr = col;
-      for (var c = colPrev+1; c < colCurr; c++) {
-        var f = (c - colPrev) / Math.max(1, colCurr - colPrev);
-        ampUserPath[c] = valPrev + (newDeg - valPrev) * f;
-      }
-    }
-    // Interpoliere von diesem bis zum nächsten Zielpunkt
-    if (pi < N-1) {
-      var colNext = Math.round((pi+1) / Math.max(1, N-1) * (ampCols-1));
-      var valNext = ampUserPath[colNext];
-      for (var c = col+1; c < colNext; c++) {
-        var f = (c - col) / Math.max(1, colNext - col);
-        ampUserPath[c] = newDeg + (valNext - newDeg) * f;
-      }
-    }
+  // Freies Drag: setze exakt diese Spalte, kein Interpolieren zu Nachbarn
+  function rubberBandCol(col, newDeg) {
+    col = Math.max(0, Math.min(ampCols-1, col));
+    newDeg = Math.max(A6_MIN, Math.min(A6_MAX, newDeg));
+    ampUserPath[col] = newDeg;
   }
 
   function onDragStart(e) {
     if (!ampCols) return;
     var ee = e.touches ? e.touches[0] : e;
-    var idx = nearestWaypoint(ee);
-    if (idx >= 0) {
-      dragWptIdx = idx;
-      ampDragging = true;
-      rubberBand(idx, getDeg(ee));
-      ampDraw(canvas, canvas.width, canvas.height);
-      e.preventDefault();
-    }
+    // Freies Drag: überall auf dem Canvas erlaubt
+    var rr = canvas.getBoundingClientRect();
+    var pxS = ee.clientX - rr.left;
+    var colS = Math.round(pxS / (canvas.width-1) * (ampCols-1));
+    colS = Math.max(0, Math.min(ampCols-1, colS));
+    dragWptIdx = colS;
+    ampDragging = true;
+    rubberBandCol(colS, getDeg(ee));
+    ampDraw(canvas, canvas.width, canvas.height);
+    e.preventDefault();
   }
   canvas.addEventListener('mousedown', onDragStart);
   canvas.addEventListener('touchstart', onDragStart, {passive:false});
@@ -1764,28 +1715,20 @@ function ampApplyPath() {
     tooltip.style.left = (e.offsetX+10)+'px';
     tooltip.style.top  = (e.offsetY-28)+'px';
 
-    // Cursor: Zeiger wenn nahe an Zielpunkt
-    var near = nearestWaypoint(ee);
-    canvas.style.cursor = near >= 0 ? 'ns-resize' : 'default';
+    canvas.style.cursor = 'ns-resize';
+    tooltip.textContent = 'Schritt ' + (col+1) + '/' + ampCols + ' · A6=' + deg.toFixed(1) + '° · ' + statusLbl;
 
-    if (near >= 0 && !ampDragging) {
-      tooltip.textContent = '#' + (near+1) + ' ziehen · A6 aktuell: ' + curVal + '° · ' + statusLbl;
-    } else {
-      tooltip.textContent = 'Schritt ' + (col+1) + '/' + ampCols + ' · A6=' + deg.toFixed(1) + '° · ' + statusLbl;
-    }
-
-    if (!ampDragging || dragWptIdx < 0) return;
+    if (!ampDragging) return;
     var newDeg = getDeg(ee);
     e.preventDefault();
-    rubberBand(dragWptIdx, newDeg);
+    // Freies Drag: exakt diese Spalte setzen
+    rubberBandCol(col, newDeg);
+    dragWptIdx = col;
     ampDraw(canvas, canvas.width, canvas.height);
 
-    // Roboter live bewegen: vollständige IK mit neuer Orientierung
-    // TCP-Position bleibt exakt auf dem Pfad — nur Rz (A6) ändert sich
-    var pi2 = dragWptIdx;
-    var N2  = parsedData.positions.length;
+    // Roboter live: Trajektorie-Punkt an dieser Spalte
     var refTraj2 = trajectoryRef.length ? trajectoryRef : trajectory;
-    var tidxD2 = Math.round(pi2 / Math.max(1,N2-1) * (refTraj2.length-1));
+    var tidxD2 = Math.round(col / Math.max(1, ampCols-1) * (refTraj2.length-1));
     tidxD2 = Math.max(0, Math.min(refTraj2.length-1, tidxD2));
     var entryD2 = refTraj2[tidxD2];
     if (entryD2) {
