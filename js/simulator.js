@@ -182,6 +182,65 @@ function solveIK(tx, ty, tz, ta, tb, tc, initAngles) {
   return {angles:bestQ, score:bestScore, ok: bestScore<20};
 }
 
+// IK mit fixiertem A6 — nur A1-A5 werden optimiert
+function solveIKFixedA6(tx, ty, tz, ta, tb, tc, a6fixed, initAngles) {
+  const clamp=(v,lo,hi)=>Math.max(lo,Math.min(hi,v));
+  const tp = [tx, ty, tz];
+  const Rt = rotZYX(ta, tb, tc);
+  const dt=0.3, lam=0.5, tolP=0.5, tolO=0.5;
+
+  var starts = [
+    initAngles ? initAngles.slice() : jointAngles.slice(),
+    [0,-90,90,0,0,a6fixed], [0,-90,90,0,-45,a6fixed],
+    [0,-90,90,-90,-45,a6fixed], [0,-90,90,90,-45,a6fixed],
+  ];
+  // Setze in allen Starts A6 auf a6fixed
+  starts.forEach(function(s){ s[5] = a6fixed; });
+
+  var bestScore=Infinity, bestQ=jointAngles.slice();
+  bestQ[5] = a6fixed;
+
+  for (var si=0; si<starts.length; si++) {
+    var q = starts[si].slice();
+    q[5] = a6fixed;  // A6 immer fixiert
+    for (var iter=0; iter<300; iter++) {
+      var e=err6(q, tp, Rt);
+      var eP=Math.sqrt(e[0]*e[0]+e[1]*e[1]+e[2]*e[2]);
+      var eO=Math.sqrt(e[3]*e[3]+e[4]*e[4]+e[5]*e[5]);
+      var score=eP+eO;
+      if (score<bestScore){ bestScore=score; bestQ=q.slice(); }
+      if (eP<tolP && eO<tolO) break;
+
+      var J=[];
+      for (var i=0;i<6;i++){
+        if (i===5){ J.push([0,0,0,0,0,0]); continue; } // A6 fest
+        var q1=q.slice(); q1[i]+=dt;
+        var e1=err6(q1,tp,Rt);
+        J.push([(e1[0]-e[0])/dt,(e1[1]-e[1])/dt,(e1[2]-e[2])/dt,
+                (e1[3]-e[3])/dt,(e1[4]-e[4])/dt,(e1[5]-e[5])/dt]);
+      }
+      var JtJ=Array.from({length:6},function(){return Array(6).fill(0);});
+      var Jte=Array(6).fill(0);
+      for (var i=0;i<6;i++){
+        for (var r=0;r<6;r++){
+          Jte[i]+=J[i][r]*e[r];
+          for (var j=0;j<6;j++) JtJ[i][j]+=J[i][r]*J[j][r];
+        }
+        JtJ[i][i]+=lam;
+      }
+      var dq=solve6x6(JtJ,Jte);
+      var step=Math.min(2.0,10.0/Math.max(1,bestScore));
+      for (var i=0;i<5;i++){  // nur A1-A5 (i<5)
+        if (!isFinite(dq[i])) continue;
+        q[i]=clamp(q[i]-step*dq[i], JOINTS_DEF[i].min, JOINTS_DEF[i].max);
+      }
+      q[5] = a6fixed;  // A6 immer zurücksetzen
+    }
+    if (bestScore<(tolP+tolO)*1.5) break;
+  }
+  return {angles:bestQ, score:bestScore, ok: bestScore<20};
+}
+
 // ═══════════════════════════════════════════════════
 // KRL PARSER (original vom KUKA Simulator)
 // ═══════════════════════════════════════════════════
@@ -1273,11 +1332,9 @@ function ampBuild(force) {
       if (a6t < a6L.min || a6t > a6L.max) {
         ampMap[col * ROWS + row] = 1; return null;
       }
-      // Map-Y=0 entspricht A=180 (Rz180 Ry0 Rx180)
-      var Aik = a6t + 180;
-      while (Aik >  180) Aik -= 360;
-      while (Aik <= -180) Aik += 360;
-      var res = solveIKFast(posX, posY, posZ, Aik, posB, posC, warmQ);
+      // Map-Y IST der A6-Gelenkwinkel (laut ENCY-Doku)
+      // A6 wird fixiert, A1-A5 werden gelöst für gegebene TCP-Pose
+      var res = solveIKFixedA6(posX, posY, posZ, posA, posB, posC, a6t, warmQ);
       if (!res.ok) { ampMap[col * ROWS + row] = 1; return null; }
       var q = res.angles;
       // Alle Achslimits prüfen
@@ -1796,12 +1853,9 @@ function ampApplyPath() {
       var pA2 = posD2.A !== undefined ? posD2.A : (posD2[3]||0);
       var pB2 = posD2.B !== undefined ? posD2.B : (posD2[4]||0);
       var pC2 = posD2.C !== undefined ? posD2.C : (posD2[5]||0);
-      // Drag: gleicher Offset wie Map. Map-Y=0 → A=180°
+      // Drag: A6 festhalten, A1-A5 lösen
       var newDeg = window._dragCurDeg;
-      var AikD = newDeg + 180;
-      while (AikD >  180) AikD -= 360;
-      while (AikD <= -180) AikD += 360;
-      var resD = solveIKFast(pX2, pY2, pZ2, AikD, pB2, pC2, angD2);
+      var resD = solveIKFixedA6(pX2, pY2, pZ2, pA2, pB2, pC2, newDeg, angD2);
       if (resD.ok) {
         applyAngles(resD.angles);
       } else {
