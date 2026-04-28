@@ -1298,13 +1298,24 @@ function ampBuild(force) {
     return Math.min(lo, refLen - 1);
   }
 
-  // ── Vollständige IK pro Zelle (Spec Kap. 9) ─────────────────
-  // Async Chunk-Processing: Browser friert nicht ein
+  // ── Analytische Wrist-Dekomposition pro Zelle ────────────────
+  // Y-Achse = A6-Gelenkwinkel (ENCY-Doku). A1-A3 aus Referenz.
+  // A4, A5 analytisch aus Wrist-Rotation. O(1) pro Zelle.
+  var D2R = Math.PI/180, R2D = 180/Math.PI;
+  function mT3(M){return[[M[0][0],M[1][0],M[2][0]],[M[0][1],M[1][1],M[2][1]],[M[0][2],M[1][2],M[2][2]]]; }
+  function mm3(A,B){var C=[[0,0,0],[0,0,0],[0,0,0]];for(var i=0;i<3;i++)for(var j=0;j<3;j++)for(var k=0;k<3;k++)C[i][j]+=A[i][k]*B[k][j];return C;}
+  function rxD(a){var c=Math.cos(a*D2R),s=Math.sin(a*D2R);return[[1,0,0],[0,c,-s],[0,s,c]];}
+
+  // TCP-Frame (konstant)
+  var Rfc  = [[0,0,1],[0,1,0],[-1,0,0]]; // Ry(90°)
+  var Rusr = rotZYX(TCP_DEF.a, TCP_DEF.b, TCP_DEF.c);
+  var Rtcp = mm3(Rfc, Rusr);
+  var RtcpT = mT3(Rtcp);
+
   var _col = 0;
   var _canvas = canvas, _W = W, _H = H;
   var _totalDist = totalDist;
 
-  // Fortschrittsbalken anzeigen
   var _progWrap = document.getElementById('amp-progress-wrap');
   var _progBar  = document.getElementById('amp-progress-bar');
   if (_progWrap) _progWrap.style.display = 'block';
@@ -1312,63 +1323,47 @@ function ampBuild(force) {
   document.getElementById('amp-info').textContent = 'Berechnung…';
 
   function processChunk() {
-    var chunkEnd = Math.min(_col + 5, COLS);  // 5 Spalten pro Frame
+    var chunkEnd = Math.min(_col + 30, COLS);
     for (var col = _col; col < chunkEnd; col++) {
-    var tidx = arcToTidx(col);
-    var refTraj = trajectoryRef.length ? trajectoryRef : trajectory;
-    var entry = refTraj[Math.min(tidx, refTraj.length-1)];
-    var ang = entry.angles;
-    var pos = entry.pos;
-    var posX = pos.X !== undefined ? pos.X : (pos[0]||0);
-    var posY = pos.Y !== undefined ? pos.Y : (pos[1]||0);
-    var posZ = pos.Z !== undefined ? pos.Z : (pos[2]||0);
-    var posA = pos.A !== undefined ? pos.A : (pos[3]||0);
-    var posB = pos.B !== undefined ? pos.B : (pos[4]||0);
-    var posC = pos.C !== undefined ? pos.C : (pos[5]||0);
-    var a6Ref = ang[5];
+      var tidx = arcToTidx(col);
+      var refTraj = trajectoryRef.length ? trajectoryRef : trajectory;
+      var entry = refTraj[Math.min(tidx, refTraj.length-1)];
+      var ang = entry.angles;
+      var pos = entry.pos;
+      var posA = pos.A !== undefined ? pos.A : (pos[3]||0);
+      var posB = pos.B !== undefined ? pos.B : (pos[4]||0);
+      var posC = pos.C !== undefined ? pos.C : (pos[5]||0);
 
-    // Referenz-Zeile (Startpunkt für den Scan)
-    var refRow = Math.round((a6Ref - A6_MIN) / (A6_MAX - A6_MIN) * (ROWS-1));
-    refRow = Math.max(0, Math.min(ROWS-1, refRow));
+      // R_arm aus Referenz A1,A2,A3 (Wrist-Center-Position)
+      var Rarm  = fkAll([ang[0],ang[1],ang[2],0,0,0]).rot_final;
+      var RarmT = mT3(Rarm);
+      // Benötigte Wrist-Rotation: RarmT * R_target * RtcpT
+      var Rtgt  = rotZYX(posA, posB, posC);
+      var Rwrist = mm3(mm3(RarmT, Rtgt), RtcpT);
 
-    function computeCell(row, warmQ) {
-      var a6t = A6_MIN + (row / (ROWS-1)) * (A6_MAX - A6_MIN);
-      if (a6t < a6L.min || a6t > a6L.max) {
-        ampMap[col * ROWS + row] = 1; return null;
-      }
-      // A6=0 entspricht A(Rz)=-180. Formel: A_ik = map_y - 180
-      var Aik = a6t - 180;
-      while (Aik >  180) Aik -= 360;
-      while (Aik <= -180) Aik += 360;
-      var res = solveIKFast(posX, posY, posZ, Aik, posB, posC, warmQ);
-      if (!res.ok) { ampMap[col * ROWS + row] = 1; return null; }
-      var q = res.angles;
-      // Alle Achslimits prüfen
-      for (var k=0; k<6; k++) {
-        if (q[k] < JOINTS_DEF[k].min || q[k] > JOINTS_DEF[k].max) {
-          ampMap[col * ROWS + row] = 1; return q;
+      var a4L2 = JOINTS_DEF[3], a5L2 = JOINTS_DEF[4];
+
+      for (var row = 0; row < ROWS; row++) {
+        var a6t = A6_MIN + (row / (ROWS-1)) * (A6_MAX - A6_MIN);
+        if (a6t < a6L.min || a6t > a6L.max) {
+          ampMap[col * ROWS + row] = 1; continue;
+        }
+        // FK_SIGN[5]=-1 → A6 trägt Rx(-A6) bei. Invers: Rx(+A6)
+        var Rp = mm3(Rwrist, rxD(a6t));
+        // Rx(-A4)*Ry(A5): M[0][2]=sin(A5), M[2][1]=-sin(A4), M[1][1]=cos(A4)
+        var s5 = Math.max(-1, Math.min(1, Rp[0][2]));
+        var a5 = Math.asin(s5) * R2D;
+        var a4 = Math.atan2(-Rp[2][1], Rp[1][1]) * R2D;
+
+        if (a4 < a4L2.min || a4 > a4L2.max || a5 < a5L2.min || a5 > a5L2.max) {
+          ampMap[col * ROWS + row] = 1;
+        } else if (Math.abs(a5) < SING_THRESH) {
+          ampMap[col * ROWS + row] = 2;
+        } else {
+          ampMap[col * ROWS + row] = 0;
         }
       }
-      // Singularität: A5 nahe 0°
-      if (Math.abs(q[4]) < SING_THRESH) {
-        ampMap[col * ROWS + row] = 2; return q;
-      }
-      ampMap[col * ROWS + row] = 0; return q;
     }
-
-    // Aufwärts von refRow → ROWS-1
-    var prevQ = ang.slice();
-    for (var row=refRow; row<ROWS; row++) {
-      var q2 = computeCell(row, prevQ);
-      if (q2) prevQ = q2;
-    }
-    // Abwärts von refRow-1 → 0
-    prevQ = ang.slice();
-    for (var row=refRow-1; row>=0; row--) {
-      var q2 = computeCell(row, prevQ);
-      if (q2) prevQ = q2;
-    }
-  }
 
     _col = chunkEnd;
     var pct = Math.round(_col / COLS * 100);
