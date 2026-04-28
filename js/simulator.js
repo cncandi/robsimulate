@@ -1818,10 +1818,118 @@ function ampApplyPath() {
   canvas.addEventListener('mousemove', onDragMove);
   canvas.addEventListener('touchmove', onDragMove, {passive:false});
 
+  // Catmull-Rom Spline durch n Stützstellen
+  function catmullRom(points, t) {
+    var n = points.length;
+    if (n === 0) return 0;
+    if (n === 1) return points[0].y;
+    var seg = t * (n-1);
+    var i = Math.floor(seg);
+    if (i >= n-1) return points[n-1].y;
+    var u = seg - i;
+    var p0 = points[Math.max(0, i-1)].y;
+    var p1 = points[i].y;
+    var p2 = points[i+1].y;
+    var p3 = points[Math.min(n-1, i+2)].y;
+    var u2 = u*u, u3 = u2*u;
+    return 0.5 * (
+      (2*p1) +
+      (-p0 + p2) * u +
+      (2*p0 - 5*p1 + 4*p2 - p3) * u2 +
+      (-p0 + 3*p1 - 3*p2 + p3) * u3
+    );
+  }
+
   function onDragEnd() {
+    if (!ampDragging) { canvas.style.cursor = 'default'; return; }
+
+    if (window._dragStartCol >= 0 && window._dragPathSave) {
+      // Stützstellen: Programm-Endpunkte (Spalten + A6-Werte aus Original-Pfad)
+      // + die neue Stützstelle vom Drag
+      var arcLen = window._ampArcLen || [];
+      var totalArc = arcLen.length > 0 ? arcLen[arcLen.length-1] : 0;
+      var refTrajD = trajectoryRef.length ? trajectoryRef : trajectory;
+      var savedPath = window._dragPathSave;
+
+      // 1) Stützstellen aus den Programm-Endpunkten auslesen
+      var stuetz = [];
+      for (var pi = 0; pi < parsedData.positions.length; pi++) {
+        var bestArc = 0;
+        for (var ti = refTrajD.length-1; ti >= 0; ti--) {
+          if (refTrajD[ti].segIdx === pi) { bestArc = arcLen[ti] || 0; break; }
+        }
+        var fx = totalArc > 0 ? bestArc / totalArc : pi / Math.max(1, parsedData.positions.length-1);
+        var col = Math.round(fx * (ampCols-1));
+        col = Math.max(0, Math.min(ampCols-1, col));
+        stuetz.push({col: col, y: savedPath[col]});
+      }
+
+      // 2) Drag-Punkt als zusätzliche Stützstelle einfügen (an richtiger Position)
+      var dragCol = window._dragCurCol;
+      var dragY   = window._dragCurDeg;
+      // Bei vorhandenem Stützpunkt sehr nahe → ersetzen, sonst einfügen
+      var insIdx = -1;
+      for (var s = 0; s < stuetz.length; s++) {
+        if (Math.abs(stuetz[s].col - dragCol) < 5) { insIdx = s; break; }
+        if (stuetz[s].col > dragCol) break;
+      }
+      if (insIdx >= 0) {
+        stuetz[insIdx] = {col: dragCol, y: dragY};
+      } else {
+        // Sortierte Einfügung
+        var inserted = false;
+        for (var s = 0; s < stuetz.length; s++) {
+          if (stuetz[s].col > dragCol) {
+            stuetz.splice(s, 0, {col: dragCol, y: dragY});
+            inserted = true; break;
+          }
+        }
+        if (!inserted) stuetz.push({col: dragCol, y: dragY});
+      }
+
+      // 3) Catmull-Rom Spline durch die Stützstellen über alle Spalten
+      // Mapping: t = col_pixel innerhalb Stütz-Bereich
+      var newPath = savedPath.slice();
+      for (var c = 0; c < ampCols; c++) {
+        // Finde umgebende Stützstellen
+        var iL = 0;
+        for (var s = 0; s < stuetz.length-1; s++) {
+          if (stuetz[s].col <= c && stuetz[s+1].col >= c) { iL = s; break; }
+        }
+        if (c < stuetz[0].col) {
+          newPath[c] = stuetz[0].y;
+        } else if (c > stuetz[stuetz.length-1].col) {
+          newPath[c] = stuetz[stuetz.length-1].y;
+        } else {
+          // Catmull-Rom mit lokalem Parameter
+          var c0 = stuetz[iL].col, c1 = stuetz[iL+1].col;
+          var range = c1 - c0;
+          if (range <= 0) { newPath[c] = stuetz[iL].y; continue; }
+          var localU = (c - c0) / range;
+          // Aus den 4 Stützstellen interpolieren
+          var p0 = stuetz[Math.max(0, iL-1)].y;
+          var p1 = stuetz[iL].y;
+          var p2 = stuetz[iL+1].y;
+          var p3 = stuetz[Math.min(stuetz.length-1, iL+2)].y;
+          var u = localU, u2 = u*u, u3 = u2*u;
+          var val = 0.5 * (
+            (2*p1) +
+            (-p0 + p2) * u +
+            (2*p0 - 5*p1 + 4*p2 - p3) * u2 +
+            (-p0 + 3*p1 - 3*p2 + p3) * u3
+          );
+          newPath[c] = Math.max(A6_MIN, Math.min(A6_MAX, val));
+        }
+      }
+      ampUserPath = newPath;
+    }
+
     ampDragging = false;
+    window._dragStartCol = -1;
+    window._dragPathSave = null;
     dragWptIdx = -1;
     canvas.style.cursor = 'default';
+    ampDraw(canvas, canvas.width, canvas.height);
   }
   canvas.addEventListener('mouseup', onDragEnd);
   canvas.addEventListener('touchend', onDragEnd);
