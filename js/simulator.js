@@ -1440,19 +1440,26 @@ function ampDraw(canvas, W, H) {
     var refTrajD = trajectoryRef.length ? trajectoryRef : trajectory;
 
     for (var pi = 0; pi < N_pts; pi++) {
-      // Bogenlängen-Position des Endpunkts berechnen
-      var pos_pi = parsedData.positions[pi];
+      // segIdx: Trajektorie-Eintrag der exakt DIESEM Waypoint entspricht
+      // Suche letzten Trajektorie-Punkt mit segIdx === pi (in Reihenfolge!)
       var bestArc = 0;
-      if (pos_pi && arcLen.length > 1 && totalArc > 0) {
-        // Finde den Trajektorie-Punkt der diesem Endpunkt am nächsten liegt
-        var minDist = Infinity;
-        for (var ti = 0; ti < refTrajD.length; ti++) {
-          var tp = refTrajD[ti].pos;
-          var tX = tp.X !== undefined ? tp.X : (tp[0]||0);
-          var tY = tp.Y !== undefined ? tp.Y : (tp[1]||0);
-          var tZ = tp.Z !== undefined ? tp.Z : (tp[2]||0);
-          var dd = (pos_pi.X-tX)*(pos_pi.X-tX)+(pos_pi.Y-tY)*(pos_pi.Y-tY)+(pos_pi.Z-tZ)*(pos_pi.Z-tZ);
-          if (dd < minDist) { minDist = dd; bestArc = arcLen[ti] || 0; }
+      var found = false;
+      if (arcLen.length > 1 && totalArc > 0) {
+        for (var ti = refTrajD.length-1; ti >= 0; ti--) {
+          if (refTrajD[ti].segIdx === pi) {
+            bestArc = arcLen[ti] || 0;
+            found = true;
+            break;
+          }
+        }
+        if (!found) {
+          // Fallback: ersten Treffer vorwärts suchen
+          for (var ti = 0; ti < refTrajD.length; ti++) {
+            if (refTrajD[ti].segIdx === pi) {
+              bestArc = arcLen[ti] || 0;
+              break;
+            }
+          }
         }
       } else {
         bestArc = (pi / Math.max(1, N_pts-1)) * totalArc;
@@ -1668,17 +1675,10 @@ function ampApplyPath() {
     var totArcD = arcLenD.length > 0 ? arcLenD[arcLenD.length-1] : 0;
     var refTrajN = trajectoryRef.length ? trajectoryRef : trajectory;
     for (var pi = 0; pi < N; pi++) {
-      var pos_pi2 = parsedData.positions[pi];
       var bestArcN = 0;
-      if (pos_pi2 && arcLenD.length > 1 && totArcD > 0) {
-        var minD2 = Infinity;
-        for (var ti2 = 0; ti2 < refTrajN.length; ti2++) {
-          var tp2 = refTrajN[ti2].pos;
-          var tX2 = tp2.X !== undefined ? tp2.X : (tp2[0]||0);
-          var tY2 = tp2.Y !== undefined ? tp2.Y : (tp2[1]||0);
-          var tZ2 = tp2.Z !== undefined ? tp2.Z : (tp2[2]||0);
-          var dd2 = (pos_pi2.X-tX2)*(pos_pi2.X-tX2)+(pos_pi2.Y-tY2)*(pos_pi2.Y-tY2)+(pos_pi2.Z-tZ2)*(pos_pi2.Z-tZ2);
-          if (dd2 < minD2) { minD2 = dd2; bestArcN = arcLenD[ti2] || 0; }
+      if (arcLenD.length > 1 && totArcD > 0) {
+        for (var tin = refTrajN.length-1; tin >= 0; tin--) {
+          if (refTrajN[tin].segIdx === pi) { bestArcN = arcLenD[tin] || 0; break; }
         }
       } else {
         bestArcN = (pi / Math.max(1, N-1)) * totArcD;
