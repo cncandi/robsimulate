@@ -1504,22 +1504,21 @@ function ampDraw(canvas, W, H) {
     yaxisEl.height = H;
     var yctx = yaxisEl.getContext('2d');
     yctx.clearRect(0, 0, 42, H);
-    yctx.fillStyle = '#3a6080';
-    yctx.font = 'bold 20px monospace';
+    yctx.font = '11px monospace';
     yctx.textAlign = 'right';
     var range = A6_MAX - A6_MIN;
+    var fontSize = 11;
     var lastLabelPy = -999;
-    // 20°-Schritte, Labels nur wenn kein Überschreiben
     for (var yd = A6_MIN; yd <= A6_MAX + 0.1; yd += 20) {
       var frac = (yd - A6_MIN) / range;
-      var py4  = Math.round((1 - frac) * (H - 1));  // +180 oben, -180 unten
-      // Tick immer
-      yctx.fillStyle = '#2a4060';
-      yctx.fillRect(35, py4, 7, 1);
-      // Label nur bei ausreichend Abstand
-      if (Math.abs(py4 - lastLabelPy) >= 22) {
+      var py4 = Math.round((1 - frac) * (H - 1));
+      // Tick
+      yctx.fillStyle = Math.abs(yd) % 60 === 0 || yd === 0 ? '#3a6080' : '#1e2e40';
+      yctx.fillRect(34, py4, 8, 1);
+      // Label nur wenn genug Platz (fontSize+2 px Abstand)
+      if (Math.abs(py4 - lastLabelPy) >= fontSize + 3) {
         yctx.fillStyle = yd === 0 ? '#ffee00' : (Math.abs(yd) % 60 === 0 ? '#c0e0ff' : '#3a6080');
-        yctx.fillText(yd.toFixed(0) + '°', 38, py4 + 6);
+        yctx.fillText(yd + '°', 40, py4 + 4);
         lastLabelPy = py4;
       }
     }
