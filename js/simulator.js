@@ -1143,6 +1143,9 @@ const SING_THRESH = 6;
 // A6_MIN/MAX dynamisch aus JOINTS_DEF[5]
 var A6_MIN = JOINTS_DEF[5].min, A6_MAX = JOINTS_DEF[5].max;
 function ampBuild() {
+  // A6_MIN/MAX immer aktuell aus JOINTS_DEF laden
+  A6_MIN = JOINTS_DEF[5].min;
+  A6_MAX = JOINTS_DEF[5].max;
   if (!trajectory.length) return;
   const canvas = document.getElementById('amp-canvas');
   const wrap   = document.getElementById('amp-canvas-wrap');
@@ -1164,7 +1167,7 @@ function ampBuild() {
   }
 
   const a4L = JOINTS_DEF[3];  // A4 limits [-185,+185]
-  const a6L = JOINTS_DEF[5];  // A6 limits [-360,+360]
+  const a6L = JOINTS_DEF[5];  // A6 limits dynamisch
 
   // ── Analytical map: no IK per cell ──────────────────────
   // For a rotationally symmetric tool:
@@ -1385,7 +1388,7 @@ function ampDraw(canvas, W, H) {
     yctx.font = '10px monospace';
     yctx.textAlign = 'right';
     var range = A6_MAX - A6_MIN;
-    var step  = range <= 180 ? 30 : 90;
+    var step  = range <= 90 ? 15 : range <= 180 ? 30 : 60;
     for (var yd = A6_MIN; yd <= A6_MAX + 0.1; yd += step) {
       var frac = (yd - A6_MIN) / range;
       var py4  = Math.round((1 - frac) * (H - 1));  // +180 oben, -180 unten
@@ -1443,7 +1446,7 @@ function ampDraw(canvas, W, H) {
       ctx.strokeStyle = 'rgba(0,0,0,0.7)';
       ctx.lineWidth = 1.5;
       ctx.beginPath();
-      ctx.arc(pxP, pyP, 5, 0, Math.PI * 2);
+      ctx.arc(pxP, pyP, 8, 0, Math.PI * 2);
       ctx.fill(); ctx.stroke();
       // Positionsnummer
       ctx.fillStyle = 'rgba(255,255,255,0.8)';
