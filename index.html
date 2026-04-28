@@ -329,7 +329,12 @@
       <div style="color:var(--acc);font-size:.78em;font-weight:bold;margin-bottom:4px">Optimierung</div>
       <button class="amp-sbtn" onclick="ampAutoOptimize()">▶ Erstelle Plan</button>
       <button class="amp-sbtn" style="margin-top:3px" onclick="ampApplyPath()">✓ Weg übernehmen</button>
-      <div class="amp-info" id="amp-info">Nach PARSE: Karte wird automatisch berechnet.</div>
+      <div style="display:flex;align-items:center;gap:8px;flex:1;min-width:0">
+        <div class="amp-info" id="amp-info" style="flex:1">Nach PARSE: Karte wird automatisch berechnet.</div>
+        <div id="amp-progress-wrap" style="display:none;width:160px;height:10px;background:#0a1a2e;border-radius:5px;overflow:hidden;flex-shrink:0;border:1px solid #1a3050">
+          <div id="amp-progress-bar" style="height:100%;width:0%;background:linear-gradient(90deg,#f05500,#ff8800);border-radius:5px;transition:width .1s ease"></div>
+        </div>
+      </div>
     </div>
     <div id="amp-canvas-wrap">
       <canvas id="amp-yaxis" width="42" style="position:absolute;left:0;top:0;pointer-events:none"></canvas>

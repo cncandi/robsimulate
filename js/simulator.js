@@ -1212,7 +1212,11 @@ function ampBuild() {
   var _canvas = canvas, _W = W, _H = H;
   var _totalDist = totalDist;
 
-  document.getElementById('amp-info').textContent = 'Berechne Map… 0%';
+  document.getElementById('amp-info').textContent = 'Berechne Achsenkarte…';
+  var _progWrap = document.getElementById('amp-progress-wrap');
+  var _progBar  = document.getElementById('amp-progress-bar');
+  if (_progWrap) _progWrap.style.display = 'block';
+  if (_progBar)  _progBar.style.width = '0%';
 
   function processChunk() {
     var chunkEnd = Math.min(_col + 10, COLS);
@@ -1276,7 +1280,8 @@ function ampBuild() {
 
     _col = chunkEnd;
     var pct = Math.round(_col / COLS * 100);
-    document.getElementById('amp-info').textContent = 'Berechne Map… ' + pct + '%';
+    document.getElementById('amp-info').textContent = 'Berechne… ' + pct + '%';
+    if (_progBar) _progBar.style.width = pct + '%';
     if (_col < COLS) {
       setTimeout(processChunk, 0);
     } else {
@@ -1318,6 +1323,8 @@ function _finishBuild(canvas, W, H, totalDist) {
     if(s===2||s===3)sing++;else if(s===1)lim++;else valid++;
   }
   var pct=function(v){return Math.round(v/(COLS*ROWS)*100);};
+  var _pw = document.getElementById('amp-progress-wrap');
+  if (_pw) _pw.style.display = 'none';
   document.getElementById('amp-info').textContent =
     COLS+'×'+ROWS+' Zellen · Gültig: '+pct(valid)+'% · Limit: '+pct(lim)+'% · Sing.: '+pct(sing)+'%';
 }
