@@ -1376,16 +1376,36 @@ function ampDraw(canvas, W, H) {
   ctx.fillRect(0, pyLimBot, W, H - pyLimBot);  // below min
   ctx.fillRect(0, 0, W, pyLimTop);              // above max
 
-  // User path (yellow, thick)
+  // User path (yellow, thick) — während Drag: gespeicherter Pfad
+  var drawPath = (ampDragging && typeof dragPathSave !== 'undefined' && dragPathSave) ? dragPathSave : ampUserPath;
   ctx.strokeStyle='#ffee00'; ctx.lineWidth=2.5; ctx.setLineDash([]);
   ctx.beginPath();
   for (let px = 0; px < W; px++) {
     const col = Math.round(px / Math.max(1,W-1) * (ampCols-1));
-    const deg = ampUserPath[col] || 0;
+    const deg = drawPath[col] || 0;
     const py  = H - ((deg - A6_MIN) / (A6_MAX - A6_MIN)) * H;
     px === 0 ? ctx.moveTo(px, py) : ctx.lineTo(px, py);
   }
   ctx.stroke();
+
+  // Gummiband: zeigt neuen Punkt während Drag
+  if (ampDragging && typeof dragStartCol !== 'undefined' && dragStartCol >= 0) {
+    var pxS = Math.round(dragStartCol / Math.max(1,ampCols-1) * (W-1));
+    var pyS = H - ((dragStartDeg - A6_MIN) / (A6_MAX - A6_MIN)) * H;
+    var pxC = Math.round(dragCurCol / Math.max(1,ampCols-1) * (W-1));
+    var pyC = H - ((dragCurDeg - A6_MIN) / (A6_MAX - A6_MIN)) * H;
+    // Gummilinie
+    ctx.strokeStyle = '#ff8800'; ctx.lineWidth = 2; ctx.setLineDash([6,4]);
+    ctx.beginPath(); ctx.moveTo(pxS, pyS); ctx.lineTo(pxC, pyC); ctx.stroke();
+    ctx.setLineDash([]);
+    // Kreis am Startpunkt
+    ctx.fillStyle='#ff8800'; ctx.beginPath(); ctx.arc(pxS,pyS,5,0,Math.PI*2); ctx.fill();
+    // Kreis am aktuellen Punkt
+    ctx.fillStyle='#ffaa00'; ctx.beginPath(); ctx.arc(pxC,pyC,5,0,Math.PI*2); ctx.fill();
+    // A6-Wert anzeigen
+    ctx.fillStyle='#fff'; ctx.font='bold 11px monospace';
+    ctx.fillText(dragCurDeg.toFixed(1)+'°', pxC+8, pyC-6);
+  }
 
   // Y-Achse Labels
   var yaxisEl = document.getElementById('amp-yaxis');
@@ -1625,13 +1645,19 @@ function ampApplyPath() {
   if (!canvas) return;
   const tooltip = document.getElementById('amp-tooltip');
 
-  var dragWptIdx = -1;  // Index des gezogenen Zielpunkts (-1 = keiner)
+  var dragStartCol = -1, dragCurCol = -1, dragStartDeg = 0, dragCurDeg = 0, dragPathSave = null;
 
   function getDeg(e) {
     var r = canvas.getBoundingClientRect();
     var py = e.clientY - r.top;
     var deg = A6_MIN + (1 - py / canvas.height) * (A6_MAX - A6_MIN);
     return Math.max(A6_MIN, Math.min(A6_MAX, deg));
+  }
+
+  function getCol(e) {
+    var r = canvas.getBoundingClientRect();
+    var px = e.clientX !== undefined ? e.clientX : e.touches[0].clientX;
+    return Math.max(0, Math.min(ampCols-1, Math.round((px - r.left) / (canvas.width-1) * (ampCols-1))));
   }
 
   // Welcher Zielpunkt liegt am nächsten zur Mausposition?
@@ -1679,16 +1705,14 @@ function ampApplyPath() {
   }
 
   function onDragStart(e) {
-    if (!ampCols) return;
+    if (!ampCols || !ampUserPath.length) return;
     var ee = e.touches ? e.touches[0] : e;
-    // Freies Drag: überall auf dem Canvas erlaubt
-    var rr = canvas.getBoundingClientRect();
-    var pxS = ee.clientX - rr.left;
-    var colS = Math.round(pxS / (canvas.width-1) * (ampCols-1));
-    colS = Math.max(0, Math.min(ampCols-1, colS));
-    dragWptIdx = colS;
-    ampDragging = true;
-    rubberBandCol(colS, getDeg(ee));
+    dragStartCol = getCol(ee);
+    dragStartDeg = ampUserPath[dragStartCol] || 0;
+    dragCurCol   = dragStartCol;
+    dragCurDeg   = getDeg(ee);
+    dragPathSave = ampUserPath.slice();
+    ampDragging  = true;
     ampDraw(canvas, canvas.width, canvas.height);
     e.preventDefault();
   }
@@ -1719,14 +1743,12 @@ function ampApplyPath() {
     tooltip.textContent = 'Schritt ' + (col+1) + '/' + ampCols + ' · A6=' + deg.toFixed(1) + '° · ' + statusLbl;
 
     if (!ampDragging) return;
-    var newDeg = getDeg(ee);
     e.preventDefault();
-    // Freies Drag: exakt diese Spalte setzen
-    rubberBandCol(col, newDeg);
-    dragWptIdx = col;
-    ampDraw(canvas, canvas.width, canvas.height);
+    dragCurCol = col;
+    dragCurDeg = getDeg(ee);
+    ampDraw(canvas, canvas.width, canvas.height);  // nur Preview
 
-    // Roboter live: Trajektorie-Punkt an dieser Spalte
+    // Roboter live: Trajektorie-Punkt an aktueller Spalte
     var refTraj2 = trajectoryRef.length ? trajectoryRef : trajectory;
     var tidxD2 = Math.round(col / Math.max(1, ampCols-1) * (refTraj2.length-1));
     tidxD2 = Math.max(0, Math.min(refTraj2.length-1, tidxD2));
