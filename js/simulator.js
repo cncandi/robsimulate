@@ -1140,7 +1140,8 @@ function setAmpAxis(ax) {
 // Hält Handgelenks-Orientierung annähernd konstant.
 // ═══════════════════════════════════════════════════
 const SING_THRESH = 6;
-const A6_MIN = -180, A6_MAX = 180;
+// A6_MIN/MAX dynamisch aus JOINTS_DEF[5]
+var A6_MIN = JOINTS_DEF[5].min, A6_MAX = JOINTS_DEF[5].max;
 function ampBuild() {
   if (!trajectory.length) return;
   const canvas = document.getElementById('amp-canvas');
