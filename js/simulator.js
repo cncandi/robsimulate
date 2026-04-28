@@ -1212,14 +1212,15 @@ function ampBuild() {
   var _canvas = canvas, _W = W, _H = H;
   var _totalDist = totalDist;
 
-  document.getElementById('amp-info').textContent = 'Berechne Achsenkarte…';
+  // Fortschrittsbalken anzeigen
   var _progWrap = document.getElementById('amp-progress-wrap');
   var _progBar  = document.getElementById('amp-progress-bar');
-  if (_progWrap) _progWrap.style.display = 'block';
-  if (_progBar)  _progBar.style.width = '0%';
+  if (_progWrap) { _progWrap.style.display = 'block'; _progWrap.style.opacity = '1'; }
+  if (_progBar)  { _progBar.style.width = '0%'; _progBar.style.transition = 'none'; }
+  document.getElementById('amp-info').textContent = 'Berechne Achsenkarte…';
 
   function processChunk() {
-    var chunkEnd = Math.min(_col + 10, COLS);
+    var chunkEnd = Math.min(_col + 5, COLS);  // 5 Spalten pro Frame
     for (var col = _col; col < chunkEnd; col++) {
     var tidx = arcToTidx(col);
     var refTraj = trajectoryRef.length ? trajectoryRef : trajectory;
@@ -1283,13 +1284,13 @@ function ampBuild() {
     document.getElementById('amp-info').textContent = 'Berechne… ' + pct + '%';
     if (_progBar) _progBar.style.width = pct + '%';
     if (_col < COLS) {
-      setTimeout(processChunk, 0);
+      setTimeout(processChunk, 16);  // 1 Frame Pause → Browser kann rendern
     } else {
       // Fertig — zeichnen
       _finishBuild(_canvas, _W, _H, _totalDist);
     }
   }
-  setTimeout(processChunk, 0);
+  setTimeout(processChunk, 16);
 }
 
 function _finishBuild(canvas, W, H, totalDist) {
@@ -1324,7 +1325,9 @@ function _finishBuild(canvas, W, H, totalDist) {
   }
   var pct=function(v){return Math.round(v/(COLS*ROWS)*100);};
   var _pw = document.getElementById('amp-progress-wrap');
-  if (_pw) _pw.style.display = 'none';
+  var _pb = document.getElementById('amp-progress-bar');
+  if (_pb) _pb.style.width = '100%';
+  setTimeout(function() { if (_pw) _pw.style.display = 'none'; }, 300);
   document.getElementById('amp-info').textContent =
     COLS+'×'+ROWS+' Zellen · Gültig: '+pct(valid)+'% · Limit: '+pct(lim)+'% · Sing.: '+pct(sing)+'%';
 }

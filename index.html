@@ -331,8 +331,8 @@
       <button class="amp-sbtn" style="margin-top:3px" onclick="ampApplyPath()">✓ Weg übernehmen</button>
       <div style="display:flex;align-items:center;gap:8px;flex:1;min-width:0">
         <div class="amp-info" id="amp-info" style="flex:1">Nach PARSE: Karte wird automatisch berechnet.</div>
-        <div id="amp-progress-wrap" style="display:none;width:160px;height:10px;background:#0a1a2e;border-radius:5px;overflow:hidden;flex-shrink:0;border:1px solid #1a3050">
-          <div id="amp-progress-bar" style="height:100%;width:0%;background:linear-gradient(90deg,#f05500,#ff8800);border-radius:5px;transition:width .1s ease"></div>
+        <div id="amp-progress-wrap" style="display:none;position:absolute;top:0;left:0;right:0;height:4px;z-index:20;background:#0a1a2e">
+          <div id="amp-progress-bar" style="height:100%;width:0%;background:linear-gradient(90deg,#f05500,#ff8800);transition:width .15s ease"></div>
         </div>
       </div>
     </div>
