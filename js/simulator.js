@@ -1227,7 +1227,7 @@ function ampBuild(force) {
     // Nur neu zeichnen, keine Neuberechnung
     var canvasD = document.getElementById('amp-canvas');
     if (canvasD) {
-      var WD = canvasD.parentElement.clientWidth - 42;
+      var WD = canvasD.parentElement.clientWidth - 48;
       var HD = canvasD.parentElement.clientHeight - 30;
       if (WD > 100 && HD > 50) {
         canvasD.width = WD; canvasD.height = HD;
@@ -1239,10 +1239,10 @@ function ampBuild(force) {
   window._ampLastHash = hash;
   const canvas = document.getElementById('amp-canvas');
   const wrap   = document.getElementById('amp-canvas-wrap');
-  const W = Math.max(1, wrap.clientWidth  - 42);
+  const W = Math.max(1, wrap.clientWidth  - 48);
   const H = Math.max(1, wrap.clientHeight - 22);
   canvas.width = W; canvas.height = H;
-  canvas.style.position = 'absolute'; canvas.style.left = '42px';
+  canvas.style.position = 'absolute'; canvas.style.left = '48px';
 
   // Grid: 300 cols × 180 rows (2° per row from -360 to +360)
   var resEl = document.getElementById('amp-res');
@@ -1497,7 +1497,7 @@ function ampDraw(canvas, W, H) {
   if (yaxisEl) {
     yaxisEl.height = H;
     var yctx = yaxisEl.getContext('2d');
-    yctx.clearRect(0, 0, 42, H);
+    yctx.clearRect(0, 0, 50, H);
     yctx.font = 'bold 14px monospace';
     yctx.textAlign = 'right';
     var range = A6_MAX - A6_MIN;
@@ -1508,10 +1508,10 @@ function ampDraw(canvas, W, H) {
       var py4 = Math.round((1 - frac) * (H - 1));
       // Tick
       yctx.fillStyle = '#3a6080';
-      yctx.fillRect(32, py4, 10, 1);
+      yctx.fillRect(38, py4, 10, 1);
       // Label
       yctx.fillStyle = yd === 0 ? '#ffee00' : '#c0e0ff';
-      yctx.fillText(yd + '°', 40, py4 + 5);
+      yctx.fillText(yd + '°', 47, py4 + 5);
     });
   }
 
