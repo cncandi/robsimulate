@@ -1381,11 +1381,10 @@ function ampBuild(force) {
 
 function _finishBuild(canvas, W, H, totalDist) {
   var COLS = ampCols, ROWS = ampRows;
-  // Auto path aus aktuellen Trajektorie-Winkeln
+  // Standard-Pfad: A6=0 (entspricht Rz180 Ry0 Rx180)
   ampAutoPath = [];
   for (var col=0; col<COLS; col++) {
-    var tidx=Math.round(col/Math.max(1,COLS-1)*(trajectory.length-1));
-    ampAutoPath.push(trajectory[tidx].angles[5]);
+    ampAutoPath.push(0);  // A6=0 als Standard
   }
   if (!ampUserPath.length || ampUserPath.length !== COLS) {
     ampUserPath = ampAutoPath.slice();

@@ -60,7 +60,7 @@ var I18N = {
     amp_apply:'✓ Weg übernehmen',
     // Parse button
     parse_btn:'▶ PARSE & LOAD',
-    help_title:'? Hilfe · RobSimul V0.29',
+    help_title:'? Hilfe · RobSimul V0.30',
     help_tab_start:'Überblick',
     help_tab_editor:'Editor',
     help_tab_robot:'Roboter',
@@ -126,12 +126,12 @@ var I18N = {
     amp_apply:'✓ Apply Path',
     // Parse button
     parse_btn:'▶ PARSE & LOAD',
-    help_title:'? Hilfe · RobSimul V0.29',
+    help_title:'? Hilfe · RobSimul V0.30',
     help_tab_start:'Überblick',
     help_tab_editor:'Editor',
     help_tab_robot:'Roboter',
     help_tab_keys:'Tastatur',
-    help_title:'? Help · RobSimul V0.29',
+    help_title:'? Help · RobSimul V0.30',
     help_tab_start:'Overview',
     help_tab_editor:'Editor',
     help_tab_robot:'Robot',
