@@ -1843,19 +1843,40 @@ function ampApplyPath() {
       var pA2 = posD2.A !== undefined ? posD2.A : (posD2[3]||0);
       var pB2 = posD2.B !== undefined ? posD2.B : (posD2[4]||0);
       var pC2 = posD2.C !== undefined ? posD2.C : (posD2[5]||0);
-      // Drag: A_ik = map_y - 180
+      // TCP BLEIBT AUF KONTUR — analytische Wrist-Dekomposition
+      // A6 = Map-Y-Wert, A1-A3 aus Referenz, A4-A5 analytisch
       var newDeg = window._dragCurDeg;
-      var AikD = newDeg - 180;
-      while (AikD >  180) AikD -= 360;
-      while (AikD <= -180) AikD += 360;
-      var resD = solveIKFast(pX2, pY2, pZ2, AikD, pB2, pC2, angD2);
-      if (resD.ok) {
-        applyAngles(resD.angles);
+      var D2Rd = Math.PI/180, R2Dd = 180/Math.PI;
+      function mT3d(M){return[[M[0][0],M[1][0],M[2][0]],[M[0][1],M[1][1],M[2][1]],[M[0][2],M[1][2],M[2][2]]]; }
+      function mm3d(A,B){var C=[[0,0,0],[0,0,0],[0,0,0]];for(var i=0;i<3;i++)for(var j=0;j<3;j++)for(var k=0;k<3;k++)C[i][j]+=A[i][k]*B[k][j];return C;}
+      // R_tcp
+      var Rfcd=[[0,0,1],[0,1,0],[-1,0,0]];
+      var Rusrd=rotZYX(TCP_DEF.a,TCP_DEF.b,TCP_DEF.c);
+      var Rtcpd=mm3d(Rfcd,Rusrd);
+      var RtcpTd=mT3d(Rtcpd);
+      // R_arm aus A1,A2,A3 des Referenz-Trajektorie-Punkts
+      var Rarmd=fkAll([angD2[0],angD2[1],angD2[2],0,0,0]).rot_final;
+      var RarmTd=mT3d(Rarmd);
+      // Ziel-Orientierung aus TCP-Pose (UNVERÄNDERLICH)
+      var Rtgtd=rotZYX(pA2,pB2,pC2);
+      // Benötigte Wrist-Rotation
+      var Rwristd=mm3d(mm3d(RarmTd,Rtgtd),RtcpTd);
+      // A6 entfernen: Rx(+A6)
+      var cA6=Math.cos(newDeg*D2Rd), sA6=Math.sin(newDeg*D2Rd);
+      var RxA6=[[1,0,0],[0,cA6,-sA6],[0,sA6,cA6]];
+      var Rpd=mm3d(Rwristd,RxA6);
+      // Analytisch A4,A5
+      var s5d=Math.max(-1,Math.min(1,Rpd[0][2]));
+      var a5d=Math.asin(s5d)*R2Dd;
+      var a4d=Math.atan2(-Rpd[2][1],Rpd[1][1])*R2Dd;
+      // Limits prüfen
+      if(a4d>=JOINTS_DEF[3].min&&a4d<=JOINTS_DEF[3].max&&
+         a5d>=JOINTS_DEF[4].min&&a5d<=JOINTS_DEF[4].max&&
+         newDeg>=JOINTS_DEF[5].min&&newDeg<=JOINTS_DEF[5].max){
+        applyAngles([angD2[0],angD2[1],angD2[2],a4d,a5d,newDeg]);
       } else {
-        // Fallback: Trajektorie-Winkel mit A6 gesetzt
-        var fallback = angD2.slice();
-        fallback[5] = newDeg;
-        applyAngles(fallback);
+        // Ausserhalb Limits — nur visuelles Feedback, keine Bewegung
+        applyAngles(angD2);
       }
     }
   }
