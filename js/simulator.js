@@ -1639,17 +1639,30 @@ function ampApplyPath() {
       const a6target = ampUserPath[col0] + (ampUserPath[col1]-ampUserPath[col0]) * frac;
       const a6clamped = Math.max(JOINTS_DEF[5].min, Math.min(JOINTS_DEF[5].max, a6target));
 
-      // Vollständige IK mit fixiertem A6 — TCP-Position bleibt exakt
+      // Analytische Wrist-Dekomposition — TCP bleibt IMMER auf Kontur
       const curAngles = trajectory[tidx].angles.slice();
       const pos = trajectory[tidx].pos;
-      const res = solveIKFixedA6(pos.X, pos.Y, pos.Z, pos.A, pos.B, pos.C, a6clamped, curAngles);
-      if (res.ok) {
-        trajectory[tidx].angles = res.angles;
+      const D2Ra = Math.PI/180, R2Da = 180/Math.PI;
+      const mT3a = M=>[[M[0][0],M[1][0],M[2][0]],[M[0][1],M[1][1],M[2][1]],[M[0][2],M[1][2],M[2][2]]];
+      const mm3a = (A,B)=>{const C=[[0,0,0],[0,0,0],[0,0,0]];for(let i=0;i<3;i++)for(let j=0;j<3;j++)for(let k=0;k<3;k++)C[i][j]+=A[i][k]*B[k][j];return C;};
+      const Rfca=[[0,0,1],[0,1,0],[-1,0,0]];
+      const Rusra=rotZYX(TCP_DEF.a,TCP_DEF.b,TCP_DEF.c);
+      const Rtcpa=mm3a(Rfca,Rusra);
+      const RtcpTa=mT3a(Rtcpa);
+      const Rarma=fkAll([curAngles[0],curAngles[1],curAngles[2],0,0,0]).rot_final;
+      const RarmTa=mT3a(Rarma);
+      const Rtgta=rotZYX(pos.A,pos.B,pos.C);
+      const Rwrista=mm3a(mm3a(RarmTa,Rtgta),RtcpTa);
+      const cA6a=Math.cos(a6clamped*D2Ra), sA6a=Math.sin(a6clamped*D2Ra);
+      const RxA6a=[[1,0,0],[0,cA6a,-sA6a],[0,sA6a,cA6a]];
+      const Rpa=mm3a(Rwrista,RxA6a);
+      const s5a=Math.max(-1,Math.min(1,Rpa[0][2]));
+      const a5a=Math.asin(s5a)*R2Da;
+      const a4a=Math.atan2(-Rpa[2][1],Rpa[1][1])*R2Da;
+      if(a4a>=JOINTS_DEF[3].min&&a4a<=JOINTS_DEF[3].max&&
+         a5a>=JOINTS_DEF[4].min&&a5a<=JOINTS_DEF[4].max){
+        trajectory[tidx].angles=[curAngles[0],curAngles[1],curAngles[2],a4a,a5a,a6clamped];
       } else {
-        // Fallback: nur A6 direkt setzen
-        const newAngles = curAngles.slice();
-        newAngles[5] = a6clamped;
-        trajectory[tidx].angles = newAngles;
         errCount++;
       }
     }
