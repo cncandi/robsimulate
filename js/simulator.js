@@ -1227,7 +1227,7 @@ function ampBuild(force) {
     // Nur neu zeichnen, keine Neuberechnung
     var canvasD = document.getElementById('amp-canvas');
     if (canvasD) {
-      var WD = canvasD.parentElement.clientWidth - 48;
+      var WD = canvasD.parentElement.clientWidth - 70;
       var HD = canvasD.parentElement.clientHeight - 30;
       if (WD > 100 && HD > 50) {
         canvasD.width = WD; canvasD.height = HD;
@@ -1239,7 +1239,7 @@ function ampBuild(force) {
   window._ampLastHash = hash;
   const canvas = document.getElementById('amp-canvas');
   const wrap   = document.getElementById('amp-canvas-wrap');
-  const W = Math.max(1, wrap.clientWidth  - 48);
+  const W = Math.max(1, wrap.clientWidth  - 70);
   const H = Math.max(1, wrap.clientHeight - 22);
   canvas.width = W; canvas.height = H;
   canvas.style.position = 'absolute'; canvas.style.left = '48px';
@@ -1497,21 +1497,20 @@ function ampDraw(canvas, W, H) {
   if (yaxisEl) {
     yaxisEl.height = H;
     var yctx = yaxisEl.getContext('2d');
-    yctx.clearRect(0, 0, 50, H);
-    yctx.font = 'bold 14px monospace';
+    yctx.clearRect(0, 0, 70, H);
+    yctx.font = 'bold 16px sans-serif';
     yctx.textAlign = 'right';
     var range = A6_MAX - A6_MIN;
-    // Nur 5 Labels: -180, -90, 0, +90, +180
     var labels = [A6_MIN, -90, 0, 90, A6_MAX];
     labels.forEach(function(yd) {
       var frac = (yd - A6_MIN) / range;
       var py4 = Math.round((1 - frac) * (H - 1));
-      // Tick
-      yctx.fillStyle = '#3a6080';
-      yctx.fillRect(38, py4, 10, 1);
-      // Label
+      // Tick right edge
+      yctx.fillStyle = yd === 0 ? '#ffee00' : '#3a6080';
+      yctx.fillRect(62, py4, 8, yd === 0 ? 2 : 1);
+      // Label links vom Tick
       yctx.fillStyle = yd === 0 ? '#ffee00' : '#c0e0ff';
-      yctx.fillText(yd + '°', 47, py4 + 5);
+      yctx.fillText(yd + '°', 60, py4 + 6);
     });
   }
 

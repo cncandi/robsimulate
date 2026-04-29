@@ -121,7 +121,7 @@ input[type=range].ss::-webkit-slider-thumb{-webkit-appearance:none;width:12px;he
 .amp-legend-lbl{color:#6a9aaa}
 #amp-canvas-wrap{flex:1;position:relative;overflow:hidden}
 #amp-canvas{display:block;cursor:crosshair}
-#amp-yaxis{position:absolute;left:0;top:0;bottom:0;width:48px;
+#amp-yaxis{position:absolute;left:0;top:0;bottom:0;width:70px;
   display:flex;flex-direction:column;justify-content:space-between;
   padding:2px 4px;font-size:.65em;color:#3a6080;pointer-events:none}
 #amp-xaxis{position:absolute;bottom:0;left:38px;right:0;height:18px;
