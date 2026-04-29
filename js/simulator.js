@@ -182,6 +182,75 @@ function solveIK(tx, ty, tz, ta, tb, tc, initAngles) {
   return {angles:bestQ, score:bestScore, ok: bestScore<30};
 }
 
+// IK mit A6-Zielwert als starke Soft-Constraint
+function solveIKTargetA6(tx, ty, tz, ta, tb, tc, a6target, initAngles) {
+  const clamp=(v,lo,hi)=>Math.max(lo,Math.min(hi,v));
+  const tp=[tx,ty,tz];
+  const Rt=rotZYX(ta,tb,tc);
+  const dt=0.3, lam=0.5, tolP=0.5, tolO=0.5;
+  const A6W=50; // Starke Gewichtung für A6-Ziel
+
+  var starts=[
+    initAngles?initAngles.slice():jointAngles.slice(),
+    [0,-90,90,0,0,a6target],
+    [0,-90,90,-90,0,a6target],
+    [0,-90,90,90,0,a6target],
+  ];
+  starts.forEach(s=>{s[5]=a6target;});
+
+  var bestScore=Infinity, bestQ=starts[0].slice();
+
+  for(var si=0;si<starts.length;si++){
+    var q=starts[si].slice(); q[5]=a6target;
+    for(var iter=0;iter<200;iter++){
+      var e=err6(q,tp,Rt);
+      // Add A6 penalty
+      var a6err=(q[5]-a6target)*A6W*Math.PI/180;
+      var eP=Math.sqrt(e[0]*e[0]+e[1]*e[1]+e[2]*e[2]);
+      var eO=Math.sqrt(e[3]*e[3]+e[4]*e[4]+e[5]*e[5]+a6err*a6err);
+      var score=eP+eO;
+      if(score<bestScore){bestScore=score;bestQ=q.slice();}
+      if(eP<tolP&&eO<tolO)break;
+
+      var J=[];
+      for(var i=0;i<6;i++){
+        var q1=q.slice();q1[i]+=dt;
+        var e1=err6(q1,tp,Rt);
+        J.push([(e1[0]-e[0])/dt,(e1[1]-e[1])/dt,(e1[2]-e[2])/dt,
+                (e1[3]-e[3])/dt,(e1[4]-e[4])/dt,(e1[5]-e[5])/dt]);
+      }
+      // Add A6 row
+      var JA6=[0,0,0,0,0,A6W*Math.PI/180];
+      var eExt=e.concat([a6err]);
+      var Jext=J.map(r=>r.slice());
+      Jext.forEach(r=>r.push(0));
+      Jext.push(JA6.concat([0]));
+
+      var JtJ=Array.from({length:6},()=>Array(6).fill(0));
+      var Jte=Array(6).fill(0);
+      for(var i=0;i<6;i++){
+        for(var r=0;r<6;r++){
+          Jte[i]+=J[i][r]*e[r];
+          for(var j=0;j<6;j++)JtJ[i][j]+=J[i][r]*J[j][r];
+        }
+        JtJ[i][i]+=lam;
+      }
+      // Add A6 penalty gradient
+      JtJ[5][5]+=A6W*A6W;
+      Jte[5]+=a6err*A6W;
+
+      var dq=solve6x6(JtJ,Jte);
+      var step=Math.min(2.0,10.0/Math.max(1,bestScore));
+      for(var i=0;i<6;i++){
+        if(!isFinite(dq[i]))continue;
+        q[i]=clamp(q[i]-step*dq[i],JOINTS_DEF[i].min,JOINTS_DEF[i].max);
+      }
+    }
+    if(bestScore<(tolP+tolO)*1.5)break;
+  }
+  return{angles:bestQ,score:bestScore,ok:bestScore<15};
+}
+
 // IK mit fixiertem A6 — nur A1-A5 werden optimiert
 function solveIKFixedA6(tx, ty, tz, ta, tb, tc, a6fixed, initAngles) {
   const clamp=(v,lo,hi)=>Math.max(lo,Math.min(hi,v));
@@ -1639,29 +1708,12 @@ function ampApplyPath() {
       const a6target = ampUserPath[col0] + (ampUserPath[col1]-ampUserPath[col0]) * frac;
       const a6clamped = Math.max(JOINTS_DEF[5].min, Math.min(JOINTS_DEF[5].max, a6target));
 
-      // Analytische Wrist-Dekomposition — TCP bleibt IMMER auf Kontur
+      // Volle IK mit A6 als Ziel — TCP bleibt EXAKT auf Kontur
       const curAngles = trajectory[tidx].angles.slice();
       const pos = trajectory[tidx].pos;
-      const D2Ra = Math.PI/180, R2Da = 180/Math.PI;
-      const mT3a = M=>[[M[0][0],M[1][0],M[2][0]],[M[0][1],M[1][1],M[2][1]],[M[0][2],M[1][2],M[2][2]]];
-      const mm3a = (A,B)=>{const C=[[0,0,0],[0,0,0],[0,0,0]];for(let i=0;i<3;i++)for(let j=0;j<3;j++)for(let k=0;k<3;k++)C[i][j]+=A[i][k]*B[k][j];return C;};
-      const Rfca=[[0,0,1],[0,1,0],[-1,0,0]];
-      const Rusra=rotZYX(TCP_DEF.a,TCP_DEF.b,TCP_DEF.c);
-      const Rtcpa=mm3a(Rfca,Rusra);
-      const RtcpTa=mT3a(Rtcpa);
-      const Rarma=fkAll([curAngles[0],curAngles[1],curAngles[2],0,0,0]).rot_final;
-      const RarmTa=mT3a(Rarma);
-      const Rtgta=rotZYX(pos.A,pos.B,pos.C);
-      const Rwrista=mm3a(mm3a(RarmTa,Rtgta),RtcpTa);
-      const cA6a=Math.cos(a6clamped*D2Ra), sA6a=Math.sin(a6clamped*D2Ra);
-      const RxA6a=[[1,0,0],[0,cA6a,-sA6a],[0,sA6a,cA6a]];
-      const Rpa=mm3a(Rwrista,RxA6a);
-      const s5a=Math.max(-1,Math.min(1,Rpa[0][2]));
-      const a5a=Math.asin(s5a)*R2Da;
-      const a4a=Math.atan2(-Rpa[2][1],Rpa[1][1])*R2Da;
-      if(a4a>=JOINTS_DEF[3].min&&a4a<=JOINTS_DEF[3].max&&
-         a5a>=JOINTS_DEF[4].min&&a5a<=JOINTS_DEF[4].max){
-        trajectory[tidx].angles=[curAngles[0],curAngles[1],curAngles[2],a4a,a5a,a6clamped];
+      const resA = solveIKTargetA6(pos.X, pos.Y, pos.Z, pos.A, pos.B, pos.C, a6clamped, curAngles);
+      if (resA.ok) {
+        trajectory[tidx].angles = resA.angles;
       } else {
         errCount++;
       }
@@ -1856,40 +1908,11 @@ function ampApplyPath() {
       var pA2 = posD2.A !== undefined ? posD2.A : (posD2[3]||0);
       var pB2 = posD2.B !== undefined ? posD2.B : (posD2[4]||0);
       var pC2 = posD2.C !== undefined ? posD2.C : (posD2[5]||0);
-      // TCP BLEIBT AUF KONTUR — analytische Wrist-Dekomposition
-      // A6 = Map-Y-Wert, A1-A3 aus Referenz, A4-A5 analytisch
+      // Volle IK mit A6 als Ziel — TCP bleibt EXAKT auf Kontur
       var newDeg = window._dragCurDeg;
-      var D2Rd = Math.PI/180, R2Dd = 180/Math.PI;
-      function mT3d(M){return[[M[0][0],M[1][0],M[2][0]],[M[0][1],M[1][1],M[2][1]],[M[0][2],M[1][2],M[2][2]]]; }
-      function mm3d(A,B){var C=[[0,0,0],[0,0,0],[0,0,0]];for(var i=0;i<3;i++)for(var j=0;j<3;j++)for(var k=0;k<3;k++)C[i][j]+=A[i][k]*B[k][j];return C;}
-      // R_tcp
-      var Rfcd=[[0,0,1],[0,1,0],[-1,0,0]];
-      var Rusrd=rotZYX(TCP_DEF.a,TCP_DEF.b,TCP_DEF.c);
-      var Rtcpd=mm3d(Rfcd,Rusrd);
-      var RtcpTd=mT3d(Rtcpd);
-      // R_arm aus A1,A2,A3 des Referenz-Trajektorie-Punkts
-      var Rarmd=fkAll([angD2[0],angD2[1],angD2[2],0,0,0]).rot_final;
-      var RarmTd=mT3d(Rarmd);
-      // Ziel-Orientierung aus TCP-Pose (UNVERÄNDERLICH)
-      var Rtgtd=rotZYX(pA2,pB2,pC2);
-      // Benötigte Wrist-Rotation
-      var Rwristd=mm3d(mm3d(RarmTd,Rtgtd),RtcpTd);
-      // A6 entfernen: Rx(+A6)
-      var cA6=Math.cos(newDeg*D2Rd), sA6=Math.sin(newDeg*D2Rd);
-      var RxA6=[[1,0,0],[0,cA6,-sA6],[0,sA6,cA6]];
-      var Rpd=mm3d(Rwristd,RxA6);
-      // Analytisch A4,A5
-      var s5d=Math.max(-1,Math.min(1,Rpd[0][2]));
-      var a5d=Math.asin(s5d)*R2Dd;
-      var a4d=Math.atan2(-Rpd[2][1],Rpd[1][1])*R2Dd;
-      // Limits prüfen
-      if(a4d>=JOINTS_DEF[3].min&&a4d<=JOINTS_DEF[3].max&&
-         a5d>=JOINTS_DEF[4].min&&a5d<=JOINTS_DEF[4].max&&
-         newDeg>=JOINTS_DEF[5].min&&newDeg<=JOINTS_DEF[5].max){
-        applyAngles([angD2[0],angD2[1],angD2[2],a4d,a5d,newDeg]);
-      } else {
-        // Ausserhalb Limits — nur visuelles Feedback, keine Bewegung
-        applyAngles(angD2);
+      var resD = solveIKTargetA6(pX2, pY2, pZ2, pA2, pB2, pC2, newDeg, angD2);
+      if (resD.ok) {
+        applyAngles(resD.angles);
       }
     }
   }
