@@ -1498,7 +1498,7 @@ function ampDraw(canvas, W, H) {
     yaxisEl.height = H;
     var yctx = yaxisEl.getContext('2d');
     yctx.clearRect(0, 0, 70, H);
-    yctx.font = 'bold 16px sans-serif';
+    yctx.font = 'bold 20px sans-serif';
     yctx.textAlign = 'right';
     var range = A6_MAX - A6_MIN;
     var labels = [A6_MIN, -90, 0, 90, A6_MAX];
@@ -1507,10 +1507,10 @@ function ampDraw(canvas, W, H) {
       var py4 = Math.round((1 - frac) * (H - 1));
       // Tick right edge
       yctx.fillStyle = yd === 0 ? '#ffee00' : '#3a6080';
-      yctx.fillRect(62, py4, 8, yd === 0 ? 2 : 1);
+      yctx.fillRect(64, py4, 6, yd === 0 ? 2 : 1);
       // Label links vom Tick
       yctx.fillStyle = yd === 0 ? '#ffee00' : '#c0e0ff';
-      yctx.fillText(yd + '°', 60, py4 + 6);
+      yctx.fillText(yd + '°', 62, py4 + 7);
     });
   }
 
