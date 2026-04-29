@@ -182,6 +182,68 @@ function solveIK(tx, ty, tz, ta, tb, tc, initAngles) {
   return {angles:bestQ, score:bestScore, ok: bestScore<30};
 }
 
+
+// IK nur mit Position + A6-Ziel — Orientierung frei (ergibt sich aus Kinematik)
+function solveIKPosA6(tx, ty, tz, a6target, initAngles) {
+  const clamp=(v,lo,hi)=>Math.max(lo,Math.min(hi,v));
+  const tp=[tx,ty,tz];
+  const dt=0.3, lam=0.5, tolP=0.5;
+  const A6W=60;  // Starke Gewichtung A6
+
+  var starts=[
+    initAngles?initAngles.slice():jointAngles.slice(),
+  ];
+  starts.forEach(s=>{s[5]=a6target;});
+
+  var bestScore=Infinity, bestQ=starts[0].slice();
+
+  for(var si=0;si<starts.length;si++){
+    var q=starts[si].slice();
+    for(var iter=0;iter<300;iter++){
+      var fk=fkTCP_full(q);
+      var ex=tp[0]-fk.pos[0], ey=tp[1]-fk.pos[1], ez=tp[2]-fk.pos[2];
+      var a6e=(q[5]-a6target)*A6W*Math.PI/180;
+      var eP=Math.sqrt(ex*ex+ey*ey+ez*ez);
+      var score=eP+Math.abs(a6e)*R2DEG/A6W;
+      if(score<bestScore){bestScore=score;bestQ=q.slice();}
+      if(eP<tolP&&Math.abs(q[5]-a6target)<1)break;
+
+      // Jacobian: 3 position + 1 A6
+      var J3=[];
+      for(var i=0;i<6;i++){
+        var q1=q.slice();q1[i]+=dt;
+        var f1=fkTCP_full(q1);
+        J3.push([(f1.pos[0]-fk.pos[0])/dt,
+                 (f1.pos[1]-fk.pos[1])/dt,
+                 (f1.pos[2]-fk.pos[2])/dt]);
+      }
+      var JtJ=Array.from({length:6},()=>Array(6).fill(0));
+      var Jte=Array(6).fill(0);
+      var e3=[ex,ey,ez];
+      for(var i=0;i<6;i++){
+        for(var r=0;r<3;r++){
+          Jte[i]+=J3[i][r]*e3[r];
+          for(var j=0;j<6;j++) JtJ[i][j]+=J3[i][r]*J3[j][r];
+        }
+        JtJ[i][i]+=lam;
+      }
+      // A6 penalty
+      JtJ[5][5]+=A6W*A6W;
+      Jte[5]+=a6e*A6W;
+
+      var dq=solve6x6(JtJ,Jte);
+      var step=Math.min(2.0,10.0/Math.max(1,bestScore));
+      for(var i=0;i<6;i++){
+        if(!isFinite(dq[i]))continue;
+        q[i]=clamp(q[i]-step*dq[i],JOINTS_DEF[i].min,JOINTS_DEF[i].max);
+      }
+    }
+  }
+  return{angles:bestQ,score:bestScore,
+    ok:bestScore<5 && Math.abs(bestQ[5]-a6target)<10};
+}
+var R2DEG=180/Math.PI;
+
 // IK mit A6-Zielwert als starke Soft-Constraint
 function solveIKTargetA6(tx, ty, tz, ta, tb, tc, a6target, initAngles) {
   const clamp=(v,lo,hi)=>Math.max(lo,Math.min(hi,v));
@@ -1392,45 +1454,45 @@ function ampBuild(force) {
   document.getElementById('amp-info').textContent = 'Berechnung…';
 
   function processChunk() {
-    var chunkEnd = Math.min(_col + 30, COLS);
+    var chunkEnd = Math.min(_col + 5, COLS);
     for (var col = _col; col < chunkEnd; col++) {
       var tidx = arcToTidx(col);
       var refTraj = trajectoryRef.length ? trajectoryRef : trajectory;
       var entry = refTraj[Math.min(tidx, refTraj.length-1)];
       var ang = entry.angles;
       var pos = entry.pos;
-      var posA = pos.A !== undefined ? pos.A : (pos[3]||0);
-      var posB = pos.B !== undefined ? pos.B : (pos[4]||0);
-      var posC = pos.C !== undefined ? pos.C : (pos[5]||0);
+      var posX = pos.X !== undefined ? pos.X : (pos[0]||0);
+      var posY = pos.Y !== undefined ? pos.Y : (pos[1]||0);
+      var posZ = pos.Z !== undefined ? pos.Z : (pos[2]||0);
 
-      // R_arm aus Referenz A1,A2,A3 (Wrist-Center-Position)
-      var Rarm  = fkAll([ang[0],ang[1],ang[2],0,0,0]).rot_final;
-      var RarmT = mT3(Rarm);
-      // Benötigte Wrist-Rotation: RarmT * R_target * RtcpT
-      var Rtgt  = rotZYX(posA, posB, posC);
-      var Rwrist = mm3(mm3(RarmT, Rtgt), RtcpT);
+      // Für jede Zeile: solveIKPosA6 — Position+A6 fixiert, Orientierung frei
+      // Warm-Start: Referenzwinkel mit A6 = Zielwert
+      var refRow = Math.round((ang[5] - A6_MIN) / (A6_MAX - A6_MIN) * (ROWS-1));
+      refRow = Math.max(0, Math.min(ROWS-1, refRow));
 
-      var a4L2 = JOINTS_DEF[3], a5L2 = JOINTS_DEF[4];
-
-      for (var row = 0; row < ROWS; row++) {
+      // Bidirektionaler Scan von refRow
+      function computeCell(row, warmQ) {
         var a6t = A6_MIN + (row / (ROWS-1)) * (A6_MAX - A6_MIN);
-        if (a6t < a6L.min || a6t > a6L.max) {
-          ampMap[col * ROWS + row] = 1; continue;
+        if (a6t < a6L.min || a6t > a6L.max) { ampMap[col*ROWS+row]=1; return null; }
+        var res = solveIKPosA6(posX, posY, posZ, a6t, warmQ);
+        if (!res.ok) { ampMap[col*ROWS+row]=1; return res.angles; }
+        var q = res.angles;
+        for (var k=0; k<6; k++) {
+          if (q[k] < JOINTS_DEF[k].min || q[k] > JOINTS_DEF[k].max) {
+            ampMap[col*ROWS+row]=1; return q;
+          }
         }
-        // FK_SIGN[5]=-1 → A6 trägt Rx(-A6) bei. Invers: Rx(+A6)
-        var Rp = mm3(Rwrist, rxD(a6t));
-        // Rx(-A4)*Ry(A5): M[0][2]=sin(A5), M[2][1]=-sin(A4), M[1][1]=cos(A4)
-        var s5 = Math.max(-1, Math.min(1, Rp[0][2]));
-        var a5 = Math.asin(s5) * R2D;
-        var a4 = Math.atan2(-Rp[2][1], Rp[1][1]) * R2D;
+        if (Math.abs(q[4]) < SING_THRESH) { ampMap[col*ROWS+row]=2; return q; }
+        ampMap[col*ROWS+row]=0; return q;
+      }
 
-        if (a4 < a4L2.min || a4 > a4L2.max || a5 < a5L2.min || a5 > a5L2.max) {
-          ampMap[col * ROWS + row] = 1;
-        } else if (Math.abs(a5) < SING_THRESH) {
-          ampMap[col * ROWS + row] = 2;
-        } else {
-          ampMap[col * ROWS + row] = 0;
-        }
+      var prevQ = ang.slice(); prevQ[5] = A6_MIN + (refRow/(ROWS-1))*(A6_MAX-A6_MIN);
+      for (var row=refRow; row<ROWS; row++) {
+        var q2 = computeCell(row, prevQ); if(q2) prevQ=q2;
+      }
+      prevQ = ang.slice(); prevQ[5] = A6_MIN + (refRow/(ROWS-1))*(A6_MAX-A6_MIN);
+      for (var row=refRow-1; row>=0; row--) {
+        var q2 = computeCell(row, prevQ); if(q2) prevQ=q2;
       }
     }
 
@@ -1708,10 +1770,10 @@ function ampApplyPath() {
       const a6target = ampUserPath[col0] + (ampUserPath[col1]-ampUserPath[col0]) * frac;
       const a6clamped = Math.max(JOINTS_DEF[5].min, Math.min(JOINTS_DEF[5].max, a6target));
 
-      // Volle IK mit A6 als Ziel — TCP bleibt EXAKT auf Kontur
+      // Position + A6 fixiert, Orientierung frei — TCP exakt auf Kontur
       const curAngles = trajectory[tidx].angles.slice();
       const pos = trajectory[tidx].pos;
-      const resA = solveIKTargetA6(pos.X, pos.Y, pos.Z, pos.A, pos.B, pos.C, a6clamped, curAngles);
+      const resA = solveIKPosA6(pos.X, pos.Y, pos.Z, a6clamped, curAngles);
       if (resA.ok) {
         trajectory[tidx].angles = resA.angles;
       } else {
@@ -1908,9 +1970,9 @@ function ampApplyPath() {
       var pA2 = posD2.A !== undefined ? posD2.A : (posD2[3]||0);
       var pB2 = posD2.B !== undefined ? posD2.B : (posD2[4]||0);
       var pC2 = posD2.C !== undefined ? posD2.C : (posD2[5]||0);
-      // Volle IK mit A6 als Ziel — TCP bleibt EXAKT auf Kontur
+      // Position + A6 fixiert, Orientierung frei — TCP exakt auf Kontur
       var newDeg = window._dragCurDeg;
-      var resD = solveIKTargetA6(pX2, pY2, pZ2, pA2, pB2, pC2, newDeg, angD2);
+      var resD = solveIKPosA6(pX2, pY2, pZ2, newDeg, angD2);
       if (resD.ok) {
         applyAngles(resD.angles);
       }
