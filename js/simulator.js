@@ -1801,92 +1801,64 @@ function ampAutoOptimize() {
 
 function ampApplyPath() {
   if (!ampUserPath.length || !trajectory.length) return;
+  document.getElementById('amp-info').textContent = 'Pfad wird uebernommen...';
 
-  document.getElementById('amp-info').textContent = 'IK wird neu berechnet…';
+  // Inline matrix helpers (no dependency on outer scope aliases)
+  var D2R=Math.PI/180, R2D=180/Math.PI;
+  function _mT3(M){return[[M[0][0],M[1][0],M[2][0]],[M[0][1],M[1][1],M[2][1]],[M[0][2],M[1][2],M[2][2]]]; }
+  function _mm3(A,B){var C=[[0,0,0],[0,0,0],[0,0,0]];for(var i=0;i<3;i++)for(var j=0;j<3;j++)for(var k=0;k<3;k++)C[i][j]+=A[i][k]*B[k][j];return C;}
+  function _rxD(a){var c=Math.cos(a*D2R),s=Math.sin(a*D2R);return[[1,0,0],[0,c,-s],[0,s,c]];}
 
-  // Für jeden Trajektorie-Schritt: A6-Zielwert aus Map → IK neu lösen
-  {
-    let errCount = 0;
-    for (let tidx = 0; tidx < trajectory.length; tidx++) {
-      if (!trajectory[tidx]) continue;
+  // TCP rotation matrix (same as ampBuild)
+  var _Rfc=[[0,0,1],[0,1,0],[-1,0,0]];
+  var _Rtcp=_mm3(_Rfc,rotZYX(TCP_DEF.a,TCP_DEF.b,TCP_DEF.c));
+  var _RtcpT=_mT3(_Rtcp);
 
-      // A6-Zielwert aus Map-Pfad (bogenlaengen-interpoliert)
-      const colF = tidx / Math.max(1,trajectory.length-1) * (ampCols-1);
-      const col0 = Math.floor(colF), col1 = Math.min(col0+1, ampCols-1);
-      const frac = colF - col0;
-      const a6target = ampUserPath[col0] + (ampUserPath[col1]-ampUserPath[col0]) * frac;
-      const a6clamped = Math.max(JOINTS_DEF[5].min, Math.min(JOINTS_DEF[5].max, a6target));
+  var a4L=JOINTS_DEF[3], a5L=JOINTS_DEF[4];
+  var errCount=0;
 
-      // Position + A6 fixiert, Orientierung frei — TCP exakt auf Kontur
-      const curAngles = trajectory[tidx].angles.slice();
-      const pos = trajectory[tidx].pos;
-      const resA = solveIKPosA6(pos.X, pos.Y, pos.Z, a6clamped, curAngles);
-      if (resA.ok) {
-        trajectory[tidx].angles = resA.angles;
-      } else {
-        errCount++;
-      }
+  for (var tidx=0; tidx<trajectory.length; tidx++) {
+    if (!trajectory[tidx]) continue;
+
+    // Interpolate A6 target from user path
+    var colF=tidx/Math.max(1,trajectory.length-1)*(ampCols-1);
+    var col0=Math.floor(colF), col1=Math.min(col0+1,ampCols-1);
+    var a6clamped=Math.max(JOINTS_DEF[5].min,Math.min(JOINTS_DEF[5].max,
+      ampUserPath[col0]+(ampUserPath[col1]-ampUserPath[col0])*(colF-col0)));
+
+    var ang=trajectory[tidx].angles;
+    var pos=trajectory[tidx].pos;
+
+    // Analytical wrist: decompose orientation to find A4, A5 matching target A6
+    var Rarm=fkAll([ang[0],ang[1],ang[2],0,0,0]).rot_final;
+    var Rwrist=_mm3(_mm3(_mT3(Rarm),rotZYX(pos.A||0,pos.B||0,pos.C||0)),_RtcpT);
+    var Rp=_mm3(Rwrist,_rxD(a6clamped));
+    var s5=Math.max(-1,Math.min(1,Rp[0][2]));
+    var a5=Math.asin(s5)*R2D;
+    var a4=Math.atan2(-Rp[2][1],Rp[1][1])*R2D;
+
+    if (a4<a4L.min||a4>a4L.max||a5<a5L.min||a5>a5L.max) { errCount++; continue; }
+
+    // FK position check -- if drift > 15 mm, correct with 2D wrist DLS
+    var a123=[ang[0],ang[1],ang[2]];
+    var tcp=fkTCP_full([a123[0],a123[1],a123[2],a4,a5,a6clamped]).pos;
+    var dx=tcp[0]-pos.X, dy=tcp[1]-pos.Y, dz=tcp[2]-pos.Z;
+    if (dx*dx+dy*dy+dz*dz>225) {
+      var w2=solveIKWrist2D(a123,a6clamped,pos.X,pos.Y,pos.Z,a4,a5);
+      if (w2===null) { errCount++; continue; }
+      a4=w2[0]; a5=w2[1];
+      if (a4<a4L.min||a4>a4L.max||a5<a5L.min||a5>a5L.max) { errCount++; continue; }
     }
 
-    // KRL-Programm aktualisieren: A-Winkel neu berechnen und eintragen
-    const ta = document.getElementById('code-input');
-    const lines = ta.value.split(/\r?\n/);
-
-    // Normierungs-Hilfsfunktion
-    const nd = v => { let d=v*180/Math.PI; while(d>180)d-=360; while(d<=-180)d+=360; return d; };
-
-    parsedData.positions.forEach((pos, posIdx) => {
-      const trajIdx = Math.round(posIdx / Math.max(1,parsedData.positions.length-1) * (trajectory.length-1));
-      const tStep = trajectory[Math.min(trajIdx, trajectory.length-1)];
-      if (!tStep || pos.lineNum === undefined) return;
-
-      // FK mit neuen Gelenkwinkeln → neue Euler-Winkel A,B,C
-      const fk = fkAll(tStep.angles);
-      const R = fk.tcp_rot;
-      const B2 = -Math.asin(Math.max(-1, Math.min(1, R[2][0])));
-      const cb2 = Math.cos(B2);
-      let A2, C2;
-      if (Math.abs(cb2) > 1e-6) {
-        A2 = Math.atan2(R[1][0]/cb2, R[0][0]/cb2);
-        C2 = Math.atan2(R[2][1]/cb2, R[2][2]/cb2);
-      } else {
-        A2 = 0;
-        C2 = Math.atan2(-R[1][2], R[1][1]);
-      }
-      const newA = nd(A2).toFixed(3);
-      const newB = nd(B2).toFixed(3);
-      const newC = nd(C2).toFixed(3);
-      console.log('  → FK A6='+tStep.angles[5].toFixed(1)+' → A='+newA+' B='+newB+' C='+newC);
-      console.log('[ampApply] pos', posIdx, 'lineNum:', pos.lineNum,
-        'A6_traj:', _t2 ? _t2.angles[5].toFixed(1) : '?',
-        'line:', lines[pos.lineNum] ? lines[pos.lineNum].substring(0,60) : 'UNDEFINED');
-      if (lines[pos.lineNum]) {
-        lines[pos.lineNum] = lines[pos.lineNum].replace(/(\{[^}]+\})/, function(block) {
-          // Alle drei Euler-Winkel A, B, C ersetzen
-          return block
-            .replace(/A\s+([-+]?[0-9]+(?:\.[0-9]+)?)/, 'A ' + newA)
-            .replace(/B\s+([-+]?[0-9]+(?:\.[0-9]+)?)/, 'B ' + newB)
-            .replace(/C\s+([-+]?[0-9]+(?:\.[0-9]+)?)/, 'C ' + newC);
-        });
-      }
-    });
-
-    var newCode = lines.join('\n');
-    ta.value = newCode;
-    rebuildGutter();
-
-    // Positionen neu parsen — aber IK NICHT neu berechnen
-    parsedData = parseKRL(ta.value);
-    // Nur Positions-Karten updaten, keine 3D-Neuberechnung
-    renderPositions(parsedData.positions);
-
-    console.log('[ampApply] Written, ta.value now starts:', ta.value.substring(0, 200));
-    const msg = errCount > 0
-      ? '✓ Pfad übernommen (' + errCount + ' Schritte ohne IK-Konvergenz)'
-      : '✓ Pfad übernommen · X/Y/Z-Endpunkte exakt erhalten';
-    setStatus('paused', 'A6-Pfad übernommen');
-    document.getElementById('amp-info').textContent = msg;
+    // Update only joint angles; KRL A,B,C unchanged (orientation preserved)
+    trajectory[tidx].angles=[ang[0],ang[1],ang[2],a4,a5,a6clamped];
   }
+
+  var msg=errCount>0
+    ?'Pfad uebernommen ('+errCount+' Schritte uebersprungen)'
+    :'Pfad uebernommen - Orientierung + Position erhalten';
+  setStatus('paused','A6-Pfad uebernommen');
+  document.getElementById('amp-info').textContent=msg;
 }
 
 // Mouse interaction on canvas — Gummiband: nur Zielpunkte ziehbar
