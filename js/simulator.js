@@ -374,6 +374,36 @@ function solveIKFixedA6(tx, ty, tz, ta, tb, tc, a6fixed, initAngles) {
   return {angles:bestQ, score:bestScore, ok: bestScore<20};
 }
 
+// 2D Wrist-IK: A1-A3 und A6 fixiert, nur A4+A5 numerisch (DLS, 60 Iter)
+// Zweck: Positionskorrektur nach analytischer Wrist-Dekomposition
+function solveIKWrist2D(a123, a6fixed, tx, ty, tz, a4init, a5init) {
+  var a4 = a4init, a5 = a5init;
+  var bestErr = Infinity, bestA4 = a4, bestA5 = a5;
+  var dt = 0.5, lam = 0.2;
+  for (var iter = 0; iter < 60; iter++) {
+    var q = [a123[0], a123[1], a123[2], a4, a5, a6fixed];
+    var fk = fkTCP_full(q);
+    var ex = tx-fk.pos[0], ey = ty-fk.pos[1], ez = tz-fk.pos[2];
+    var err = Math.sqrt(ex*ex+ey*ey+ez*ez);
+    if (err < bestErr) { bestErr = err; bestA4 = a4; bestA5 = a5; }
+    if (err < 3.0) break;
+    var q4 = q.slice(); q4[3] += dt; var f4 = fkTCP_full(q4).pos;
+    var q5 = q.slice(); q5[4] += dt; var f5 = fkTCP_full(q5).pos;
+    var j4x=(f4[0]-fk.pos[0])/dt, j4y=(f4[1]-fk.pos[1])/dt, j4z=(f4[2]-fk.pos[2])/dt;
+    var j5x=(f5[0]-fk.pos[0])/dt, j5y=(f5[1]-fk.pos[1])/dt, j5z=(f5[2]-fk.pos[2])/dt;
+    var a00=j4x*j4x+j4y*j4y+j4z*j4z+lam;
+    var a01=j4x*j5x+j4y*j5y+j4z*j5z;
+    var a11=j5x*j5x+j5y*j5y+j5z*j5z+lam;
+    var b0=j4x*ex+j4y*ey+j4z*ez, b1=j5x*ex+j5y*ey+j5z*ez;
+    var det=a00*a11-a01*a01;
+    if (Math.abs(det)<1e-10) break;
+    var da4=(a11*b0-a01*b1)/det, da5=(a00*b1-a01*b0)/det;
+    a4=Math.max(JOINTS_DEF[3].min,Math.min(JOINTS_DEF[3].max,a4+da4));
+    a5=Math.max(JOINTS_DEF[4].min,Math.min(JOINTS_DEF[4].max,a5+da5));
+  }
+  return bestErr < 8 ? [bestA4, bestA5] : null;
+}
+
 // ═══════════════════════════════════════════════════
 // KRL PARSER (original vom KUKA Simulator)
 // ═══════════════════════════════════════════════════
@@ -1454,7 +1484,7 @@ function ampBuild(force) {
   document.getElementById('amp-info').textContent = 'Berechnung…';
 
   function processChunk() {
-    var chunkEnd = Math.min(_col + 5, COLS);
+    var chunkEnd = Math.min(_col + 20, COLS);
     for (var col = _col; col < chunkEnd; col++) {
       var tidx = arcToTidx(col);
       var refTraj = trajectoryRef.length ? trajectoryRef : trajectory;
@@ -1464,35 +1494,53 @@ function ampBuild(force) {
       var posX = pos.X !== undefined ? pos.X : (pos[0]||0);
       var posY = pos.Y !== undefined ? pos.Y : (pos[1]||0);
       var posZ = pos.Z !== undefined ? pos.Z : (pos[2]||0);
+      var posA = pos.A !== undefined ? pos.A : (pos[3]||0);
+      var posB = pos.B !== undefined ? pos.B : (pos[4]||0);
+      var posC = pos.C !== undefined ? pos.C : (pos[5]||0);
 
-      // Für jede Zeile: solveIKPosA6 — Position+A6 fixiert, Orientierung frei
-      // Warm-Start: Referenzwinkel mit A6 = Zielwert
-      var refRow = Math.round((ang[5] - A6_MIN) / (A6_MAX - A6_MIN) * (ROWS-1));
-      refRow = Math.max(0, Math.min(ROWS-1, refRow));
+      // Analytische Wrist-Dekomposition (O(1) pro Zelle):
+      // A1-A3 aus Referenz → Wrist-Center fixiert (Näherung).
+      // R_arm = Rotation nach A1,A2,A3 (A4=A5=A6=0 ändern Rotation nicht).
+      // Benötigte Wrist-Rotation: Rwrist = R_arm^T * R_target * R_tcp^T
+      // Pro A6-Zielwert: A4,A5 analytisch aus Rwrist * Rx(+A6).
+      var Rarm  = fkAll([ang[0],ang[1],ang[2],0,0,0]).rot_final;
+      var RarmT = mT3(Rarm);
+      var Rtgt  = rotZYX(posA, posB, posC);
+      var Rwrist = mm3(mm3(RarmT, Rtgt), RtcpT);
 
-      // Bidirektionaler Scan von refRow
-      function computeCell(row, warmQ) {
+      var a4L2 = JOINTS_DEF[3], a5L2 = JOINTS_DEF[4];
+      var a123 = [ang[0], ang[1], ang[2]];
+
+      for (var row = 0; row < ROWS; row++) {
         var a6t = A6_MIN + (row / (ROWS-1)) * (A6_MAX - A6_MIN);
-        if (a6t < a6L.min || a6t > a6L.max) { ampMap[col*ROWS+row]=1; return null; }
-        var res = solveIKPosA6(posX, posY, posZ, a6t, warmQ);
-        if (!res.ok) { ampMap[col*ROWS+row]=1; return res.angles; }
-        var q = res.angles;
-        for (var k=0; k<6; k++) {
-          if (q[k] < JOINTS_DEF[k].min || q[k] > JOINTS_DEF[k].max) {
-            ampMap[col*ROWS+row]=1; return q;
+        if (a6t < a6L.min || a6t > a6L.max) { ampMap[col*ROWS+row]=1; continue; }
+
+        // FK_SIGN[5]=-1 → A6 trägt Rx(-A6) bei. Invers: Rx(+A6)
+        var Rp = mm3(Rwrist, rxD(a6t));
+        // Rx(-A4)*Ry(A5): [0][2]=sin(A5), [2][1]=-sin(A4), [1][1]=cos(A4)
+        var s5 = Math.max(-1, Math.min(1, Rp[0][2]));
+        var a5 = Math.asin(s5) * R2D;
+        var a4 = Math.atan2(-Rp[2][1], Rp[1][1]) * R2D;
+
+        if (a4 < a4L2.min || a4 > a4L2.max || a5 < a5L2.min || a5 > a5L2.max) {
+          ampMap[col*ROWS+row]=1; continue;
+        }
+
+        // FK-Positionsverifikation: analytische A4/A5 können Position um
+        // max. 80mm verschieben (A5-Offset). Bei Fehler > 15mm: 2D-Korrektur.
+        var qchk = [a123[0], a123[1], a123[2], a4, a5, a6t];
+        var tcp  = fkTCP_full(qchk).pos;
+        var dx=tcp[0]-posX, dy=tcp[1]-posY, dz=tcp[2]-posZ;
+        if (dx*dx+dy*dy+dz*dz > 225) {  // Abstand > 15mm (15²=225)
+          var w2 = solveIKWrist2D(a123, a6t, posX, posY, posZ, a4, a5);
+          if (w2 === null) { ampMap[col*ROWS+row]=1; continue; }
+          a4 = w2[0]; a5 = w2[1];
+          if (a4 < a4L2.min || a4 > a4L2.max || a5 < a5L2.min || a5 > a5L2.max) {
+            ampMap[col*ROWS+row]=1; continue;
           }
         }
-        if (Math.abs(q[4]) < SING_THRESH) { ampMap[col*ROWS+row]=2; return q; }
-        ampMap[col*ROWS+row]=0; return q;
-      }
 
-      var prevQ = ang.slice(); prevQ[5] = A6_MIN + (refRow/(ROWS-1))*(A6_MAX-A6_MIN);
-      for (var row=refRow; row<ROWS; row++) {
-        var q2 = computeCell(row, prevQ); if(q2) prevQ=q2;
-      }
-      prevQ = ang.slice(); prevQ[5] = A6_MIN + (refRow/(ROWS-1))*(A6_MAX-A6_MIN);
-      for (var row=refRow-1; row>=0; row--) {
-        var q2 = computeCell(row, prevQ); if(q2) prevQ=q2;
+        ampMap[col*ROWS+row] = (Math.abs(a5) < SING_THRESH) ? 2 : 0;
       }
     }
 
@@ -1501,9 +1549,8 @@ function ampBuild(force) {
     document.getElementById('amp-info').textContent = pct + '%';
     if (_progBar) _progBar.style.width = pct + '%';
     if (_col < COLS) {
-      setTimeout(processChunk, 16);  // 1 Frame Pause → Browser kann rendern
+      setTimeout(processChunk, 16);
     } else {
-      // Fertig — zeichnen
       _finishBuild(_canvas, _W, _H, _totalDist);
     }
   }
