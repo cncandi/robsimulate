@@ -1538,7 +1538,7 @@ function solveIKFast(tx, ty, tz, ta, tb, tc, initAngles) {
 }
 
 
-// Hochpräzisions-IK für A-Plot: viele Iterationen, enge Toleranz
+// Hochpräzisions-IK für Map: viele Iterationen, enge Toleranz
 function solveIKPrecise(tx, ty, tz, ta, tb, tc, initAngles) {
   var clamp = function(v,lo,hi){ return Math.max(lo,Math.min(hi,v)); };
   var tp = [tx, ty, tz];
@@ -3852,6 +3852,24 @@ function aPlotDraw() {
     ctx.stroke(); ctx.setLineDash([]);
   }
 
+  // Singularitäten markieren (A5 nahe 0°)
+  if (trajectory && trajectory.length) {
+    ctx.save();
+    for (var ti = 0; ti < trajectory.length; ti++) {
+      var te = trajectory[ti];
+      if (!te || !te.angles) continue;
+      var a5 = te.angles[4];
+      if (Math.abs(a5) < SING_THRESH) {
+        // Finde X-Position dieses Trajektorie-Punkts
+        var tFrac = ti / Math.max(1, trajectory.length - 1);
+        var xpS = ML + tFrac * CW;
+        ctx.fillStyle = 'rgba(255,220,0,0.25)';
+        ctx.fillRect(xpS - 2, MT, 4, CH);
+      }
+    }
+    ctx.restore();
+  }
+
   // Simulations-Cursor
   if (typeof sim !== 'undefined' && pos.length >= 2) {
     var t  = sim.t;
@@ -3874,7 +3892,7 @@ function aPlotDraw() {
   }
 }
 
-// A-Plot Canvas Drag: A-Wert eines Punktes ändern
+// Map Canvas Drag: A-Wert eines Punktes ändern
 (function() {
   function getCanvas() { return document.getElementById('aplot-canvas'); }
   function nearestPoint(mx) {
@@ -4045,7 +4063,7 @@ window.addEventListener('load', function() {
     autoLoadSTLFiles();
   }, 400);
 
-  // A-Plot button — direkte Bindung nach DOM-Load
+  // Map button — direkte Bindung nach DOM-Load
   var _abtn = document.getElementById('btn-aplot');
   if (_abtn) {
     _abtn.onclick = function() {
