@@ -3850,6 +3850,9 @@ function aPlotDraw() {
     c.addEventListener('mousedown', function(e) {
       var r = c.getBoundingClientRect();
       var mx = e.clientX - r.left;
+      // Sicherstellen dass _aPlotPos und Distanzen aktuell sind
+      window._aPlotPos = (parsedData && parsedData.positions) ? parsedData.positions : [];
+      if (_aPlotDists.length !== window._aPlotPos.length) _aPlotCalcDists(window._aPlotPos);
       var idx = nearestPoint(mx);
       if (idx < 0) return;
       _aPlotDragging = true; _aPlotDragIdx = idx;
