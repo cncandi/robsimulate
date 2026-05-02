@@ -4037,16 +4037,24 @@ function aPlotScanReachability() {
   var msgEl   = document.getElementById('aplot-scan-msg');
   if (overlay) overlay.style.display = 'flex';
 
-  // Scan-Positionen: wp0, mid01, wp1, mid12, …, wp[N-1]
+  // Scan-Positionen: wp0, sub01a, sub01b, sub01c, wp1, …
+  // 3 Zwischenpunkte pro Segment (t=0.25, 0.5, 0.75) für mehr Flexibilität
+  var NSUB = 3;
   var scanList = [];
   for (var i = 0; i < pos.length; i++) {
     scanList.push({ type:'wp', idx:i, p: pos[i] });
     if (i < pos.length - 1) {
       var p0 = pos[i], p1 = pos[i+1];
-      scanList.push({ type:'mid', idx:i, p:{
-        X:(p0.X+p1.X)/2, Y:(p0.Y+p1.Y)/2, Z:(p0.Z+p1.Z)/2,
-        B:(p0.B+p1.B)/2, C:(p0.C+p1.C)/2
-      }});
+      for (var ti = 1; ti <= NSUB; ti++) {
+        var t = ti / (NSUB + 1);
+        scanList.push({ type:'mid', idx:i, subIdx:ti-1, p:{
+          X: p0.X + (p1.X-p0.X)*t,
+          Y: p0.Y + (p1.Y-p0.Y)*t,
+          Z: p0.Z + (p1.Z-p0.Z)*t,
+          B: p0.B + (p1.B-p0.B)*t,
+          C: p0.C + (p1.C-p0.C)*t
+        }});
+      }
     }
   }
   var totalSteps = scanList.length;
@@ -4118,15 +4126,22 @@ function aPlotAutoSolve() {
   var N = pos.length;
 
   // ── Knotenfolge aufbauen ──────────────────────────────
-  // nodes[k] = { type:'wp'|'mid', idx, reach[NSTEPS] }
-  // Mittelpunkt idx=i liegt zwischen wp[i] und wp[i+1]
+  // nodes[k] = { type:'wp'|'mid', idx, subIdx, reach[NSTEPS] }
+  // NSUB Zwischenpunkte pro Segment (t=1/(NSUB+1) … NSUB/(NSUB+1))
+  var NSUB_DP = 3;
   var nodes = [];
+  var midCounter = 0;
   for (var i = 0; i < N; i++) {
-    nodes.push({ type:'wp',  idx:i, reach:_aPlotReach[i] });
-    if (i < N-1)
-      nodes.push({ type:'mid', idx:i, reach:_aPlotReachMid[i] });
+    nodes.push({ type:'wp', idx:i, reach:_aPlotReach[i] });
+    if (i < N-1) {
+      for (var ti = 0; ti < NSUB_DP; ti++) {
+        var midIdx = i * NSUB_DP + ti;
+        nodes.push({ type:'mid', idx:i, subIdx:ti,
+          reach: (_aPlotReachMid[midIdx] || _aPlotReachMid[i*NSUB_DP] || _aPlotReach[i]) });
+      }
+    }
   }
-  var M = nodes.length; // 2N-1
+  var M = nodes.length; // N + (N-1)*NSUB_DP
 
   // ── DP: dp[k][s] = {cost, prev_k, prev_s} ────────────
   // Für Mittelpunkte: Zustand NSTEPS = "Bypass" (kein Hilfspunkt)
@@ -4271,10 +4286,11 @@ function aPlotAutoSolve() {
       if (path[k] !== BYPASS) {
         var aHlp = -360 + path[k] * ASTEP;
         var p0 = pos[nd.idx], p1 = pos[nd.idx+1];
+        var t_ins = (nd.subIdx + 1) / (NSUB_DP + 1);
         _aPlotAutoInserts.push({
-          afterWpIdx: nd.idx,
-          X:(p0.X+p1.X)/2, Y:(p0.Y+p1.Y)/2, Z:(p0.Z+p1.Z)/2,
-          A: aHlp, B:(p0.B+p1.B)/2, C:(p0.C+p1.C)/2
+          afterWpIdx: nd.idx, subIdx: nd.subIdx,
+          X: p0.X+(p1.X-p0.X)*t_ins, Y: p0.Y+(p1.Y-p0.Y)*t_ins, Z: p0.Z+(p1.Z-p0.Z)*t_ins,
+          A: aHlp, B: p0.B+(p1.B-p0.B)*t_ins, C: p0.C+(p1.C-p0.C)*t_ins
         });
       }
     }
@@ -4327,7 +4343,7 @@ function aPlotApply() {
   // ── 2. Hilfspunkte einfügen (rückwärts, damit Indizes stabil bleiben) ──
   if (hasInserts) {
     // Sortieren: höchster afterWpIdx zuerst
-    var inserts = _aPlotAutoInserts.slice().sort(function(a,b){ return b.afterWpIdx - a.afterWpIdx; });
+    var inserts = _aPlotAutoInserts.slice().sort(function(a,b){ return b.afterWpIdx !== a.afterWpIdx ? b.afterWpIdx-a.afterWpIdx : b.subIdx-a.subIdx; });
     inserts.forEach(function(ins) {
       var li = wpLineMap[ins.afterWpIdx];
       if (li === undefined) return;
@@ -4349,7 +4365,9 @@ function aPlotApply() {
   var hint = document.getElementById('aplot-edit-hint');
   if (hint) hint.style.display = 'none';
   var info = document.getElementById('aplot-info');
-  if (info) info.textContent = '✓ Übernommen — bitte PARSE & LOAD klicken';
+  // parseAndLoad ohne Scan (_aPlotScanPending bleibt false)
+  parseAndLoad();
+  if (info) info.textContent = '✓ Übernommen';
 }
 
 // Drag-Handler fuer aplot-panel
