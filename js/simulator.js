@@ -2519,13 +2519,8 @@ function buildTrajectory(positions, ikTab) {
       new THREE.LineBasicMaterial({color:hexToInt((document.getElementById('cfg-planned-col')||{value:'#1a3050'}).value)})
     ));
   }
-  if (!_aPlotSuppressDraw) aPlotDraw();
-  // Reachability-Scan asynchron starten
-  if (_aPlotScanPending) {
-    _aPlotScanPending = false;
-    _aPlotReach = null; _aPlotReachMid = null; _aPlotReachAngles = null; _aPlotReachSing = null;
-    setTimeout(function() { try { aPlotScanReachability(); } catch(e){} }, 200);
-  }
+  // Scan wird nur durch 'MAP erzeugen' gestartet
+  // Scan wird nur durch 'MAP erzeugen' Button gestartet
 }
 
 function getTrajSample(t) {
@@ -3173,7 +3168,13 @@ function parseAndLoad(){
   },10);
 }
 
-document.getElementById('parse-btn').addEventListener('click',function(){ _aPlotScanPending=true; parseAndLoad(); });
+document.getElementById('parse-btn').addEventListener('click',function(){
+  // Scan-Daten invalidieren — MAP erzeugen muss danach neu geklickt werden
+  _aPlotReach = null; _aPlotReachMid = null; _aPlotReachAngles = null; _aPlotReachSing = null;
+  parseAndLoad();
+  var info = document.getElementById('aplot-info');
+  if (info) info.textContent = '— MAP erzeugen klicken für Reachability-Scan';
+});
 
 // ═══════════════════════════════════════════════════
 // INIT
@@ -4024,6 +4025,13 @@ function aPlotLivePreview(idx, newA) {
 }
 
 // Reachability-Scan: Wegpunkte + Mittelpunkte, 6°-Schritte
+function aPlotStartScan() {
+  // Scan-Daten zurücksetzen und neu starten
+  _aPlotReach = null; _aPlotReachMid = null;
+  _aPlotReachAngles = null; _aPlotReachSing = null;
+  aPlotScanReachability();
+}
+
 function aPlotScanReachability() {
   var pos = (parsedData && parsedData.positions) ? parsedData.positions : [];
   if (!pos.length) { _aPlotReach = null; _aPlotReachMid = null; return; }
@@ -4367,12 +4375,7 @@ function aPlotApply() {
   var hint = document.getElementById('aplot-edit-hint');
   if (hint) hint.style.display = 'none';
   var info = document.getElementById('aplot-info');
-  // Map-Canvas sichern, parseAndLoad, Canvas wiederherstellen
-  var _canvas = document.getElementById('aplot-canvas');
-  var _ctx = _canvas ? _canvas.getContext('2d') : null;
-  var _saved = _ctx ? _ctx.getImageData(0, 0, _canvas.width, _canvas.height) : null;
   parseAndLoad();
-  if (_ctx && _saved) _ctx.putImageData(_saved, 0, 0);
   if (info) info.textContent = '✓ Übernommen';
 }
 
@@ -4427,7 +4430,7 @@ window.addEventListener('load', function() {
       var show = p.style.display === 'none';
       p.style.display = show ? 'block' : 'none';
       _abtn.classList.toggle('on', show);
-      if (show) { try { if (!_aPlotReach) { _aPlotScanPending=true; parseAndLoad(); } else { aPlotDraw(); } } catch(e) { console.error('aPlotDraw:', e); } }
+      if (show) { try { aPlotDraw(); } catch(e) { console.error('aPlotDraw:', e); } }
     };
   }
 
