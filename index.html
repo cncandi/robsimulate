@@ -315,6 +315,13 @@
   </div>
   <div style="position:relative;padding:6px 6px 4px">
     <canvas id="aplot-canvas" width="648" height="210" style="display:block;border-radius:3px"></canvas>
+    <div id="aplot-scan-overlay" style="display:none;position:absolute;inset:6px 6px 4px;background:rgba(5,12,22,.85);border-radius:3px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px">
+      <div style="color:var(--acc);font-size:.8em;letter-spacing:1px" id="aplot-scan-msg">Reachability-Scan läuft…</div>
+      <div style="width:80%;height:4px;background:#0a1a2e;border-radius:2px;overflow:hidden">
+        <div id="aplot-scan-bar" style="height:100%;width:0%;background:var(--acc);border-radius:2px;transition:width .1s"></div>
+      </div>
+      <div id="aplot-scan-pct" style="color:var(--txt3);font-size:.75em">0%</div>
+    </div>
   </div>
 </div>
 

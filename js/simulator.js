@@ -1,4 +1,4 @@
-const APP_VERSION = 'V0.62';
+const APP_VERSION = 'V0.63';
 
 
 // ── Splash Screen ─────────────────────────────────────────────
@@ -2521,7 +2521,7 @@ function buildTrajectory(positions, ikTab) {
   }
   aPlotDraw();
   // Reachability-Scan asynchron starten
-  _aPlotReach = null;
+  _aPlotReach = null; _aPlotReachMid = null; _aPlotReachAngles = null; _aPlotReachSing = null;
   setTimeout(function() { try { aPlotScanReachability(); } catch(e){} }, 200);
 }
 
@@ -3687,6 +3687,7 @@ var _aPlotDragging = false;
 var _aPlotReach       = null;  // [{ok:[bool,…]}] pro Wegpunkt
 var _aPlotReachMid    = null;  // [{ok:[bool,…]}] pro Mittelpunkt
 var _aPlotReachAngles = null;  // [[angles|null,…]] IK-Lösung pro Wegpunkt × A-Step
+var _aPlotReachSing   = null;  // [[types[],…]] Singularitätstypen pro Wegpunkt × A-Step
 var _aPlotReachScanId = 0;
 var _aPlotAutoInserts = []; // [{afterIdx, X,Y,Z,A,B,C}] eingefügte Hilfspunkte
 var _aPlotDragIdx  = -1;
@@ -4020,19 +4021,23 @@ function aPlotLivePreview(idx, newA) {
 function aPlotScanReachability() {
   var pos = (parsedData && parsedData.positions) ? parsedData.positions : [];
   if (!pos.length) { _aPlotReach = null; _aPlotReachMid = null; return; }
-  _aPlotReach = null; _aPlotReachMid = null;
+  _aPlotReach = null; _aPlotReachMid = null; _aPlotReachAngles = null;
   var ASTEP = 6, NSTEPS = Math.round(720 / ASTEP);
   var scanId = ++_aPlotReachScanId;
-  var wpResult  = [];
-  var midResult = [];
-  var wpAngles  = [];
+  var wpResult  = [], midResult = [], wpAngles = [], wpSing = [];
 
-  // Alle Scan-Positionen: wp0, mid01, wp1, mid12, …, wp[N-1]
+  // Fortschrittsanzeige einblenden
+  var overlay = document.getElementById('aplot-scan-overlay');
+  var bar     = document.getElementById('aplot-scan-bar');
+  var pctEl   = document.getElementById('aplot-scan-pct');
+  var msgEl   = document.getElementById('aplot-scan-msg');
+  if (overlay) overlay.style.display = 'flex';
+
+  // Scan-Positionen: wp0, mid01, wp1, mid12, …, wp[N-1]
   var scanList = [];
   for (var i = 0; i < pos.length; i++) {
     scanList.push({ type:'wp', idx:i, p: pos[i] });
     if (i < pos.length - 1) {
-      // Mittelpunkt
       var p0 = pos[i], p1 = pos[i+1];
       scanList.push({ type:'mid', idx:i, p:{
         X:(p0.X+p1.X)/2, Y:(p0.Y+p1.Y)/2, Z:(p0.Z+p1.Z)/2,
@@ -4040,30 +4045,49 @@ function aPlotScanReachability() {
       }});
     }
   }
+  var totalSteps = scanList.length;
 
   var si = 0;
   function scanNext() {
-    if (scanId !== _aPlotReachScanId) return;
+    if (scanId !== _aPlotReachScanId) {
+      if (overlay) overlay.style.display = 'none';
+      return;
+    }
     if (si >= scanList.length) {
       _aPlotReach       = wpResult;
       _aPlotReachMid    = midResult;
       _aPlotReachAngles = wpAngles;
+      _aPlotReachSing   = wpSing;
+      if (overlay) overlay.style.display = 'none';
       aPlotDraw();
       return;
     }
+    // Fortschritt aktualisieren
+    var pct = Math.round(si / totalSteps * 100);
+    if (bar)   bar.style.width   = pct + '%';
+    if (pctEl) pctEl.textContent = pct + '%';
+    if (msgEl) msgEl.textContent = 'Scan ' + (si+1) + ' / ' + totalSteps + ' Positionen…';
+
     var item = scanList[si];
     var p = item.p;
-    var initQ = jointAngles.slice();
+    var initQ  = jointAngles.slice();
     var reach  = new Array(NSTEPS);
     var angles = (item.type === 'wp') ? new Array(NSTEPS) : null;
+    var sing   = (item.type === 'wp') ? new Array(NSTEPS) : null;
     for (var s = 0; s < NSTEPS; s++) {
       var aTest = -360 + s * ASTEP;
       var res = solveIKPrecise(p.X, p.Y, p.Z, aTest, p.B, p.C, initQ);
       reach[s] = !!(res && res.ok);
-      if (reach[s]) { initQ = res.angles; if (angles) angles[s] = res.angles.slice(); }
-      else if (angles) angles[s] = null;
+      if (reach[s]) {
+        initQ = res.angles;
+        if (angles) angles[s] = res.angles.slice();
+        if (sing)   sing[s]   = classifySingTypes(res.angles);
+      } else {
+        if (angles) angles[s] = null;
+        if (sing)   sing[s]   = [];
+      }
     }
-    if (item.type === 'wp') { wpResult.push(reach); wpAngles.push(angles); }
+    if (item.type === 'wp') { wpResult.push(reach); wpAngles.push(angles); wpSing.push(sing); }
     else                      midResult.push(reach);
     si++;
     setTimeout(scanNext, 0);
@@ -4110,11 +4134,21 @@ function aPlotAutoSolve() {
     for (var s = 0; s < states; s++) dp[k][s] = { cost: INF, pk: -1, ps: -1 };
   }
 
+  // Singularitäts-Strafe: singuläre A-Schritte kosten extra
+  var SING_PENALTY = 45; // °-Äquivalent pro Singularitätstyp
+  function singCost(nodeIdx, stepIdx) {
+    if (!_aPlotReachSing) return 0;
+    var nd = nodes[nodeIdx];
+    if (nd.type !== 'wp') return 0;
+    var sing = _aPlotReachSing[nd.idx] && _aPlotReachSing[nd.idx][stepIdx];
+    return sing ? sing.length * SING_PENALTY : 0;
+  }
+
   // Startpunkt wp[0]
   var startA = pos[0].A;
   for (var s = 0; s < NSTEPS; s++) {
     if (!nodes[0].reach[s]) continue;
-    dp[0][s].cost = Math.abs((-360 + s*ASTEP) - startA);
+    dp[0][s].cost = Math.abs((-360 + s*ASTEP) - startA) + singCost(0, s);
   }
 
   // DP vorwärts
@@ -4132,7 +4166,7 @@ function aPlotAutoSolve() {
         for (var ps = 0; ps < NSTEPS; ps++) {
           if (dp[pkv][ps].cost >= INF) continue;
           if (!midNd.reach[ps]) continue;
-          var cost = dp[pkv][ps].cost + Math.abs(aTo - (-360+ps*ASTEP));
+          var cost = dp[pkv][ps].cost + Math.abs(aTo - (-360+ps*ASTEP)) + singCost(k, s);
           if (cost < dp[k][s].cost) { dp[k][s] = {cost, pk:pkv, ps}; }
         }
         // Aus Bypass-Zustand
@@ -4277,8 +4311,8 @@ function aPlotApply() {
   _aPlotAutoInserts = [];
   var hint = document.getElementById('aplot-edit-hint');
   if (hint) hint.style.display = 'none';
+  // Nur neu parsen, KEIN Reachability-Scan (bleibt gültig)
   parseAndLoad();
-  aPlotDraw();
 }
 
 // Drag-Handler fuer aplot-panel
@@ -4332,7 +4366,7 @@ window.addEventListener('load', function() {
       var show = p.style.display === 'none';
       p.style.display = show ? 'block' : 'none';
       _abtn.classList.toggle('on', show);
-      if (show) { try { aPlotDraw(); if (!_aPlotReach) aPlotScanReachability(); } catch(e) { console.error('aPlotDraw:', e); } }
+      if (show) { try { aPlotDraw(); } catch(e) { console.error('aPlotDraw:', e); } }
     };
   }
 

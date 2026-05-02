@@ -343,3 +343,4 @@ input[type=number] {
 .fv-badge-circ { background: rgba(170,68,255,.2); color: #aa44ff; }
 .fv-circ-lbl { font-size: .75em; color: var(--txt3); text-transform: uppercase; letter-spacing: 1px; margin: 4px 0 2px; }
 .fv-sub-on { background: var(--acc) !important; color: #fff !important; border-color: var(--acc) !important; }
+#aplot-scan-overlay { display:none;position:absolute;inset:0;background:rgba(5,12,22,.88);border-radius:3px;flex-direction:column;align-items:center;justify-content:center;gap:10px;z-index:5 }
