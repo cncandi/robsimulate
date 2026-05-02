@@ -1642,24 +1642,23 @@ function isSingular(angles_deg) {
 function classifySingTypes(angles_deg) {
   var types = [];
 
-  // ── 1. Handgelenk ──
+  // ── 1. Handgelenk: A5 nahe 0° oder ±180° ──
   var a5rad = angles_deg[4] * Math.PI / 180;
-  if (Math.abs(Math.sin(a5rad)) < 0.14) { types.push('wrist'); }
+  if (Math.abs(Math.sin(a5rad)) < 0.14) types.push('wrist');
 
-  // ── 2. Schulter ──
-  var fk  = fkAll(angles_deg);
-  var pts = fk.pts;
-  var wx  = pts[4][0], wy = pts[4][1];
-  if (Math.sqrt(wx*wx + wy*wy) < 60) { types.push('shoulder'); }
+  // ── 2. Schulter: Handgelenk-Zentrum auf A1-Achse ──
+  var fk = fkAll(angles_deg), pts = fk.pts;
+  var wx = pts[4][0], wy = pts[4][1];
+  if (Math.sqrt(wx*wx + wy*wy) < 60) types.push('shoulder');
 
-  // ── 3. Ellbogen: Jacobi-basiert ──
-  // Nur prüfen wenn nicht bereits Wrist erkannt (A5≠0 ausreichend für Jacobi-Test)
-  if (!types.length || types[0] !== 'wrist') {
-    var m = computeManipulability(angles_deg);
-    // Ellbogen: Jacobi singulär aber A5 nicht nahe 0 und nicht Schulter
-    if ((m.manipulability < 0.05 || m.condition > 200) && types.indexOf('wrist') < 0) {
-      types.push('elbow');
-    }
+  // ── 3. Ellbogen: Jacobi-Kondition, unabhängig von Wrist/Schulter ──
+  // isSingular() nutzt numerischen Jacobi (computeManipulability)
+  // Ellbogen liegt vor wenn allgemeine Singularität erkannt,
+  // aber NICHT durch Handgelenk oder Schulter allein erklärbar
+  if (isSingular(angles_deg)) {
+    // Ist es ausschließlich Wrist? → nur dann kein Ellbogen
+    var onlyWrist = types.length === 1 && types[0] === 'wrist';
+    if (!onlyWrist) types.push('elbow');
   }
 
   return types;
