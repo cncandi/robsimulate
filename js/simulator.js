@@ -3820,7 +3820,7 @@ function aPlotDraw() {
       var te = trajectory[ti];
       if (!te || !te.angles) continue;
       var a5 = te.angles[4];
-      if (Math.abs(a5) < SING_THRESH) {
+      if (Math.abs(a5) < 5) {  // 5° Singularitätsschwelle
         // Finde X-Position dieses Trajektorie-Punkts
         var tFrac = ti / Math.max(1, trajectory.length - 1);
         var xpS = ML + tFrac * CW;
