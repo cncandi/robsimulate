@@ -4367,12 +4367,13 @@ function aPlotApply() {
   var hint = document.getElementById('aplot-edit-hint');
   if (hint) hint.style.display = 'none';
   var info = document.getElementById('aplot-info');
-  // parseAndLoad ohne Scan und ohne Map-Neuzeichnen
-  _aPlotSuppressDraw = true;
+  // Map-Canvas sichern, parseAndLoad, Canvas wiederherstellen
+  var _canvas = document.getElementById('aplot-canvas');
+  var _ctx = _canvas ? _canvas.getContext('2d') : null;
+  var _saved = _ctx ? _ctx.getImageData(0, 0, _canvas.width, _canvas.height) : null;
   parseAndLoad();
-  _aPlotSuppressDraw = false;
-  aPlotDraw(); // Map mit bestehenden Scan-Daten neu zeichnen
-  if (info) info.textContent = '✓ Übernommen — MAP-Scan bei nächstem PARSE & LOAD';
+  if (_ctx && _saved) _ctx.putImageData(_saved, 0, 0);
+  if (info) info.textContent = '✓ Übernommen';
 }
 
 // Drag-Handler fuer aplot-panel
