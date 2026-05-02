@@ -1634,43 +1634,31 @@ function isSingular(angles_deg) {
 }
 
 // ── Singularitätstyp-Klassifikation ──────────────────────────
-// Gibt Array zurück: [] | ['wrist'] | ['shoulder'] | ['elbow'] | Kombinationen
-// Schwellwerte:
-//   Wrist:    |sin(A5)| < sin(7°) ≈ 0.12
-//   Shoulder: Handgelenk-XY-Abstand von A1-Achse < 50mm
-//   Elbow:    Arm-Extension zwischen 1% und 3% unter/über Max
+// Wrist:    |sin(A5)| < sin(8°)  → Achsen 4+6 kollinear
+// Shoulder: Handgelenk-XY < 50mm → WZ auf A1-Achse
+// Elbow:    isSingular() && weder Wrist noch Shoulder → Jacobi-Rangabfall
 function classifySingTypes(angles_deg) {
   var types = [];
 
-  // ── 1. Handgelenk-Singularität ──
+  // ── 1. Handgelenk ──
   var a5rad = angles_deg[4] * Math.PI / 180;
-  if (Math.abs(Math.sin(a5rad)) < 0.12) types.push('wrist');
+  if (Math.abs(Math.sin(a5rad)) < 0.14) { types.push('wrist'); }
 
-  // ── 2 + 3. FK für Schulter / Ellbogen ──
+  // ── 2. Schulter ──
   var fk  = fkAll(angles_deg);
   var pts = fk.pts;
-  // pts[0] = Basis, pts[1..6] = Gelenkpositionen, pts[7] = TCP
-  // Handgelenk-Zentrum ≈ pts[4] (Position von Gelenk 4)
-  var wx = pts[4][0], wy = pts[4][1];
-  var wristR = Math.sqrt(wx*wx + wy*wy);
+  var wx  = pts[4][0], wy = pts[4][1];
+  if (Math.sqrt(wx*wx + wy*wy) < 60) { types.push('shoulder'); }
 
-  // ── 2. Schulter-Singularität ──
-  if (wristR < 50) types.push('shoulder');
-
-  // ── 3. Ellbogen-Singularität ──
-  // Abstand Schulter-Gelenk (pts[2]) → Handgelenk (pts[4])
-  var sx = pts[2][0], sy = pts[2][1], sz = pts[2][2];
-  var dx = wx-sx, dy = wy-sy, dz = pts[4][2]-sz;
-  var armDist = Math.sqrt(dx*dx + dy*dy + dz*dz);
-  // Maximale geometrische Reichweite: sqrt(A4.off[0]² + A3.off[2]²) = sqrt(630²+200²) ≈ 661mm
-  // + A5.off[0]=80 ≈ 741mm gesamt
-  var L_MAX = Math.sqrt(
-    JOINTS_DEF[3].off[0]*JOINTS_DEF[3].off[0] +
-    JOINTS_DEF[2].off[2]*JOINTS_DEF[2].off[2]
-  ) + JOINTS_DEF[4].off[0];
-  var L_MIN = Math.abs(JOINTS_DEF[3].off[0] - JOINTS_DEF[4].off[0] - JOINTS_DEF[2].off[2]);
-  if (armDist > L_MAX * 0.96 || Math.abs(armDist - L_MAX) < 50) types.push('elbow');
-  if (L_MIN > 0 && Math.abs(armDist - L_MIN) < 40) types.push('elbow');
+  // ── 3. Ellbogen: Jacobi-basiert ──
+  // Nur prüfen wenn nicht bereits Wrist erkannt (A5≠0 ausreichend für Jacobi-Test)
+  if (!types.length || types[0] !== 'wrist') {
+    var m = computeManipulability(angles_deg);
+    // Ellbogen: Jacobi singulär aber A5 nicht nahe 0 und nicht Schulter
+    if ((m.manipulability < 0.05 || m.condition > 200) && types.indexOf('wrist') < 0) {
+      types.push('elbow');
+    }
+  }
 
   return types;
 }
