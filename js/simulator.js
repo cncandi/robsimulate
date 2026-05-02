@@ -1669,8 +1669,8 @@ function classifySingTypes(angles_deg) {
     JOINTS_DEF[2].off[2]*JOINTS_DEF[2].off[2]
   ) + JOINTS_DEF[4].off[0];
   var L_MIN = Math.abs(JOINTS_DEF[3].off[0] - JOINTS_DEF[4].off[0] - JOINTS_DEF[2].off[2]);
-  if (Math.abs(armDist - L_MAX) < 35 || armDist > L_MAX * 0.98) types.push('elbow');
-  if (L_MIN > 0 && Math.abs(armDist - L_MIN) < 25) types.push('elbow');
+  if (armDist > L_MAX * 0.96 || Math.abs(armDist - L_MAX) < 50) types.push('elbow');
+  if (L_MIN > 0 && Math.abs(armDist - L_MIN) < 40) types.push('elbow');
 
   return types;
 }
@@ -3872,64 +3872,72 @@ function aPlotDraw() {
     ctx.stroke(); ctx.setLineDash([]);
   }
 
-  // ── Singularitäten markieren (3 Typen) ──
-  var SING_COLORS = {
-    wrist:    'rgba(255,180,0,0.30)',    // orange-gelb
-    shoulder: 'rgba(220,60,60,0.30)',    // rot
-    elbow:    'rgba(60,180,220,0.30)'    // cyan
-  };
-  var SING_LABEL_COL = { wrist:'#ffb400', shoulder:'#dc3c3c', elbow:'#3cb4dc' };
-  var SING_LABELS = { wrist:'Handgelenk', shoulder:'Schulter', elbow:'Ellbogen' };
+  // ── Singularitäten markieren (3 Typen) ──────────────────────
+  var SING_COL   = { wrist:'rgba(255,180,0,0.35)', shoulder:'rgba(220,50,50,0.35)', elbow:'rgba(50,180,220,0.35)' };
+  var SING_LCOL  = { wrist:'#ffb400', shoulder:'#dc3232', elbow:'#32b4dc' };
+  var SING_LBL   = { wrist:'Handgelenk', shoulder:'Schulter', elbow:'Ellbogen' };
 
-  if (trajectory && trajectory.length && typeof classifySingTypes === 'function') {
-    ctx.save();
-    // Singularitätsbereiche: zusammenhängende Segmente gleichen Typs zusammenfassen
-    var singRuns = { wrist:[], shoulder:[], elbow:[] };
-    for (var ti = 0; ti < trajectory.length; ti++) {
-      var te = trajectory[ti];
-      if (!te || !te.angles) continue;
-      // X-Position: per Trajektorie-Segment-Index + Pfaddistanz
-      var segIdx = te.segIdx !== undefined ? te.segIdx : Math.round(ti / trajectory.length * (pos.length-1));
-      segIdx = Math.max(0, Math.min(pos.length-1, segIdx));
-      var segFrac = (te.segFrac !== undefined) ? te.segFrac : (ti / Math.max(1, trajectory.length-1));
-      // X via Pfaddistanz
-      var i0 = segIdx, i1 = Math.min(segIdx+1, pos.length-1);
-      var d0 = _aPlotDists[i0]||0, d1 = _aPlotDists[i1]||d0;
-      var dist = d0 + (d1-d0) * (segFrac - Math.floor(segFrac));
-      var xpS = ML + (dist / total) * CW;
+  if (typeof classifySingTypes === 'function' && pos.length) {
+    var singPx = { wrist:[], shoulder:[], elbow:[] };
 
-      var stypes = classifySingTypes(te.angles);
-      stypes.forEach(function(t){ singRuns[t].push(xpS); });
+    // ── Primär: ikTable (immer nach PARSE verfügbar, pro Wegpunkt) ──
+    if (typeof ikTable !== 'undefined' && ikTable.length === pos.length) {
+      for (var si = 0; si < pos.length; si++) {
+        var ik = ikTable[si];
+        if (!ik || !ik.angles) continue;
+        var xpS = ML + (_aPlotDists[si] / total) * CW;
+        classifySingTypes(ik.angles).forEach(function(t){ singPx[t].push(xpS); });
+      }
     }
-    // Streifen zeichnen: je Typ eine zusammenhängende Fläche
-    Object.keys(singRuns).forEach(function(t) {
-      var xs = singRuns[t]; if (!xs.length) return;
-      ctx.fillStyle = SING_COLORS[t];
-      // Zusammenhängende Läufe gruppieren
-      var runStart = xs[0], runEnd = xs[0];
+
+    // ── Sekundär: Trajektorie-Zwischenpunkte (wenn vorhanden) ──
+    if (trajectory && trajectory.length >= 2) {
+      var tDists = [0];
+      for (var ti2 = 1; ti2 < trajectory.length; ti2++) {
+        var pa = trajectory[ti2-1].pos, pb = trajectory[ti2].pos;
+        tDists.push(tDists[ti2-1] + Math.sqrt(
+          Math.pow(pb.X-pa.X,2)+Math.pow(pb.Y-pa.Y,2)+Math.pow(pb.Z-pa.Z,2)));
+      }
+      var tTotal2 = tDists[tDists.length-1] || 1;
+      for (var ti2 = 0; ti2 < trajectory.length; ti2++) {
+        var te = trajectory[ti2];
+        if (!te || !te.angles) continue;
+        var xpS = ML + (tDists[ti2] / tTotal2) * CW;
+        classifySingTypes(te.angles).forEach(function(t){ singPx[t].push(xpS); });
+      }
+      // Deduplizieren
+      Object.keys(singPx).forEach(function(t){
+        singPx[t] = singPx[t].filter(function(v,i,a){ return i===0||Math.abs(v-a[i-1])>1; });
+      });
+    }
+
+    // ── Streifen zeichnen ──
+    ctx.save();
+    Object.keys(singPx).forEach(function(t) {
+      var xs = singPx[t]; if (!xs.length) return;
+      ctx.fillStyle = SING_COL[t];
+      var rs = xs[0], re = xs[0];
       for (var ri = 1; ri <= xs.length; ri++) {
-        if (ri < xs.length && xs[ri] - runEnd < 8) {
-          runEnd = xs[ri];
-        } else {
-          ctx.fillRect(runStart-2, MT, Math.max(4, runEnd-runStart+4), CH);
-          if (ri < xs.length) { runStart = xs[ri]; runEnd = xs[ri]; }
+        if (ri < xs.length && xs[ri] - re < 12) { re = xs[ri]; }
+        else {
+          ctx.fillRect(rs-3, MT, Math.max(6, re-rs+6), CH);
+          if (ri < xs.length) { rs = xs[ri]; re = xs[ri]; }
         }
       }
     });
     ctx.restore();
 
-    // Legende (unten rechts im Diagramm)
+    // ── Legende unten rechts ──
     ctx.save();
     ctx.font = '9px monospace';
-    var lx = ML + CW - 4, ly = MT + CH - 4;
-    var legItems = Object.keys(SING_COLORS).filter(function(t){ return singRuns[t].length>0; });
-    legItems.reverse().forEach(function(t, i) {
-      var yy = ly - i*13;
-      ctx.fillStyle = SING_COLORS[t].replace('0.30','0.6');
-      ctx.fillRect(lx-82, yy-8, 8, 8);
-      ctx.fillStyle = SING_LABEL_COL[t];
-      ctx.textAlign = 'left';
-      ctx.fillText(SING_LABELS[t], lx-72, yy);
+    var lx2 = ML + CW - 4, ly2 = MT + CH - 4;
+    var legItems = ['elbow','shoulder','wrist'].filter(function(t){ return singPx[t].length>0; });
+    legItems.forEach(function(t, i) {
+      var yy = ly2 - i*13;
+      ctx.fillStyle = SING_COL[t].replace('0.35','0.7');
+      ctx.fillRect(lx2-82, yy-8, 8, 8);
+      ctx.fillStyle = SING_LCOL[t]; ctx.textAlign = 'left';
+      ctx.fillText(SING_LBL[t], lx2-72, yy);
     });
     ctx.restore();
   }
