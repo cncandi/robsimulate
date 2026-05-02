@@ -2395,6 +2395,7 @@ function buildTrajectory(positions, ikTab) {
       new THREE.LineBasicMaterial({color:hexToInt((document.getElementById('cfg-planned-col')||{value:'#1a3050'}).value)})
     ));
   }
+  aPlotDraw();
 }
 
 function getTrajSample(t) {
@@ -2496,6 +2497,7 @@ function applySimT(t){ _tween = null;
     const mi=document.getElementById('marker-info');
     if(ip){mi.style.display='block';mi.textContent=`#${idx+1} ${pos[idx].type}  X${ip.X.toFixed(1)} Y${ip.Y.toFixed(1)} Z${ip.Z.toFixed(1)}`;}
   }
+  aPlotDraw();
 }
 
 function updateSignalsForStep(pos){
@@ -3607,6 +3609,156 @@ function setEditorLang(lang) {
     // convertKukaToDRCode();
   }
 }
+
+// ══════════════════════════════════════════════════════
+// A-WINKEL DIAGRAMM
+// ══════════════════════════════════════════════════════
+var _aPlotDists = [];
+
+function toggleAPlot() {
+  var p = document.getElementById('aplot-panel');
+  if (!p) return;
+  var show = p.style.display === 'none' || p.style.display === '';
+  p.style.display = show ? 'block' : 'none';
+  var btn = document.getElementById('btn-aplot');
+  if (btn) btn.classList.toggle('on', show);
+  if (show) aPlotDraw();
+}
+
+function _aPlotCalcDists(pos) {
+  _aPlotDists = [0];
+  for (var i = 1; i < pos.length; i++) {
+    var dx = pos[i].X - pos[i-1].X, dy = pos[i].Y - pos[i-1].Y, dz = pos[i].Z - pos[i-1].Z;
+    _aPlotDists.push(_aPlotDists[i-1] + Math.sqrt(dx*dx + dy*dy + dz*dz));
+  }
+}
+
+function aPlotDraw() {
+  var canvas = document.getElementById('aplot-canvas');
+  var panel  = document.getElementById('aplot-panel');
+  if (!canvas || !panel || panel.style.display === 'none') return;
+  var pos = (parsedData && parsedData.positions) ? parsedData.positions : [];
+  var W = canvas.width, H = canvas.height;
+  var ML=56, MT=14, MR=10, MB=30;
+  var CW = W-ML-MR, CH = H-MT-MB;
+  var ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, W, H);
+
+  // Hintergrund
+  ctx.fillStyle = '#07111a'; ctx.fillRect(0, 0, W, H);
+  ctx.fillStyle = '#0b1925'; ctx.fillRect(ML, MT, CW, CH);
+
+  var AMIN = -360, AMAX = 360, ARNG = 720;
+
+  // Horizontale Gitterlinien + Y-Beschriftung
+  ctx.font = '10px monospace';
+  [-360,-270,-180,-90,0,90,180,270,360].forEach(function(deg) {
+    var yp = MT + (1 - (deg - AMIN) / ARNG) * CH;
+    var isZero = deg === 0, is180 = Math.abs(deg) === 180;
+    ctx.strokeStyle = isZero ? '#1d4060' : '#0d2030';
+    ctx.lineWidth = (isZero || is180) ? 1 : 0.5;
+    ctx.beginPath(); ctx.moveTo(ML, yp); ctx.lineTo(ML + CW, yp); ctx.stroke();
+    ctx.fillStyle  = isZero ? '#70b0d0' : is180 ? '#4a8090' : '#2a5060';
+    ctx.textAlign  = 'right';
+    ctx.fillText(deg + '°', ML - 4, yp + 3.5);
+  });
+
+  // Y-Achsenbeschriftung (rotiert)
+  ctx.save();
+  ctx.translate(10, MT + CH / 2);
+  ctx.rotate(-Math.PI / 2);
+  ctx.fillStyle = '#4a8090'; ctx.font = '10px monospace'; ctx.textAlign = 'center';
+  ctx.fillText('A (Rz) [°]', 0, 0);
+  ctx.restore();
+
+  if (!pos.length) {
+    ctx.fillStyle = '#3a6080'; ctx.font = '13px monospace'; ctx.textAlign = 'center';
+    ctx.fillText('Kein Programm geladen', W / 2, H / 2);
+    return;
+  }
+
+  _aPlotCalcDists(pos);
+  var total = _aPlotDists[_aPlotDists.length - 1] || 1;
+
+  // Vertikale Gitterlinien + X-Beschriftung (Distanz)
+  var xSteps = Math.min(8, pos.length - 1);
+  if (xSteps < 1) xSteps = 1;
+  for (var xs = 0; xs <= xSteps; xs++) {
+    var xf  = xs / xSteps;
+    var xpx = ML + xf * CW;
+    ctx.strokeStyle = '#0d2030'; ctx.lineWidth = 0.5;
+    ctx.beginPath(); ctx.moveTo(xpx, MT); ctx.lineTo(xpx, MT + CH); ctx.stroke();
+    ctx.fillStyle = '#3a6080'; ctx.textAlign = 'center'; ctx.font = '10px monospace';
+    ctx.fillText((xf * total / 1000).toFixed(2) + 'm', xpx, MT + CH + 18);
+  }
+
+  // Rahmen
+  ctx.strokeStyle = '#2a5070'; ctx.lineWidth = 1;
+  ctx.strokeRect(ML, MT, CW, CH);
+
+  // A-Winkel Linie
+  ctx.beginPath(); ctx.strokeStyle = '#f05500'; ctx.lineWidth = 2;
+  pos.forEach(function(p, i) {
+    var xp = ML + (_aPlotDists[i] / total) * CW;
+    var yp = MT + (1 - (p.A - AMIN) / ARNG) * CH;
+    if (i === 0) ctx.moveTo(xp, yp); else ctx.lineTo(xp, yp);
+  });
+  ctx.stroke();
+
+  // Wegpunkte als Punkte
+  pos.forEach(function(p, i) {
+    var xp = ML + (_aPlotDists[i] / total) * CW;
+    var yp = MT + (1 - (p.A - AMIN) / ARNG) * CH;
+    ctx.fillStyle = '#ff8800';
+    ctx.beginPath(); ctx.arc(xp, yp, 3, 0, 2 * Math.PI); ctx.fill();
+  });
+
+  // Simulations-Cursor
+  if (typeof sim !== 'undefined' && pos.length >= 2) {
+    var t  = sim.t;
+    var N  = pos.length;
+    var i0 = Math.max(0, Math.min(N - 1, Math.floor(t)));
+    var i1 = Math.min(i0 + 1, N - 1);
+    var fr = t - i0;
+    var cd = _aPlotDists[i0] + (_aPlotDists[i1] - _aPlotDists[i0]) * fr;
+    var ca = pos[i0].A + (pos[i1].A - pos[i0].A) * fr;
+    var cx = ML + (cd / total) * CW;
+    var cy = MT + (1 - (ca - AMIN) / ARNG) * CH;
+    ctx.strokeStyle = 'rgba(0,200,255,0.55)'; ctx.lineWidth = 1;
+    ctx.setLineDash([4, 3]);
+    ctx.beginPath(); ctx.moveTo(cx, MT); ctx.lineTo(cx, MT + CH); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = '#00ccff';
+    ctx.beginPath(); ctx.arc(cx, cy, 4, 0, 2 * Math.PI); ctx.fill();
+    var info = document.getElementById('aplot-info');
+    if (info) info.textContent = 'A = ' + ca.toFixed(2) + '°  ·  Pos ' + (i0 + 1) + '/' + N + '  ·  ' + (cd / 1000).toFixed(3) + ' m';
+  }
+}
+
+// Drag-Handler fuer aplot-panel
+(function() {
+  var hdr = null, panel = null, ox = 0, oy = 0, px = 0, py = 0;
+  document.addEventListener('DOMContentLoaded', function() {
+    hdr   = document.getElementById('aplot-hdr');
+    panel = document.getElementById('aplot-panel');
+    if (!hdr || !panel) return;
+    hdr.addEventListener('mousedown', function(e) {
+      var r = panel.getBoundingClientRect();
+      ox = e.clientX - r.left; oy = e.clientY - r.top;
+      document.addEventListener('mousemove', onMove);
+      document.addEventListener('mouseup', onUp);
+    });
+    function onMove(e) {
+      panel.style.left   = (e.clientX - ox) + 'px';
+      panel.style.top    = (e.clientY - oy) + 'px';
+      panel.style.bottom = 'auto';
+    }
+    function onUp() {
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
+    }
+  });
+})();
 
 splashProgress(80, 'Programm wird geparst…');
 parseAndLoad();

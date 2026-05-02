@@ -52,6 +52,7 @@
     <button class="sbtn" onclick="clearTCPTrace()" title="TCP Trace loeschen" data-i18n="clrtrace">✕ Trace</button>
     <button class="sbtn r" onclick="resetAll()" title="Alles zuruecksetzen" data-i18n="reset">⟳ Reset</button>
   <button class="sbtn" id="btn-steuer" onclick="toggleSteuerPanel()" title="Steuerungspanel">🖥 Status</button>
+  <button class="sbtn" id="btn-aplot" onclick="toggleAPlot()" title="A-Winkel Diagramm">📈 A-Plot</button>
   <div class="sep"></div>
   <button class="sbtn on" id="btn-grid" title="Grid ein/ausblenden" onclick="toggleGrid()">⊞ Grid</button>
 </div>
@@ -299,6 +300,18 @@
 <script src="./js/i18n.js"></script>
 <script src="./js/dp-solver.js"></script>
 <script src="./js/simulator.js"></script>
+
+<!-- A-Winkel Diagramm -->
+<div id="aplot-panel" style="position:fixed;bottom:60px;left:320px;width:660px;background:rgba(8,18,28,.97);border:1px solid var(--acc);border-radius:5px;z-index:20;display:none;user-select:none;box-shadow:0 4px 20px rgba(0,0,0,.8)">
+  <div id="aplot-hdr" style="display:flex;align-items:center;padding:5px 8px;background:rgba(240,85,0,.12);border-bottom:1px solid rgba(240,85,0,.3);cursor:move;gap:8px">
+    <span style="color:var(--acc);font-weight:bold;font-size:.8em;letter-spacing:1px">A(Rz) — Winkel-Verlauf</span>
+    <span id="aplot-info" style="color:var(--txt2);font-size:.75em;flex:1">—</span>
+    <button onclick="toggleAPlot()" style="background:none;border:none;color:var(--txt2);cursor:pointer;font-size:1em;padding:0 4px;line-height:1">✕</button>
+  </div>
+  <div style="position:relative;padding:6px 6px 4px">
+    <canvas id="aplot-canvas" width="648" height="210" style="display:block;border-radius:3px"></canvas>
+  </div>
+</div>
 
 <!-- Einstellungsfenster -->
 <div id="settings-panel" style="position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);width:360px;background:rgba(10,20,35,.97);border:1px solid var(--acc);border-radius:5px;z-index:25;font-family:'Consolas','Courier New',monospace;box-shadow:0 4px 20px rgba(0,0,0,.7);user-select:none;display:none">

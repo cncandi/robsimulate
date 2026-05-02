@@ -301,3 +301,7 @@ input[type=number] {
   -moz-appearance: textfield !important;
   appearance: textfield !important;
 }
+
+/* A-Plot Diagramm */
+#aplot-panel { font-family: 'Consolas','Courier New',monospace; }
+#aplot-hdr:active { cursor: grabbing; }
