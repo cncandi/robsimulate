@@ -1587,66 +1587,34 @@ function solveIKPrecise(tx, ty, tz, ta, tb, tc, initAngles) {
 }
 
 // ── Jacobi-Singularitätserkennung (PDF Punkt 2) ───────────────
-// ── Numerischer Jacobi + det(J) via LU-Zerlegung ────────────
-// J ist 6×6: Spalten = dTCP/dqi (3 Position mm/° + 3 Orientierung 1/°)
-// Zeilen normiert damit Position und Orientierung vergleichbar sind.
-// det(J_norm) ≈ 0  ↔  Singularität (lineare Abhängigkeit der Spalten)
+// computeManipulability — wird noch für DP-Solver genutzt, bleibt erhalten
 function computeManipulability(angles_deg) {
   var dt = 0.5;
   var e0 = fkTCP_full(angles_deg);
-  // Jacobi aufbauen (6 Spalten × 6 Zeilen)
   var J = [];
   for (var i = 0; i < 6; i++) {
     var q1 = angles_deg.slice(); q1[i] += dt;
     var e1 = fkTCP_full(q1);
     J.push([
-      (e1.pos[0]-e0.pos[0])/dt,
-      (e1.pos[1]-e0.pos[1])/dt,
-      (e1.pos[2]-e0.pos[2])/dt,
-      (e1.rot[0][0]-e0.rot[0][0])/dt,
-      (e1.rot[1][0]-e0.rot[1][0])/dt,
-      (e1.rot[2][0]-e0.rot[2][0])/dt
+      (e1.pos[0]-e0.pos[0])/dt, (e1.pos[1]-e0.pos[1])/dt, (e1.pos[2]-e0.pos[2])/dt,
+      (e1.rot[0][0]-e0.rot[0][0])/dt, (e1.rot[1][0]-e0.rot[1][0])/dt, (e1.rot[2][0]-e0.rot[2][0])/dt
     ]);
   }
-  // Zeilennormen berechnen (für Skalierung Position/Orientierung)
-  var rowNorms = [];
-  for (var r = 0; r < 6; r++) {
-    var s = 0;
-    for (var cc = 0; cc < 6; cc++) s += J[cc][r]*J[cc][r];
-    rowNorms.push(Math.sqrt(s) || 1);
-  }
-  // Matrix A[r][c] = J[c][r] / rowNorms[r]  (zeilennormiert, als Zeilenmatrix)
-  var A = [];
-  for (var r = 0; r < 6; r++) {
-    var row = [];
-    for (var cc = 0; cc < 6; cc++) row.push(J[cc][r] / rowNorms[r]);
-    A.push(row);
-  }
-  // LU-Zerlegung → |det(A)| gibt Maß für Singulärität
-  var det = 1;
-  for (var i = 0; i < 6; i++) {
-    // Partial pivoting
-    var maxV = Math.abs(A[i][i]), maxR = i;
-    for (var r = i+1; r < 6; r++) { if (Math.abs(A[r][i]) > maxV) { maxV = Math.abs(A[r][i]); maxR = r; } }
-    if (maxR !== i) { var tmp = A[i]; A[i] = A[maxR]; A[maxR] = tmp; det *= -1; }
-    if (Math.abs(A[i][i]) < 1e-14) { det = 0; break; }
-    det *= A[i][i];
-    for (var r = i+1; r < 6; r++) {
-      var f = A[r][i] / A[i][i];
-      for (var cc = i; cc < 6; cc++) A[r][cc] -= f * A[i][cc];
-    }
-  }
-  var absDet = Math.abs(det);
-  // Konditionszahl-Proxy: 1/|det| — je kleiner det, desto näher an Singularität
-  return { manipulability: absDet, condition: absDet < 1e-10 ? 1e9 : 1/absDet };
+  var JtJ_diag = Array(6).fill(0);
+  for (var i = 0; i < 6; i++)
+    for (var r = 0; r < 6; r++) JtJ_diag[i] += J[i][r]*J[i][r];
+  var minEig = Math.min.apply(null, JtJ_diag);
+  var maxEig = Math.max.apply(null, JtJ_diag);
+  return { manipulability: minEig, condition: maxEig / Math.max(minEig, 1e-9) };
 }
 
-var SING_DET_THRESH = 0.05;  // |det(J_norm)| < 0.05 → Singularität
+var SING_MANIP_THRESH = 0.001;
+var SING_COND_THRESH  = 500;
 
 function isSingular(angles_deg) {
-  if (Math.abs(angles_deg[4]) < 8) return true;  // Wrist-Vorfilter
+  if (Math.abs(angles_deg[4]) < 8) return true;
   var m = computeManipulability(angles_deg);
-  return m.manipulability < SING_DET_THRESH;
+  return (m.manipulability < SING_MANIP_THRESH || m.condition > SING_COND_THRESH);
 }
 
 // ── Singularitätstyp-Klassifikation ──────────────────────────
@@ -1656,24 +1624,21 @@ function isSingular(angles_deg) {
 function classifySingTypes(angles_deg) {
   var types = [];
 
-  // ── 1. Handgelenk: A5 nahe 0° oder ±180° ──
+  // ── 1. Handgelenk: sin(A5) ≈ 0  →  A4 und A6 kollinear ──────
   var a5rad = angles_deg[4] * Math.PI / 180;
   if (Math.abs(Math.sin(a5rad)) < 0.14) types.push('wrist');
 
-  // ── 2. Schulter: Handgelenk-Zentrum auf A1-Achse ──
+  // ── 2. Schulter: Handgelenk-XY auf A1-Achse ──────────────────
   var fk = fkAll(angles_deg), pts = fk.pts;
   var wx = pts[4][0], wy = pts[4][1];
   if (Math.sqrt(wx*wx + wy*wy) < 60) types.push('shoulder');
 
-  // ── 3. Ellbogen: Jacobi-Kondition, unabhängig von Wrist/Schulter ──
-  // isSingular() nutzt numerischen Jacobi (computeManipulability)
-  // Ellbogen liegt vor wenn allgemeine Singularität erkannt,
-  // aber NICHT durch Handgelenk oder Schulter allein erklärbar
-  if (isSingular(angles_deg)) {
-    // Ist es ausschließlich Wrist? → nur dann kein Ellbogen
-    var onlyWrist = types.length === 1 && types[0] === 'wrist';
-    if (!onlyWrist) types.push('elbow');
-  }
+  // ── 3. Ellbogen (Streckstellung): cos(A3) ≈ 0 ────────────────
+  // Analytisch: d(Armreichweite)/d(A3) = 630·200·cos(A3)/dist
+  // Nullstelle bei A3 = ±90°  →  arm an max. oder min. Extension
+  // FK_SIGNS[2] = 1, also effektiver Winkel = A3_deg
+  var a3rad = angles_deg[2] * Math.PI / 180;
+  if (Math.abs(Math.cos(a3rad)) < 0.17) types.push('elbow'); // ±80°..±100°
 
   return types;
 }
