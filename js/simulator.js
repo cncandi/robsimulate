@@ -3998,7 +3998,7 @@ function aPlotApply() {
   if (hint) hint.style.display = 'none';
   parseAndLoad();
   aPlotDraw();
-  alert('✓ ' + moved + ' A-Werte übernommen');
+
 }
 
 // Drag-Handler fuer aplot-panel
