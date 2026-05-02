@@ -4134,21 +4134,39 @@ function aPlotAutoSolve() {
     for (var s = 0; s < states; s++) dp[k][s] = { cost: INF, pk: -1, ps: -1 };
   }
 
-  // Singularitäts-Strafe: singuläre A-Schritte kosten extra
-  var SING_PENALTY = 45; // °-Äquivalent pro Singularitätstyp
-  function singCost(nodeIdx, stepIdx) {
-    if (!_aPlotReachSing) return 0;
+  // Kosten pro A-Schritt: Singularität + Pufferzone zu gelben Bereichen
+  var SING_PENALTY   = 300;  // singuläre Schritte stark bestrafen
+  var BUFFER_PENALTY = 80;   // Schritte neben gelben Bereichen bestrafen
+  var BUFFER_WIDTH   = 2;    // Schritte Abstand zu unreachable Zone
+
+  function stepCost(nodeIdx, stepIdx) {
     var nd = nodes[nodeIdx];
-    if (nd.type !== 'wp') return 0;
-    var sing = _aPlotReachSing[nd.idx] && _aPlotReachSing[nd.idx][stepIdx];
-    return sing ? sing.length * SING_PENALTY : 0;
+    var reach = nd.reach;
+    if (!reach) return 0;
+    var cost = 0;
+    // Singularitäts-Strafe
+    if (nd.type === 'wp' && _aPlotReachSing) {
+      var sing = _aPlotReachSing[nd.idx] && _aPlotReachSing[nd.idx][stepIdx];
+      if (sing && sing.length) cost += sing.length * SING_PENALTY;
+    }
+    // Puffer: Abstand zu unreachable Nachbarn
+    for (var buf = 1; buf <= BUFFER_WIDTH; buf++) {
+      var lo = stepIdx - buf, hi = stepIdx + buf;
+      if ((lo >= 0 && !reach[lo]) || (hi < reach.length && !reach[hi])) {
+        cost += BUFFER_PENALTY / buf;
+        break;
+      }
+    }
+    return cost;
   }
+  // Alias für WP-spezifische Aufrufe
+  function singCost(nodeIdx, stepIdx) { return stepCost(nodeIdx, stepIdx); }
 
   // Startpunkt wp[0]
   var startA = pos[0].A;
   for (var s = 0; s < NSTEPS; s++) {
     if (!nodes[0].reach[s]) continue;
-    dp[0][s].cost = Math.abs((-360 + s*ASTEP) - startA) + singCost(0, s);
+    dp[0][s].cost = Math.abs((-360 + s*ASTEP) - startA) + stepCost(0, s);
   }
 
   // DP vorwärts
@@ -4194,7 +4212,13 @@ function aPlotAutoSolve() {
         var midStep = Math.round((aFrom + 360) / ASTEP);
         midStep = Math.max(0, Math.min(NSTEPS-1, midStep));
         var bypOk = nd.reach[midStep]; // erreichbar am Mittelpunkt?
-        var bypCost = dp[pkv][ps].cost + (bypOk ? 0 : 60); // Strafe wenn gelb
+        // Puffer-Check für Bypass
+        var bypBuf = 0;
+        for (var _b = 1; _b <= BUFFER_WIDTH; _b++) {
+          var _lo = midStep-_b, _hi = midStep+_b;
+          if ((_lo>=0 && !nd.reach[_lo])||(_hi<nd.reach.length&&!nd.reach[_hi])) { bypBuf=BUFFER_PENALTY/_b; break; }
+        }
+        var bypCost = dp[pkv][ps].cost + (bypOk ? bypBuf : 300); // hohe Strafe wenn gelb
         if (bypCost < dp[k][BYPASS].cost) {
           dp[k][BYPASS] = {cost:bypCost, pk:pkv, ps, _bypA:aFrom};
         }
