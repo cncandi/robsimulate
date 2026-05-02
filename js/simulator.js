@@ -3866,6 +3866,9 @@ function aPlotDraw() {
       if (hint) hint.style.display = '';
       aPlotDraw();
       aPlotLivePreview(_aPlotDragIdx, newA);
+      // Status aktualisieren
+      var info = document.getElementById('aplot-info');
+      if (info) info.textContent = 'P' + (_aPlotDragIdx+1) + '  A = ' + newA.toFixed(1) + '°  ✎ ziehen';
     });
     document.addEventListener('mouseup', function() {
       _aPlotDragging = false; _aPlotDragIdx = -1;
