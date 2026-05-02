@@ -2521,8 +2521,11 @@ function buildTrajectory(positions, ikTab) {
   }
   aPlotDraw();
   // Reachability-Scan asynchron starten
-  _aPlotReach = null; _aPlotReachMid = null; _aPlotReachAngles = null; _aPlotReachSing = null;
-  setTimeout(function() { try { aPlotScanReachability(); } catch(e){} }, 200);
+  if (_aPlotScanPending) {
+    _aPlotScanPending = false;
+    _aPlotReach = null; _aPlotReachMid = null; _aPlotReachAngles = null; _aPlotReachSing = null;
+    setTimeout(function() { try { aPlotScanReachability(); } catch(e){} }, 200);
+  }
 }
 
 function getTrajSample(t) {
@@ -3170,7 +3173,7 @@ function parseAndLoad(){
   },10);
 }
 
-document.getElementById('parse-btn').addEventListener('click',parseAndLoad);
+document.getElementById('parse-btn').addEventListener('click',function(){ _aPlotScanPending=true; parseAndLoad(); });
 
 // ═══════════════════════════════════════════════════
 // INIT
@@ -3688,6 +3691,7 @@ var _aPlotReach       = null;  // [{ok:[bool,…]}] pro Wegpunkt
 var _aPlotReachMid    = null;  // [{ok:[bool,…]}] pro Mittelpunkt
 var _aPlotReachAngles = null;  // [[angles|null,…]] IK-Lösung pro Wegpunkt × A-Step
 var _aPlotReachSing   = null;  // [[types[],…]] Singularitätstypen pro Wegpunkt × A-Step
+var _aPlotScanPending = false; // Scan nur starten wenn explizit angefordert
 var _aPlotReachScanId = 0;
 var _aPlotAutoInserts = []; // [{afterIdx, X,Y,Z,A,B,C}] eingefügte Hilfspunkte
 var _aPlotDragIdx  = -1;
@@ -4390,7 +4394,7 @@ window.addEventListener('load', function() {
       var show = p.style.display === 'none';
       p.style.display = show ? 'block' : 'none';
       _abtn.classList.toggle('on', show);
-      if (show) { try { aPlotDraw(); } catch(e) { console.error('aPlotDraw:', e); } }
+      if (show) { try { if (!_aPlotReach) { _aPlotScanPending=true; parseAndLoad(); } else { aPlotDraw(); } } catch(e) { console.error('aPlotDraw:', e); } }
     };
   }
 
