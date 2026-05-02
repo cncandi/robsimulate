@@ -60,12 +60,11 @@
 <div class="main">
   <!-- EDITOR -->
   <div class="ep">
-    <div class="pt" style="display:flex;align-items:center;gap:8px">
+    <div class="pt">
       <span id="editor-lang-label">KRL Programm</span>
-      <span style="color:var(--txt3);text-transform:none;font-size:1.1em;flex:1">— Zeile klicken = Breakpoint</span>
-      <select id="format-select" onchange="FormatRegistry.setActive(this.value)"
-        style="background:var(--bg3);color:var(--txt);border:1px solid var(--bdr);border-radius:4px;
-               padding:2px 6px;font-family:inherit;font-size:.85em;cursor:pointer;flex-shrink:0"></select>
+      <span style="color:var(--txt3);text-transform:none;font-size:1em;flex:1;letter-spacing:0">— Zeile klicken = Breakpoint</span>
+      <select id="format-select" onchange="FormatRegistry.setActive(this.value)" class="sbtn"
+        style="cursor:pointer;flex-shrink:0;font-size:1em;padding:2px 6px"></select>
     </div>
     <div class="ew">
       <div id="gutter"></div>

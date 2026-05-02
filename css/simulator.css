@@ -45,8 +45,8 @@ input[type=range].ss::-webkit-slider-thumb{-webkit-appearance:none;width:12px;he
 /* EDITOR */
 .ep{width:300px;min-width:180px;background:var(--bg1);border-right:2px solid var(--acc);
     display:flex;flex-direction:column;flex-shrink:0}
-.pt{background:var(--bg4);padding:8px 9px;font-size:.66em;color:var(--acc);text-transform:uppercase;
-    letter-spacing:1px;border-bottom:1px solid var(--bdr);flex-shrink:0}
+.pt{background:var(--bg4);padding:6px 9px;font-size:.8em;color:var(--acc);text-transform:uppercase;
+    letter-spacing:1px;border-bottom:1px solid var(--bdr);flex-shrink:0;display:flex;align-items:center;gap:8px}
 .ew{flex:1;display:flex;overflow:hidden}
 #gutter{width:var(--gw);background:var(--bg1);overflow:hidden;flex-shrink:0;
   padding-top:var(--pv);user-select:none;border-right:1px solid var(--bdr)}
