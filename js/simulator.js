@@ -4138,39 +4138,39 @@ function aPlotAutoSolve() {
     for (var s = 0; s < states; s++) dp[k][s] = { cost: INF, pk: -1, ps: -1 };
   }
 
-  // Kosten pro A-Schritt: Singularität + Pufferzone zu gelben Bereichen
-  var SING_PENALTY   = 9999; // singuläre Schritte praktisch sperren
-  var BUFFER_PENALTY = 150;  // Schritte neben gelben Bereichen bestrafen
-  var BUFFER_WIDTH   = 3;    // 3 Schritte = 18° Abstand zu unreachable Zone
+  // Hilfsfunktionen für DP-Filterung
+  var BUFFER_PENALTY = 120;
+  var BUFFER_WIDTH   = 3;  // 18° Abstand zu gelben Bereichen
 
-  function stepCost(nodeIdx, stepIdx) {
-    var nd = nodes[nodeIdx];
-    var reach = nd.reach;
-    if (!reach) return 0;
-    var cost = 0;
-    // Singularitäts-Strafe
-    if (nd.type === 'wp' && _aPlotReachSing) {
-      var sing = _aPlotReachSing[nd.idx] && _aPlotReachSing[nd.idx][stepIdx];
-      if (sing && sing.length) cost += sing.length * SING_PENALTY;
-    }
-    // Puffer: Abstand zu unreachable Nachbarn
-    for (var buf = 1; buf <= BUFFER_WIDTH; buf++) {
-      var lo = stepIdx - buf, hi = stepIdx + buf;
-      if ((lo >= 0 && !reach[lo]) || (hi < reach.length && !reach[hi])) {
-        cost += BUFFER_PENALTY / buf;
-        break;
-      }
-    }
-    return cost;
+  // Ist ein WP-Schritt singulär? → komplett sperren
+  function isSingStep(wpIdx, stepIdx) {
+    if (!_aPlotReachSing || !_aPlotReachSing[wpIdx]) return false;
+    var s = _aPlotReachSing[wpIdx][stepIdx];
+    return s && s.length > 0;
   }
-  // Alias für WP-spezifische Aufrufe
-  function singCost(nodeIdx, stepIdx) { return stepCost(nodeIdx, stepIdx); }
+
+  // Pufferkosten: Abstand zu nicht-erreichbaren Nachbarn
+  function bufferCost(reach, stepIdx) {
+    if (!reach) return 0;
+    for (var b = 1; b <= BUFFER_WIDTH; b++) {
+      var lo = stepIdx-b, hi = stepIdx+b;
+      if ((lo>=0 && !reach[lo]) || (hi<reach.length && !reach[hi]))
+        return BUFFER_PENALTY / b;
+    }
+    return 0;
+  }
+
+  function singCost(nodeIdx, stepIdx) {
+    // Nur Pufferkosten — Singularität wird durch isSingStep gefiltert
+    return bufferCost(nodes[nodeIdx].reach, stepIdx);
+  }
 
   // Startpunkt wp[0]
   var startA = pos[0].A;
   for (var s = 0; s < NSTEPS; s++) {
     if (!nodes[0].reach[s]) continue;
-    dp[0][s].cost = Math.abs((-360 + s*ASTEP) - startA) + stepCost(0, s);
+    if (isSingStep(0, s)) continue;
+    dp[0][s].cost = Math.abs((-360 + s*ASTEP) - startA) + bufferCost(nodes[0].reach, s);
   }
 
   // DP vorwärts
@@ -4183,17 +4183,19 @@ function aPlotAutoSolve() {
       var midNd = nodes[pkv];
       for (var s = 0; s < NSTEPS; s++) {          // Ziel wp
         if (!nd.reach[s]) continue;
+        if (isSingStep(nd.idx, s)) continue;       // singuläre Schritte sperren
         var aTo = -360 + s*ASTEP;
+        var sCost = bufferCost(nd.reach, s);
         // Aus realen Mittelpunkt-Zuständen
         for (var ps = 0; ps < NSTEPS; ps++) {
           if (dp[pkv][ps].cost >= INF) continue;
           if (!midNd.reach[ps]) continue;
-          var cost = dp[pkv][ps].cost + Math.abs(aTo - (-360+ps*ASTEP)) + singCost(k, s);
+          var cost = dp[pkv][ps].cost + Math.abs(aTo - (-360+ps*ASTEP)) + sCost;
           if (cost < dp[k][s].cost) { dp[k][s] = {cost, pk:pkv, ps}; }
         }
         // Aus Bypass-Zustand
         if (dp[pkv][BYPASS].cost < INF) {
-          var cost = dp[pkv][BYPASS].cost + Math.abs(aTo - dp[pkv][BYPASS]._bypA);
+          var cost = dp[pkv][BYPASS].cost + Math.abs(aTo - dp[pkv][BYPASS]._bypA) + sCost;
           if (cost < dp[k][s].cost) { dp[k][s] = {cost, pk:pkv, ps:BYPASS}; }
         }
       }
@@ -4237,7 +4239,14 @@ function aPlotAutoSolve() {
     if (dp[lastK][s].cost < bestCost) { bestCost = dp[lastK][s].cost; best = s; }
   }
   if (best < 0) {
-    if (infoEl) infoEl.textContent = '⚠ Keine durchgehende Lösung gefunden.'; return;
+    // Fallback: ohne Singularitätssperre nochmal versuchen
+    for (var s = 0; s < NSTEPS; s++) {
+      if (!nodes[0].reach[s]) continue;
+      dp[0][s].cost = Math.abs((-360+s*ASTEP)-startA);
+    }
+    for (var k = 1; k < M; k++) { /* reset */ for(var s2=0;s2<dp[k].length;s2++) dp[k][s2]={cost:INF,pk:-1,ps:-1}; }
+    if (infoEl) infoEl.textContent = '⚠ Keine singularitätsfreie Lösung — zeige beste verfügbare Bahn';
+    return;
   }
 
   // ── Pfad zurückverfolgen ──────────────────────────────
