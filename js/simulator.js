@@ -2123,6 +2123,59 @@ function renderSTLEntry(idx){
 function updateSTL(idx){const mesh=(stlObjects[idx]&&stlObjects[idx].mesh);if(!mesh)return;const g=ax=>parseFloat(document.getElementById(`sx${idx}-${ax}`).value)||0;mesh.position.set(g('x'),g('y'),g('z'));mesh.setRotationFromEuler(kukaEuler(g('a'),g('b'),g('c')));}
 function removeSTL(idx){const obj=stlObjects[idx];if(!obj)return;stlGrp.remove(obj.mesh);obj.mesh.geometry.dispose();obj.mesh.material.dispose();((obj&&obj.el)&&obj.el.remove());stlObjects[idx]=null;if(document.getElementById('stl-list').children.length===0)document.getElementById('stl-list').innerHTML='<div class="empty">' + t('no_stl') + '</div>';}
 
+// Auto-Load STL Dateien vom Server (stl/ Ordner)
+function autoLoadSTLFiles() {
+  var axisFiles = ['a1.stl','a2.stl','a3.stl','a4.stl','a5.stl','a6.stl'];
+  var base = 'stl/';
+
+  axisFiles.forEach(function(name, idx) {
+    fetch(base + name)
+      .then(function(r) { if(!r.ok) throw new Error('not found'); return r.arrayBuffer(); })
+      .then(function(buf) {
+        var geo = stlLoader.parse(buf);
+        geo.computeVertexNormals();
+        if (axisSTLMeshes[idx]) { scene.remove(axisSTLMeshes[idx]); axisSTLMeshes[idx].geometry.dispose(); }
+        axisSTLMeshes[idx] = new THREE.Mesh(geo, new THREE.MeshPhongMaterial({color:0xe8a020,shininess:80}));
+        scene.add(axisSTLMeshes[idx]);
+        axisSTLBase64[idx] = btoa(String.fromCharCode.apply(null, new Uint8Array(buf)));
+        if (!window._axisSTLBuffers) window._axisSTLBuffers = {};
+        window._axisSTLBuffers[idx] = buf;
+        var nameEl = document.getElementById('asl-name'+idx);
+        var delEl  = document.getElementById('asl-del'+idx);
+        if (nameEl) nameEl.textContent = name.replace(/\.stl$/i,'');
+        if (delEl)  delEl.style.display = '';
+        buildRobotModel(jointAngles);
+      })
+      .catch(function() {}); // Datei nicht vorhanden → ignorieren
+  });
+
+  // Podest
+  fetch(base + 'podest.stl')
+    .then(function(r) { if(!r.ok) throw new Error(); return r.arrayBuffer(); })
+    .then(function(buf) {
+      var geo = stlLoader.parse(buf); geo.computeVertexNormals();
+      if (pedestalMesh) { scene.remove(pedestalMesh); pedestalMesh.geometry.dispose(); }
+      pedestalMesh = new THREE.Mesh(geo, new THREE.MeshPhongMaterial({color:0x446688,shininess:60}));
+      scene.add(pedestalMesh);
+      var nb = document.getElementById('pedestal-name');
+      if (nb) nb.textContent = 'podest';
+    })
+    .catch(function() {});
+
+  // Werkzeug
+  fetch(base + 'tool1_tcp.stl')
+    .then(function(r) { if(!r.ok) throw new Error(); return r.arrayBuffer(); })
+    .then(function(buf) {
+      var geo = stlLoader.parse(buf); geo.computeVertexNormals();
+      if (toolMesh) { scene.remove(toolMesh); toolMesh.geometry.dispose(); }
+      toolMesh = new THREE.Mesh(geo, new THREE.MeshPhongMaterial({color:0x334455,shininess:40,transparent:true,opacity:0.8}));
+      scene.add(toolMesh);
+      var nt = document.getElementById('tool-name');
+      if (nt) nt.textContent = 'tool1_tcp';
+    })
+    .catch(function() {});
+}
+
 // ═══════════════════════════════════════════════════
 // SIMULATION ENGINE
 // ═══════════════════════════════════════════════════
@@ -3771,7 +3824,11 @@ window.addEventListener('load', function() {
   initSettings();
   bindSettingsEvents();
   splashProgress(100, 'Bereit.');
-  setTimeout(splashHide, 400);
+  setTimeout(function() {
+    splashHide();
+    // STL-Dateien automatisch laden wenn vorhanden
+    autoLoadSTLFiles();
+  }, 400);
 
   // A-Plot button — direkte Bindung nach DOM-Load
   var _abtn = document.getElementById('btn-aplot');
