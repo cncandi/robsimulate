@@ -3674,8 +3674,10 @@ function setEditorLang(lang) { FormatRegistry.setActive(lang); }
 var _aPlotDists = [];
 var _aPlotEdits = {};   // {idx: newA} — geänderte A-Werte
 var _aPlotDragging = false;
-var _aPlotReach = null;  // [{ok:[bool,…]}, …] pro Wegpunkt, 6°-Schritte von -360
-var _aPlotReachScanId = 0; // für Abbruch laufender Scans
+var _aPlotReach    = null;  // [{ok:[bool,…]}] pro Wegpunkt
+var _aPlotReachMid = null;  // [{ok:[bool,…]}] pro Mittelpunkt zwischen Wegpunkten
+var _aPlotReachScanId = 0;
+var _aPlotAutoInserts = []; // [{afterIdx, X,Y,Z,A,B,C}] eingefügte Hilfspunkte
 var _aPlotDragIdx  = -1;
 var _aPlotML = 56, _aPlotMT = 14, _aPlotMR = 10, _aPlotMB = 30;
 var _aPlotAMIN = -360, _aPlotAMAX = 360;
@@ -3939,134 +3941,206 @@ function aPlotLivePreview(idx, newA) {
   if (res && res.ok) applyAngles(res.angles);
 }
 
-// Reachability-Scan: pro Wegpunkt A-Bereich -360…+360 in 6°-Schritten testen
+// Reachability-Scan: Wegpunkte + Mittelpunkte, 6°-Schritte
 function aPlotScanReachability() {
   var pos = (parsedData && parsedData.positions) ? parsedData.positions : [];
-  if (!pos.length) { _aPlotReach = null; return; }
-  _aPlotReach = null;
+  if (!pos.length) { _aPlotReach = null; _aPlotReachMid = null; return; }
+  _aPlotReach = null; _aPlotReachMid = null;
   var ASTEP = 6, NSTEPS = Math.round(720 / ASTEP);
   var scanId = ++_aPlotReachScanId;
-  var result = [];
-  var pi = 0;
+  var wpResult  = [];
+  var midResult = [];
 
+  // Alle Scan-Positionen: wp0, mid01, wp1, mid12, …, wp[N-1]
+  var scanList = [];
+  for (var i = 0; i < pos.length; i++) {
+    scanList.push({ type:'wp', idx:i, p: pos[i] });
+    if (i < pos.length - 1) {
+      // Mittelpunkt
+      var p0 = pos[i], p1 = pos[i+1];
+      scanList.push({ type:'mid', idx:i, p:{
+        X:(p0.X+p1.X)/2, Y:(p0.Y+p1.Y)/2, Z:(p0.Z+p1.Z)/2,
+        B:(p0.B+p1.B)/2, C:(p0.C+p1.C)/2
+      }});
+    }
+  }
+
+  var si = 0;
   function scanNext() {
-    if (scanId !== _aPlotReachScanId) return; // veraltet
-    if (pi >= pos.length) {
-      _aPlotReach = result;
+    if (scanId !== _aPlotReachScanId) return;
+    if (si >= scanList.length) {
+      _aPlotReach    = wpResult;
+      _aPlotReachMid = midResult;
       aPlotDraw();
       return;
     }
-    var p = pos[pi];
+    var item = scanList[si];
+    var p = item.p;
     var initQ = jointAngles.slice();
-    // Warm-Start aus Trajektorie falls vorhanden
-    if (trajectory && trajectory.length) {
-      for (var ti = trajectory.length-1; ti >= 0; ti--) {
-        if (trajectory[ti].segIdx === pi) { initQ = trajectory[ti].angles; break; }
-      }
-    }
     var reach = new Array(NSTEPS);
-    for (var si = 0; si < NSTEPS; si++) {
-      var aTest = -360 + si * ASTEP;
+    for (var s = 0; s < NSTEPS; s++) {
+      var aTest = -360 + s * ASTEP;
       var res = solveIKPrecise(p.X, p.Y, p.Z, aTest, p.B, p.C, initQ);
-      reach[si] = !!(res && res.ok);
-      if (reach[si]) initQ = res.angles; // Warm-Start weitergeben
+      reach[s] = !!(res && res.ok);
+      if (reach[s]) initQ = res.angles;
     }
-    result.push(reach);
-    pi++;
+    if (item.type === 'wp') wpResult.push(reach);
+    else                    midResult.push(reach);
+    si++;
     setTimeout(scanNext, 0);
   }
   setTimeout(scanNext, 0);
 }
 
-// ── Auto-Lösung: DP über erreichbare A-Werte ─────────────────
+// ── Auto-Lösung: erweitertes DP mit optionalen Mittelpunkt-Hilfspunkten ──
+// Knotenfolge: wp0, mid01, wp1, mid12, …, wp[N-1]
+// Mittelpunkte sind OPTIONAL: Bypass kostet 0 wenn direkte Interpolation erreichbar,
+// sonst wird ein Hilfspunkt mit C_DIS eingefügt.
 function aPlotAutoSolve() {
   var infoEl = document.getElementById('aplot-info');
-  var btn    = document.getElementById('aplot-auto-btn');
-
-  // Scan muss vorliegen
-  if (!_aPlotReach) {
-    if (infoEl) infoEl.textContent = 'Scan läuft noch — bitte warten…';
-    return;
+  if (!_aPlotReach || !_aPlotReachMid) {
+    if (infoEl) infoEl.textContent = 'Scan läuft noch — bitte warten…'; return;
   }
   var pos = (parsedData && parsedData.positions) ? parsedData.positions : [];
   if (!pos.length) { if (infoEl) infoEl.textContent = 'Kein Programm geladen.'; return; }
   if (_aPlotReach.length !== pos.length) {
-    if (infoEl) infoEl.textContent = 'Scan nicht aktuell — bitte neu parsen.'; return;
+    if (infoEl) infoEl.textContent = 'Scan veraltet — bitte neu parsen.'; return;
   }
 
-  var ASTEP = 6, NSTEPS = Math.round(720 / ASTEP); // 120 Schritte
-  var INF   = 1e9;
+  var ASTEP = 6, NSTEPS = Math.round(720 / ASTEP), INF = 1e9;
+  var N = pos.length;
 
-  // DP-Tabelle: dp[i][s] = {cost, prev}
-  // s = A-Step-Index (0..119), A-Wert = -360 + s*6
+  // ── Knotenfolge aufbauen ──────────────────────────────
+  // nodes[k] = { type:'wp'|'mid', idx, reach[NSTEPS] }
+  // Mittelpunkt idx=i liegt zwischen wp[i] und wp[i+1]
+  var nodes = [];
+  for (var i = 0; i < N; i++) {
+    nodes.push({ type:'wp',  idx:i, reach:_aPlotReach[i] });
+    if (i < N-1)
+      nodes.push({ type:'mid', idx:i, reach:_aPlotReachMid[i] });
+  }
+  var M = nodes.length; // 2N-1
+
+  // ── DP: dp[k][s] = {cost, prev_k, prev_s} ────────────
+  // Für Mittelpunkte: Zustand NSTEPS = "Bypass" (kein Hilfspunkt)
+  var BYPASS = NSTEPS; // extra Zustand
   var dp = [];
-  for (var i = 0; i < pos.length; i++) {
-    dp.push(new Array(NSTEPS));
-    for (var s = 0; s < NSTEPS; s++) dp[i][s] = { cost: INF, prev: -1 };
+  for (var k = 0; k < M; k++) {
+    var states = (nodes[k].type === 'mid') ? NSTEPS + 1 : NSTEPS;
+    dp.push(new Array(states));
+    for (var s = 0; s < states; s++) dp[k][s] = { cost: INF, pk: -1, ps: -1 };
   }
 
-  // Startpunkt: alle erreichbaren A-Werte, Präferenz: nah am aktuellen A
-  var curA = pos[0].A;
+  // Startpunkt wp[0]
+  var startA = pos[0].A;
   for (var s = 0; s < NSTEPS; s++) {
-    if (!_aPlotReach[0][s]) continue;
-    var aVal = -360 + s * ASTEP;
-    dp[0][s].cost = Math.abs(aVal - curA);
-    dp[0][s].prev = -1;
+    if (!nodes[0].reach[s]) continue;
+    dp[0][s].cost = Math.abs((-360 + s*ASTEP) - startA);
   }
 
   // DP vorwärts
-  for (var i = 1; i < pos.length; i++) {
-    var prevCurA = pos[i-1].A;
-    for (var s = 1; s < NSTEPS; s++) {           // Ziel-Step
-      if (!_aPlotReach[i][s]) continue;
-      var aTo = -360 + s * ASTEP;
-      for (var ps = 0; ps < NSTEPS; ps++) {      // Quell-Step
-        if (dp[i-1][ps].cost >= INF) continue;
-        if (!_aPlotReach[i-1][ps]) continue;
-        var aFrom = -360 + ps * ASTEP;
-        // Übergang: Kosten = Winkeländerung
-        var delta = Math.abs(aTo - aFrom);
-        var newCost = dp[i-1][ps].cost + delta;
-        if (newCost < dp[i][s].cost) {
-          dp[i][s].cost = newCost;
-          dp[i][s].prev = ps;
+  for (var k = 1; k < M; k++) {
+    var nd  = nodes[k];
+    var pkv = k - 1;
+
+    if (nd.type === 'wp') {
+      // Von Mittelpunkt (k-1) zu Wegpunkt (k)
+      var midNd = nodes[pkv];
+      for (var s = 0; s < NSTEPS; s++) {          // Ziel wp
+        if (!nd.reach[s]) continue;
+        var aTo = -360 + s*ASTEP;
+        // Aus realen Mittelpunkt-Zuständen
+        for (var ps = 0; ps < NSTEPS; ps++) {
+          if (dp[pkv][ps].cost >= INF) continue;
+          if (!midNd.reach[ps]) continue;
+          var cost = dp[pkv][ps].cost + Math.abs(aTo - (-360+ps*ASTEP));
+          if (cost < dp[k][s].cost) { dp[k][s] = {cost, pk:pkv, ps}; }
+        }
+        // Aus Bypass-Zustand
+        if (dp[pkv][BYPASS].cost < INF) {
+          var cost = dp[pkv][BYPASS].cost + Math.abs(aTo - dp[pkv][BYPASS]._bypA);
+          if (cost < dp[k][s].cost) { dp[k][s] = {cost, pk:pkv, ps:BYPASS}; }
+        }
+      }
+    } else {
+      // Von Wegpunkt (k-1) zu Mittelpunkt (k)
+      var wpNd = nodes[pkv];
+      for (var ps = 0; ps < NSTEPS; ps++) {       // Quell wp
+        if (dp[pkv][ps].cost >= INF) continue;
+        if (!wpNd.reach[ps]) continue;
+        var aFrom = -360 + ps*ASTEP;
+        // → reale Mittelpunkt-Zustände
+        for (var s = 0; s < NSTEPS; s++) {
+          if (!nd.reach[s]) continue;
+          var aTo   = -360 + s*ASTEP;
+          var cost  = dp[pkv][ps].cost + Math.abs(aTo - aFrom);
+          if (cost < dp[k][s].cost) { dp[k][s] = {cost, pk:pkv, ps}; }
+        }
+        // → Bypass: kostenfrei, aber nur wenn aFrom erreichbar am Mittelpunkt
+        // Bypass-A = aFrom (wird linear weitergegeben)
+        var midStep = Math.round((aFrom + 360) / ASTEP);
+        midStep = Math.max(0, Math.min(NSTEPS-1, midStep));
+        var bypOk = nd.reach[midStep]; // erreichbar am Mittelpunkt?
+        var bypCost = dp[pkv][ps].cost + (bypOk ? 0 : 60); // Strafe wenn gelb
+        if (bypCost < dp[k][BYPASS].cost) {
+          dp[k][BYPASS] = {cost:bypCost, pk:pkv, ps, _bypA:aFrom};
         }
       }
     }
   }
 
-  // Bestes Ende finden
-  var N    = pos.length;
+  // Bestes Ende (letzter Wegpunkt)
+  var lastK = M - 1;
   var best = -1, bestCost = INF;
   for (var s = 0; s < NSTEPS; s++) {
-    if (dp[N-1][s].cost < bestCost) { bestCost = dp[N-1][s].cost; best = s; }
+    if (dp[lastK][s].cost < bestCost) { bestCost = dp[lastK][s].cost; best = s; }
   }
-
   if (best < 0) {
-    if (infoEl) infoEl.textContent = '⚠ Keine durchgehende Lösung gefunden.';
-    return;
+    if (infoEl) infoEl.textContent = '⚠ Keine durchgehende Lösung gefunden.'; return;
   }
 
-  // Pfad zurückverfolgen
-  var path = new Array(N);
-  path[N-1] = best;
-  for (var i = N-2; i >= 0; i--) path[i] = dp[i+1][path[i+1]].prev;
+  // ── Pfad zurückverfolgen ──────────────────────────────
+  var path = new Array(M);
+  path[lastK] = best;
+  for (var k = M-2; k >= 0; k--) {
+    var nxt = path[k+1];
+    path[k] = dp[k+1][nxt].ps;
+  }
 
-  // Ins _aPlotEdits schreiben
-  for (var i = 0; i < N; i++) {
-    var aNew = -360 + path[i] * ASTEP;
-    // Nur wenn verschieden vom Original
-    if (Math.abs(aNew - pos[i].A) > 0.01) _aPlotEdits[i] = aNew;
+  // ── Ergebnis extrahieren ──────────────────────────────
+  _aPlotEdits = {};
+  _aPlotAutoInserts = [];
+
+  for (var k = 0; k < M; k++) {
+    var nd = nodes[k];
+    if (nd.type === 'wp') {
+      var aNew = -360 + path[k] * ASTEP;
+      if (Math.abs(aNew - pos[nd.idx].A) > 0.5) _aPlotEdits[nd.idx] = aNew;
+    } else {
+      // Mittelpunkt: Hilfspunkt nur wenn nicht Bypass
+      if (path[k] !== BYPASS) {
+        var aHlp = -360 + path[k] * ASTEP;
+        var p0 = pos[nd.idx], p1 = pos[nd.idx+1];
+        _aPlotAutoInserts.push({
+          afterWpIdx: nd.idx,
+          X:(p0.X+p1.X)/2, Y:(p0.Y+p1.Y)/2, Z:(p0.Z+p1.Z)/2,
+          A: aHlp, B:(p0.B+p1.B)/2, C:(p0.C+p1.C)/2
+        });
+      }
+    }
   }
 
   var hint = document.getElementById('aplot-edit-hint');
   if (hint) hint.style.display = '';
-  if (infoEl) infoEl.textContent = '⚡ Auto-Lösung: Δ' + bestCost.toFixed(0) + '° gesamt — Übernehmen zum Anwenden';
+  var insStr = _aPlotAutoInserts.length ? '  +' + _aPlotAutoInserts.length + ' Hilfspunkt(e)' : '';
+  if (infoEl) infoEl.textContent =
+    '⚡ Auto-Lösung: Δ' + bestCost.toFixed(0) + '°' + insStr + ' — Übernehmen zum Anwenden';
   aPlotDraw();
 }
 
 function aPlotReset() {
   _aPlotEdits = {};
+  _aPlotAutoInserts = [];
   var hint = document.getElementById('aplot-edit-hint');
   if (hint) hint.style.display = 'none';
   aPlotDraw();
@@ -4074,53 +4148,58 @@ function aPlotReset() {
 
 function aPlotApply() {
   var pos = (parsedData && parsedData.positions) ? parsedData.positions : [];
-  if (!pos.length || !Object.keys(_aPlotEdits).length) return;
+  var hasEdits   = Object.keys(_aPlotEdits).length > 0;
+  var hasInserts = _aPlotAutoInserts && _aPlotAutoInserts.length > 0;
+  if (!pos.length || (!hasEdits && !hasInserts)) return;
   var code = document.getElementById('code-input');
   if (!code) return;
-  var nl='\n'; var lines = code.value.split(nl);
-  var moved = 0;
-  // For each edited index, find the corresponding LIN line and update A value
+  var nl = '\n';
+  var lines = code.value.split(nl);
+
+  // ── 1. A-Werte an bestehenden Wegpunkten ändern ───────
+  // Baue Index: Wegpunkt[i] → Zeilennummer (nur LIN/CIRC/SLIN/PTP)
+  var wpLineMap = {};
+  var linCount = 0;
+  for (var li = 0; li < lines.length; li++) {
+    if (lines[li].match(/^\s*(LIN|SLIN|CIRC)\s*[{]/i)) {
+      wpLineMap[linCount] = li;
+      linCount++;
+    }
+  }
   Object.keys(_aPlotEdits).forEach(function(idxStr) {
     var idx = parseInt(idxStr);
     var newA = _aPlotEdits[idx];
-    if (!pos[idx]) return;
-    var p = pos[idx];
-    // Find LIN line matching X,Y,Z of this point
-    var lineIdx = -1;
-    var linCount = 0;
-    for (var li = 0; li < lines.length; li++) {
-      var l = lines[li];
-      if (!l.match(/^\s*(LIN|CIRC)\s*[{]/i)) continue;
-      if (linCount === idx) { lineIdx = li; break; }
-      linCount++;
-    }
-    // Fallback: search by X,Y,Z values
-    if (lineIdx < 0) {
-      for (var li = 0; li < lines.length; li++) {
-        var l = lines[li];
-        if (!l.match(/X\s*[\d\.\-]+/)) continue;
-        var mx = l.match(/X\s*([\-\d\.]+)/), my = l.match(/Y\s*([\-\d\.]+)/);
-        if (!mx || !my) continue;
-        if (Math.abs(parseFloat(mx[1]) - p.X) < 1 && Math.abs(parseFloat(my[1]) - p.Y) < 1) {
-          lineIdx = li; break;
-        }
-      }
-    }
-    if (lineIdx < 0) return;
-    // Replace A value in that line
-    lines[lineIdx] = lines[lineIdx].replace(
-      /,\s*A\s*([\-\d\.]+)/,
-      ', A ' + newA.toFixed(3)
-    );
-    moved++;
+    var li = wpLineMap[idx];
+    if (li === undefined) return;
+    lines[li] = lines[li].replace(/,\s*A\s*([\-\d\.]+)/, ', A ' + newA.toFixed(3));
   });
+
+  // ── 2. Hilfspunkte einfügen (rückwärts, damit Indizes stabil bleiben) ──
+  if (hasInserts) {
+    // Sortieren: höchster afterWpIdx zuerst
+    var inserts = _aPlotAutoInserts.slice().sort(function(a,b){ return b.afterWpIdx - a.afterWpIdx; });
+    inserts.forEach(function(ins) {
+      var li = wpLineMap[ins.afterWpIdx];
+      if (li === undefined) return;
+      // Verschleifung vom Originalpunkt übernehmen
+      var origLine = lines[li] || '';
+      var verlM = origLine.match(/(C_DIS|C_PTP|C_VEL|C_ORI)\s*$/);
+      var verl = verlM ? ' ' + verlM[1] : ' C_DIS';
+      var hlp = 'LIN {X ' + ins.X.toFixed(3) + ', Y ' + ins.Y.toFixed(3) +
+                ', Z ' + ins.Z.toFixed(3) + ', A ' + ins.A.toFixed(3) +
+                ', B ' + ins.B.toFixed(3) + ', C ' + ins.C.toFixed(3) + '}' + verl +
+                '  ; AUTO-HILFSPUNKT';
+      lines.splice(li + 1, 0, hlp);
+    });
+  }
+
   code.value = lines.join(nl);
   _aPlotEdits = {};
+  _aPlotAutoInserts = [];
   var hint = document.getElementById('aplot-edit-hint');
   if (hint) hint.style.display = 'none';
   parseAndLoad();
   aPlotDraw();
-
 }
 
 // Drag-Handler fuer aplot-panel
