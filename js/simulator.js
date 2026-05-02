@@ -3326,12 +3326,8 @@ function applySimT(t){ _tween = null;
     // Place simulation marker at actual FK TCP (not stored pos) → always consistent
     const fkRes=fkAll(angles);
     const fkTCP=fkRes.pts[7];
-    // Marker at trajectory.pos (programmed target) — robot at FK(angles)
-    // This keeps the marker on the programmed path even if IK has small residual
-    const ip_traj = getTrajSample(simTToTrajT(sim.t));
-    if (ip_traj) {
-      updateMarkerPose(ip_traj.pos);
-    } else {
+    // Marker always at actual FK TCP so sphere and coordinate axes coincide
+    {
       const R=fkRes.tcp_rot;
       const Beu=-Math.asin(Math.max(-1,Math.min(1,R[2][0])));
       const cb=Math.cos(Beu);let Aeu,Ceu;
