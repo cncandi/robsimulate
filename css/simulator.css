@@ -101,40 +101,6 @@ input[type=range].ss::-webkit-slider-thumb{-webkit-appearance:none;width:12px;he
 .ep-close:hover{color:var(--acc)}
 
 
-/* ── Achsenkarte ────────────────────────────── */
-#axis-map-panel{position:fixed;bottom:0;height:320px;
-  background:#0a1525;border-top:2px solid var(--acc);z-index:30;
-  display:none;flex-direction:column;font-family:'Consolas','Courier New',monospace}
-#axis-map-panel.visible{display:flex}
-#amp-hdr{background:#14243e;border-bottom:1px solid #1a3050;padding:4px 10px;
-  display:flex;align-items:center;gap:10px;flex-shrink:0}
-#amp-title{color:var(--acc);font-size:.85em;font-weight:bold;flex:1}
-.amp-tab{background:#0a1828;color:#4a7090;border:1px solid #1a3050;border-radius:3px;
-  padding:2px 8px;font-size:.75em;font-family:inherit;cursor:pointer}
-.amp-tab.on{background:#f05500;color:#fff;border-color:#c04200}
-.amp-tab-group{display:flex;gap:3px}
-#amp-body{display:flex;flex:1;overflow:hidden}
-#amp-sidebar{width:80px;background:#070e1a;border-right:1px solid #1a3050;
-  padding:8px;font-size:.75em;flex-shrink:0;overflow-y:auto}
-.amp-legend-row{display:flex;align-items:center;gap:6px;margin-bottom:5px}
-.amp-legend-dot{width:12px;height:12px;border-radius:50%;flex-shrink:0}
-.amp-legend-lbl{color:#6a9aaa}
-#amp-canvas-wrap{flex:1;position:relative;overflow:hidden}
-#amp-canvas{display:block;cursor:crosshair}
-#amp-yaxis{position:absolute;left:0;top:0;bottom:0;width:70px;
-  display:flex;flex-direction:column;justify-content:space-between;
-  padding:2px 4px;font-size:.65em;color:#3a6080;pointer-events:none}
-#amp-xaxis{position:absolute;bottom:0;left:38px;right:0;height:18px;
-  display:flex;justify-content:space-between;align-items:center;
-  padding:0 4px;font-size:.65em;color:#3a6080;pointer-events:none}
-#amp-tooltip{position:absolute;background:rgba(10,25,45,.9);border:1px solid var(--acc);
-  border-radius:3px;padding:4px 7px;font-size:.72em;color:#9ecfea;
-  pointer-events:none;display:none;white-space:nowrap}
-.amp-sbtn{width:100%;margin-top:4px;padding:4px;background:#0f1e2e;color:var(--acc);
-  border:1px solid var(--acc);border-radius:3px;font-family:inherit;
-  font-size:.8em;cursor:pointer}
-.amp-sbtn:hover{background:#1a2e40}
-.amp-info{font-size:.72em;color:#3a6080;margin-top:6px;line-height:1.5}
 
 /* ── Steuerungspanel ── */
 #steuer-panel{position:absolute;top:44px;left:8px;width:380px;background:rgba(10,20,35,.97);

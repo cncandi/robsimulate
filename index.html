@@ -35,7 +35,7 @@
   <div class="sep"></div>
   <span class="sstatus stopped" id="sim-status">STOPPED</span>
   <div class="sep"></div>
-  <span class="slbl" title="F5=Play F6=Stop F7=Schritt+ F8=Schritt- F9=Parse F10=Achsenkarte F11=Status F11=Grid Home/End=Anfang/Ende ←→=Schritt" style="cursor:help;color:var(--acc)">⌨ F5–F12</span>
+  <span class="slbl" title="F5=Play F6=Stop F7=Schritt+ F8=Schritt- F9=Parse F11=Status F11=Grid Home/End=Anfang/Ende ←→=Schritt" style="cursor:help;color:var(--acc)">⌨ F5–F12</span>
   <div class="sep"></div>
   <span class="slbl">Frame:</span>
   <input type="range" class="ss" id="frame-size-sl" min="1" max="600" value="120" style="width:80px">
@@ -52,7 +52,6 @@
     <button class="sbtn" onclick="clearTCPTrace()" title="TCP Trace loeschen" data-i18n="clrtrace">✕ Trace</button>
     <button class="sbtn r" onclick="resetAll()" title="Alles zuruecksetzen" data-i18n="reset">⟳ Reset</button>
   <button class="sbtn" id="btn-steuer" onclick="toggleSteuerPanel()" title="Steuerungspanel">🖥 Status</button>
-  <button class="sbtn" id="btn-axmap" onclick="toggleAxisMap()" title="Achsen-Karte">📊 Achsenkarte</button>
   <div class="sep"></div>
   <button class="sbtn on" id="btn-grid" title="Grid ein/ausblenden" onclick="toggleGrid()">⊞ Grid</button>
 </div>
@@ -294,52 +293,6 @@
   </div>
 </div>
 
-
-
-
-
-<!-- Achsenkarte (Axis Optimizer Map) -->
-<div id="axis-map-panel">
-  <div id="amp-hdr">
-    <span id="amp-title">📊 Achsenkarte</span><span id="amp-info" style="color:var(--txt2);font-size:.75em;margin-left:8px">—</span>
-    <div style="display:flex;align-items:center;gap:5px;margin-left:12px;flex-shrink:0">
-      <span style="color:#3a6080;font-size:.72em;white-space:nowrap">Auflösung</span>
-      <input type="range" id="amp-res" min="20" max="200" step="10" value="80"
-        style="width:80px;accent-color:#f05500;cursor:pointer"
-        oninput="document.getElementById('amp-res-val').textContent=this.value;window._ampLastHash='';ampBuild();">
-      <span id="amp-res-val" style="color:#f05500;font-size:.72em;min-width:28px">80</span>
-    </div>
-    <div class="amp-tab-group">
-      <button class="amp-tab on">AxisA6 · Werkzeug-Drehachse</button>
-    </div>
-    <button class="sbtn" onclick="toggleAxisMap()" style="margin-left:8px">✕</button>
-  </div>
-  <div id="amp-body">
-    <div id="amp-sidebar">
-      <button class="amp-sbtn" onclick="ampBuild(true)" title="Karte berechnen" style="font-size:1.4em;padding:6px 8px;line-height:1">⬛</button>
-      <button class="amp-sbtn" onclick="ampAutoOptimize()" title="Optimalen Weg planen" style="font-size:1.4em;padding:6px 8px;margin-top:4px;line-height:1">🔀</button>
-      <button class="amp-sbtn" onclick="ampApplyPath()" title="Weg in KRL übernehmen" style="font-size:1.4em;padding:6px 8px;margin-top:4px;line-height:1">✅</button>
-      <div id="amp-progress-wrap" style="display:none;height:12px;margin-top:6px;background:#0a1a2e;border-radius:4px;overflow:hidden;border:1px solid #1a3050">
-        <div id="amp-progress-bar" style="height:100%;width:0%;background:linear-gradient(90deg,#f05500,#ff8800);transition:width .15s ease"></div>
-      </div>
-      <!-- DP-Solver IDs bleiben erhalten (werden von dpSolverApplySettings gebraucht) -->
-      <input type="hidden" id="dp-wA4" value="4">
-      <input type="hidden" id="dp-wA5" value="5">
-      <input type="hidden" id="dp-wA6" value="0.25">
-      <input type="hidden" id="dp-wSwitch" value="5000">
-      <input type="hidden" id="dp-a6copies" value="1">
-      <input type="hidden" id="dp-safety" value="3">
-      <input type="hidden" id="dp-tcptol" value="2">
-      <input type="hidden" id="dp-singthresh" value="0.01">
-    </div>
-    <div id="amp-canvas-wrap">
-      <canvas id="amp-yaxis" width="70" style="position:absolute;left:0;top:0;pointer-events:none"></canvas>
-      <div id="amp-tooltip"></div>
-      <canvas id="amp-canvas"></canvas>
-      <canvas id="amp-cursor" style="position:absolute;top:0;left:0;pointer-events:none;z-index:5"></canvas>
-      <div id="amp-xaxis"></div>
-    </div>
-  </div>
 </div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
