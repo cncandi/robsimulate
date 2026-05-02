@@ -3860,20 +3860,23 @@ function aPlotDraw() {
       var hint = document.getElementById('aplot-edit-hint');
       if (hint) hint.style.display = '';
       aPlotDraw();
-      // Live-Vorschau im Roboter
-      var pos = window._aPlotPos;
-      if (pos && pos[_aPlotDragIdx]) {
-        var p = pos[_aPlotDragIdx];
-        var warmQ = (trajectory.length > _aPlotDragIdx) ? trajectory[_aPlotDragIdx].angles : jointAngles;
-        var res = solveIKFast(p.X, p.Y, p.Z, newA, p.B, p.C, warmQ);
-        if (res.ok) applyAngles(res.angles);
-      }
+      aPlotLivePreview(_aPlotDragIdx, newA);
     });
     document.addEventListener('mouseup', function() {
       _aPlotDragging = false; _aPlotDragIdx = -1;
     });
   });
 })();
+
+function aPlotLivePreview(idx, newA) {
+  // Robote live bewegen: IK für diesen Punkt mit neuem A-Wert
+  var pos = (parsedData && parsedData.positions) ? parsedData.positions : [];
+  if (!pos[idx]) return;
+  var p = pos[idx];
+  var warmQ = (trajectory && trajectory[idx]) ? trajectory[idx].angles : jointAngles.slice();
+  var res = solveIKFast(p.X, p.Y, p.Z, newA, p.B, p.C, warmQ);
+  if (res && res.ok) applyAngles(res.angles);
+}
 
 function aPlotReset() {
   _aPlotEdits = {};
