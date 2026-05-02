@@ -3716,8 +3716,9 @@ function setEditorLang(lang) { FormatRegistry.setActive(lang); }
 var _aPlotDists = [];
 var _aPlotEdits = {};   // {idx: newA} — geänderte A-Werte
 var _aPlotDragging = false;
-var _aPlotReach    = null;  // [{ok:[bool,…]}] pro Wegpunkt
-var _aPlotReachMid = null;  // [{ok:[bool,…]}] pro Mittelpunkt zwischen Wegpunkten
+var _aPlotReach       = null;  // [{ok:[bool,…]}] pro Wegpunkt
+var _aPlotReachMid    = null;  // [{ok:[bool,…]}] pro Mittelpunkt
+var _aPlotReachAngles = null;  // [[angles|null,…]] IK-Lösung pro Wegpunkt × A-Step
 var _aPlotReachScanId = 0;
 var _aPlotAutoInserts = []; // [{afterIdx, X,Y,Z,A,B,C}] eingefügte Hilfspunkte
 var _aPlotDragIdx  = -1;
@@ -3872,72 +3873,84 @@ function aPlotDraw() {
     ctx.stroke(); ctx.setLineDash([]);
   }
 
-  // ── Singularitäten markieren (3 Typen) ──────────────────────
-  var SING_COL   = { wrist:'rgba(255,180,0,0.35)', shoulder:'rgba(220,50,50,0.35)', elbow:'rgba(50,180,220,0.35)' };
-  var SING_LCOL  = { wrist:'#ffb400', shoulder:'#dc3232', elbow:'#32b4dc' };
-  var SING_LBL   = { wrist:'Handgelenk', shoulder:'Schulter', elbow:'Ellbogen' };
+  // ── Singularitäten: punktuelle Marker am aktuellen A-Wert ──
+  // + Im Reachability-Scan: erreichbare aber singuläre A-Werte als Punkte
+  var SING_LCOL = { wrist:'#ffb400', shoulder:'#dc3232', elbow:'#32b4dc' };
+  var SING_LBL  = { wrist:'Handgelenk', shoulder:'Schulter', elbow:'Ellbogen' };
 
   if (typeof classifySingTypes === 'function' && pos.length) {
-    var singPx = { wrist:[], shoulder:[], elbow:[] };
-
-    // ── Primär: ikTable (immer nach PARSE verfügbar, pro Wegpunkt) ──
-    if (typeof ikTable !== 'undefined' && ikTable.length === pos.length) {
-      for (var si = 0; si < pos.length; si++) {
-        var ik = ikTable[si];
-        if (!ik || !ik.angles) continue;
-        var xpS = ML + (_aPlotDists[si] / total) * CW;
-        classifySingTypes(ik.angles).forEach(function(t){ singPx[t].push(xpS); });
-      }
-    }
-
-    // ── Sekundär: Trajektorie-Zwischenpunkte (wenn vorhanden) ──
-    if (trajectory && trajectory.length >= 2) {
-      var tDists = [0];
-      for (var ti2 = 1; ti2 < trajectory.length; ti2++) {
-        var pa = trajectory[ti2-1].pos, pb = trajectory[ti2].pos;
-        tDists.push(tDists[ti2-1] + Math.sqrt(
-          Math.pow(pb.X-pa.X,2)+Math.pow(pb.Y-pa.Y,2)+Math.pow(pb.Z-pa.Z,2)));
-      }
-      var tTotal2 = tDists[tDists.length-1] || 1;
-      for (var ti2 = 0; ti2 < trajectory.length; ti2++) {
-        var te = trajectory[ti2];
-        if (!te || !te.angles) continue;
-        var xpS = ML + (tDists[ti2] / tTotal2) * CW;
-        classifySingTypes(te.angles).forEach(function(t){ singPx[t].push(xpS); });
-      }
-      // Deduplizieren
-      Object.keys(singPx).forEach(function(t){
-        singPx[t] = singPx[t].filter(function(v,i,a){ return i===0||Math.abs(v-a[i-1])>1; });
-      });
-    }
-
-    // ── Streifen zeichnen ──
     ctx.save();
-    Object.keys(singPx).forEach(function(t) {
-      var xs = singPx[t]; if (!xs.length) return;
-      ctx.fillStyle = SING_COL[t];
-      var rs = xs[0], re = xs[0];
-      for (var ri = 1; ri <= xs.length; ri++) {
-        if (ri < xs.length && xs[ri] - re < 12) { re = xs[ri]; }
-        else {
-          ctx.fillRect(rs-3, MT, Math.max(6, re-rs+6), CH);
-          if (ri < xs.length) { rs = xs[ri]; re = xs[ri]; }
+    var legendTypes = {};
+
+    // ── A: Reachability-Scan → singuläre Punkte je A-Wert ──────
+    // (erweitert _aPlotReach um Singularitätsinformation)
+    if (_aPlotReach && _aPlotReach.length === pos.length &&
+        typeof _aPlotReachAngles !== 'undefined' && _aPlotReachAngles) {
+      var ASTEP2 = 6, NSTEPS2 = Math.round(720 / ASTEP2);
+      for (var ri = 0; ri < pos.length; ri++) {
+        var x0 = ri > 0 ? ML+(_aPlotDists[ri-1]/total)*CW : ML;
+        var x1 = ri < pos.length-1 ? ML+(_aPlotDists[ri+1]/total)*CW : ML+CW;
+        var xMid = ML+(_aPlotDists[ri]/total)*CW;
+        var xL = (x0+xMid)/2, xR = (xMid+x1)/2;
+        if (ri===0) xL=ML; if (ri===pos.length-1) xR=ML+CW;
+        for (var si2 = 0; si2 < NSTEPS2; si2++) {
+          if (!_aPlotReach[ri][si2]) continue; // nicht erreichbar
+          var angEntry = _aPlotReachAngles[ri] && _aPlotReachAngles[ri][si2];
+          if (!angEntry) continue;
+          var stypes = classifySingTypes(angEntry);
+          if (!stypes.length) continue;
+          var aVal2 = -360 + si2*ASTEP2;
+          var yp2 = MT + (1-(aVal2-AMIN)/ARNG)*CH;
+          stypes.forEach(function(t) {
+            legendTypes[t] = true;
+            ctx.fillStyle = SING_LCOL[t];
+            ctx.globalAlpha = 0.7;
+            ctx.beginPath();
+            ctx.arc((xL+xR)/2, yp2, 2.5, 0, 2*Math.PI);
+            ctx.fill();
+          });
         }
       }
-    });
-    ctx.restore();
+      ctx.globalAlpha = 1;
+    }
 
-    // ── Legende unten rechts ──
-    ctx.save();
+    // ── B: Aktueller Pfad (ikTable) → Raute-Symbol am A-Wert ───
+    if (typeof ikTable !== 'undefined' && ikTable.length === pos.length) {
+      for (var si = 0; si < pos.length; si++) {
+        var ik = ikTable[si]; if (!ik || !ik.angles) continue;
+        var stypes = classifySingTypes(ik.angles);
+        if (!stypes.length) continue;
+        var xpS = ML + (_aPlotDists[si]/total)*CW;
+        var aVal = pos[si].A;
+        var ypS = MT + (1-(aVal-AMIN)/ARNG)*CH;
+        stypes.forEach(function(t) {
+          legendTypes[t] = true;
+          // Raute ◇
+          var r = 6;
+          ctx.fillStyle = SING_LCOL[t];
+          ctx.strokeStyle = '#000';
+          ctx.lineWidth = 0.5;
+          ctx.beginPath();
+          ctx.moveTo(xpS, ypS-r); ctx.lineTo(xpS+r, ypS);
+          ctx.lineTo(xpS, ypS+r); ctx.lineTo(xpS-r, ypS);
+          ctx.closePath(); ctx.fill(); ctx.stroke();
+        });
+      }
+    }
+
+    // ── Legende ──────────────────────────────────────────────
     ctx.font = '9px monospace';
-    var lx2 = ML + CW - 4, ly2 = MT + CH - 4;
-    var legItems = ['elbow','shoulder','wrist'].filter(function(t){ return singPx[t].length>0; });
+    var lx2 = ML+CW-4, ly2 = MT+CH-4;
+    var legItems = ['elbow','shoulder','wrist'].filter(function(t){ return legendTypes[t]; });
     legItems.forEach(function(t, i) {
-      var yy = ly2 - i*13;
-      ctx.fillStyle = SING_COL[t].replace('0.35','0.7');
-      ctx.fillRect(lx2-82, yy-8, 8, 8);
-      ctx.fillStyle = SING_LCOL[t]; ctx.textAlign = 'left';
-      ctx.fillText(SING_LBL[t], lx2-72, yy);
+      var yy = ly2-i*13;
+      ctx.fillStyle = SING_LCOL[t]; ctx.globalAlpha = 0.85;
+      ctx.beginPath();
+      ctx.moveTo(lx2-78, yy-6); ctx.lineTo(lx2-74, yy-2);
+      ctx.lineTo(lx2-78, yy+2); ctx.lineTo(lx2-82, yy-2);
+      ctx.closePath(); ctx.fill(); ctx.globalAlpha=1;
+      ctx.fillStyle = SING_LCOL[t]; ctx.textAlign='left';
+      ctx.fillText(SING_LBL[t], lx2-70, yy);
     });
     ctx.restore();
   }
@@ -4044,6 +4057,7 @@ function aPlotScanReachability() {
   var scanId = ++_aPlotReachScanId;
   var wpResult  = [];
   var midResult = [];
+  var wpAngles  = [];
 
   // Alle Scan-Positionen: wp0, mid01, wp1, mid12, …, wp[N-1]
   var scanList = [];
@@ -4063,23 +4077,26 @@ function aPlotScanReachability() {
   function scanNext() {
     if (scanId !== _aPlotReachScanId) return;
     if (si >= scanList.length) {
-      _aPlotReach    = wpResult;
-      _aPlotReachMid = midResult;
+      _aPlotReach       = wpResult;
+      _aPlotReachMid    = midResult;
+      _aPlotReachAngles = wpAngles;
       aPlotDraw();
       return;
     }
     var item = scanList[si];
     var p = item.p;
     var initQ = jointAngles.slice();
-    var reach = new Array(NSTEPS);
+    var reach  = new Array(NSTEPS);
+    var angles = (item.type === 'wp') ? new Array(NSTEPS) : null;
     for (var s = 0; s < NSTEPS; s++) {
       var aTest = -360 + s * ASTEP;
       var res = solveIKPrecise(p.X, p.Y, p.Z, aTest, p.B, p.C, initQ);
       reach[s] = !!(res && res.ok);
-      if (reach[s]) initQ = res.angles;
+      if (reach[s]) { initQ = res.angles; if (angles) angles[s] = res.angles.slice(); }
+      else if (angles) angles[s] = null;
     }
-    if (item.type === 'wp') wpResult.push(reach);
-    else                    midResult.push(reach);
+    if (item.type === 'wp') { wpResult.push(reach); wpAngles.push(angles); }
+    else                      midResult.push(reach);
     si++;
     setTimeout(scanNext, 0);
   }
