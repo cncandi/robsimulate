@@ -305,3 +305,38 @@ input[type=number] {
 /* A-Plot Diagramm */
 #aplot-panel { font-family: 'Consolas','Courier New',monospace; }
 #aplot-hdr:active { cursor: grabbing; }
+
+/* ── KRL Form View ── */
+#krl-form-view { font-size: .82em; padding: 2px 0; }
+.fv-row { border-bottom: 1px solid var(--bdr); }
+.fv-plain, .fv-empty, .fv-comment { padding: 2px 8px; }
+.fv-plaintext { color: var(--txt3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; }
+.fv-comment .fv-plaintext { color: #2a5040; }
+.fv-empty { height: 8px; }
+.fv-head { display: flex; align-items: center; gap: 5px; padding: 3px 6px; cursor: pointer; }
+.fv-head:hover { background: rgba(255,255,255,.03); }
+.fv-badge { font-size: .75em; font-weight: bold; padding: 1px 5px; border-radius: 2px; flex-shrink: 0; }
+.fv-badge-lin  { background: rgba(240,85,0,.25);  color: #f05500; }
+.fv-badge-ptp  { background: rgba(255,170,0,.2);  color: #ffaa00; }
+.fv-badge-slin { background: rgba(0,170,255,.2);  color: #00aaff; }
+.fv-summary { flex: 1; color: var(--txt2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: .9em; }
+.fv-chevron { color: var(--txt3); font-size: .8em; flex-shrink: 0; }
+.fv-form { padding: 6px 8px 8px; background: var(--bg2); }
+.fv-row2 { display: flex; gap: 8px; margin-bottom: 6px; }
+.fv-row2 label { display: flex; align-items: center; gap: 4px; color: var(--txt3); font-size: .85em; }
+.fv-sel { background: var(--bg3); color: var(--txt); border: 1px solid var(--bdr); border-radius: 3px; padding: 1px 3px; font-family: inherit; font-size: .9em; }
+.fv-sel:focus { border-color: var(--acc); outline: none; }
+.fv-grid3 { display: grid; grid-template-columns: 1fr 1fr; gap: 3px 8px; margin-bottom: 6px; }
+.fv-grid2 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 3px 8px; margin-bottom: 6px; }
+.fv-grid3 label, .fv-grid2 label { display: flex; align-items: center; gap: 3px; color: var(--txt3); font-size: .85em; }
+.fv-grid3 label span, .fv-grid2 label span { font-size: .8em; color: var(--txt3); }
+.fv-inp { flex: 1; min-width: 0; background: var(--bg1); color: #9ecfea; border: 1px solid var(--bdr); border-radius: 3px; padding: 1px 4px; font-family: inherit; font-size: .9em; }
+.fv-inp:focus { border-color: var(--acc); outline: none; }
+.fv-acts { display: flex; gap: 5px; }
+.fv-btn { flex: 1; background: var(--bg3); color: var(--txt2); border: 1px solid var(--bdr); border-radius: 3px; padding: 3px 6px; font-family: inherit; font-size: .85em; cursor: pointer; }
+.fv-btn:hover { background: var(--bg4); }
+.fv-apply:hover { background: rgba(240,85,0,.2); border-color: var(--acc); color: var(--acc); }
+.fv-del:hover { background: rgba(180,30,30,.2); border-color: var(--err); color: var(--err); }
+.fv-insert-bar { height: 8px; display: flex; align-items: center; justify-content: center; cursor: pointer; opacity: 0; transition: opacity .15s; }
+.fv-insert-bar:hover { opacity: 1; background: rgba(240,85,0,.08); }
+.fv-insert-btn { font-size: .72em; color: var(--acc); border: 1px dashed var(--acc); border-radius: 2px; padding: 0 6px; pointer-events: none; }

@@ -68,11 +68,14 @@
           style="padding:2px 10px;border:none;background:var(--acc);color:#fff;font-family:inherit;font-size:.85em;cursor:pointer;font-weight:bold">KUKA</button>
         <button id="btn-lang-drcode" onclick="setEditorLang('drcode')"
           style="padding:2px 10px;border:none;background:transparent;color:var(--txt3);font-family:inherit;font-size:.85em;cursor:pointer">DRCODE</button>
+        <button id="btn-form-view" onclick="toggleFormView()"
+          style="padding:2px 10px;border:none;border-left:1px solid var(--bdr);background:transparent;color:var(--txt3);font-family:inherit;font-size:.85em;cursor:pointer">FORM</button>
       </div>
     </div>
     <div class="ew">
       <div id="gutter"></div>
       <textarea id="code-input" spellcheck="false" wrap="off"></textarea>
+      <div id="krl-form-view" style="display:none;flex-direction:column;flex:1;overflow-y:auto;background:var(--bg1)"></div>
     </div>
     <div style="display:flex;gap:4px;padding:4px 5px 0;flex-shrink:0">
       <button class="sbtn" onclick="saveProgram()" style="flex:1">💾</button>

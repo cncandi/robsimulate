@@ -4037,3 +4037,247 @@ window.addEventListener('load', function() {
     };
   }
 });
+// ══════════════════════════════════════════════════════
+// KRL FORM VIEW
+// ══════════════════════════════════════════════════════
+var formViewActive = false;
+var formExpandedLine = -1;
+
+function toggleFormView() {
+  formViewActive = !formViewActive;
+  var ta = document.getElementById('code-input');
+  var gut = document.getElementById('gutter');
+  var fv = document.getElementById('krl-form-view');
+  var btn = document.getElementById('btn-form-view');
+  if (formViewActive) {
+    ta.style.display = 'none';
+    gut.style.display = 'none';
+    fv.style.display = 'flex';
+    if (btn) { btn.style.background = 'var(--acc)'; btn.style.color = '#fff'; }
+    buildFormView(formExpandedLine);
+  } else {
+    ta.style.display = '';
+    gut.style.display = '';
+    fv.style.display = 'none';
+    if (btn) { btn.style.background = 'transparent'; btn.style.color = 'var(--txt3)'; }
+  }
+}
+
+function fvParseMoveLine(raw) {
+  var t = raw.trim();
+  // LIN / SLIN
+  var mLin = t.match(/^(LIN|SLIN)\s+\{([^}]+)\}\s*(C_DIS|C_PTP|C_VEL|C_ORI)?\s*$/i);
+  if (mLin) {
+    var pos = parsePos(mLin[2]);
+    return { moveType: mLin[1].toUpperCase(), subtype: 'cart', pos: pos, verl: mLin[3] || '' };
+  }
+  // PTP axis
+  var mAxis = t.match(/^PTP\s+\{([^}]+)\}\s*(C_PTP)?\s*$/i);
+  if (mAxis && /A[123456]\s/.test(mAxis[1])) {
+    var ap = {}; var am;
+    var arx = /A([123456])\s+([-+]?\d+(?:\.\d+)?)/g;
+    while ((am = arx.exec(mAxis[1])) !== null) ap['A' + am[1]] = parseFloat(am[2]);
+    return { moveType: 'PTP', subtype: 'axis', pos: ap, verl: mAxis[2] || '' };
+  }
+  // PTP cartesian
+  var mPtpC = t.match(/^PTP\s+\{([^}]+)\}\s*(C_PTP)?\s*$/i);
+  if (mPtpC) {
+    var pp = parsePos(mPtpC[1]);
+    return { moveType: 'PTP', subtype: 'cart', pos: pp, verl: mPtpC[2] || '' };
+  }
+  return null;
+}
+
+function fvBuildKRL(data) {
+  var v = data.verl ? ' ' + data.verl : '';
+  if (data.subtype === 'axis') {
+    var p = data.pos;
+    return 'PTP {A1 ' + fmtN(p.A1||0) + ', A2 ' + fmtN(p.A2||0) + ', A3 ' + fmtN(p.A3||0) +
+           ', A4 ' + fmtN(p.A4||0) + ', A5 ' + fmtN(p.A5||0) + ', A6 ' + fmtN(p.A6||0) + '}' + v;
+  }
+  var p = data.pos;
+  return data.moveType + ' {X ' + fmtN(p.X||0) + ', Y ' + fmtN(p.Y||0) + ', Z ' + fmtN(p.Z||0) +
+         ', A ' + fmtN(p.A||0) + ', B ' + fmtN(p.B||0) + ', C ' + fmtN(p.C||0) + '}' + v;
+}
+
+function fmtN(n) { return parseFloat(n).toFixed(3); }
+
+function buildFormView(expandLine) {
+  var fv = document.getElementById('krl-form-view');
+  if (!fv) return;
+  var ta = document.getElementById('code-input');
+  var lines = ta.value.split(/\r?\n/);
+  var html = '';
+  for (var i = 0; i < lines.length; i++) {
+    var raw = lines[i];
+    var mv = fvParseMoveLine(raw);
+    var li = i;
+    if (mv) {
+      var isExp = (expandLine === i);
+      var badge = mv.moveType + (mv.subtype === 'axis' ? ' Ax' : '');
+      var verlOpts = fvVerlOpts(mv.moveType);
+      var summary = raw.trim().substring(0, 44) + (raw.trim().length > 44 ? '…' : '');
+      html += '<div class="fv-row fv-move' + (isExp ? ' fv-open' : '') + '" data-line="' + i + '">';
+      html += '<div class="fv-head" onclick="fvToggle(' + i + ')">';
+      html += '<span class="fv-badge fv-badge-' + mv.moveType.toLowerCase() + '">' + badge + '</span>';
+      html += '<span class="fv-summary">' + escHtml(summary) + '</span>';
+      html += '<span class="fv-chevron">' + (isExp ? '▲' : '▼') + '</span>';
+      html += '</div>';
+      if (isExp) {
+        html += '<div class="fv-form">';
+        // Row 1: Type + Verschleifung
+        html += '<div class="fv-row2">';
+        html += '<label>Typ<select class="fv-sel" id="fv-type-' + i + '" onchange="fvTypeChange(' + i + ')">';
+        ['LIN','PTP','SLIN'].forEach(function(tp) {
+          var sel = (mv.moveType === tp) ? ' selected' : '';
+          html += '<option value="' + tp + '"' + sel + '>' + tp + '</option>';
+        });
+        html += '</select></label>';
+        html += '<label>Versch.<select class="fv-sel" id="fv-verl-' + i + '">';
+        verlOpts.forEach(function(vo) {
+          var sel = (mv.verl === vo) ? ' selected' : '';
+          html += '<option value="' + vo + '"' + sel + '>' + (vo || '—') + '</option>';
+        });
+        html += '</select></label>';
+        html += '</div>'; // fv-row2
+        if (mv.subtype === 'axis') {
+          // Axis form
+          html += '<div class="fv-grid2">';
+          ['A1','A2','A3','A4','A5','A6'].forEach(function(ax) {
+            html += '<label>' + ax + '<input class="fv-inp" id="fv-' + ax + '-' + i + '" type="number" step="0.001" value="' + fmtN(mv.pos[ax]||0) + '"></label>';
+          });
+          html += '</div>';
+        } else {
+          // Cartesian form
+          html += '<div class="fv-grid3">';
+          html += '<label>X<input class="fv-inp" id="fv-X-' + i + '" type="number" step="0.1" value="' + fmtN(mv.pos.X||0) + '"><span>mm</span></label>';
+          html += '<label>A<input class="fv-inp" id="fv-A-' + i + '" type="number" step="0.1" value="' + fmtN(mv.pos.A||0) + '"><span>°</span></label>';
+          html += '<label>Y<input class="fv-inp" id="fv-Y-' + i + '" type="number" step="0.1" value="' + fmtN(mv.pos.Y||0) + '"><span>mm</span></label>';
+          html += '<label>B<input class="fv-inp" id="fv-B-' + i + '" type="number" step="0.1" value="' + fmtN(mv.pos.B||0) + '"><span>°</span></label>';
+          html += '<label>Z<input class="fv-inp" id="fv-Z-' + i + '" type="number" step="0.1" value="' + fmtN(mv.pos.Z||0) + '"><span>mm</span></label>';
+          html += '<label>C<input class="fv-inp" id="fv-C-' + i + '" type="number" step="0.1" value="' + fmtN(mv.pos.C||0) + '"><span>°</span></label>';
+          html += '</div>';
+        }
+        // Action buttons
+        html += '<div class="fv-acts">';
+        html += '<button class="fv-btn fv-apply" onclick="fvApply(' + i + ')">✓ Übernehmen</button>';
+        html += '<button class="fv-btn fv-del" onclick="fvDelete(' + i + ')">✕ Löschen</button>';
+        html += '</div>';
+        html += '</div>'; // fv-form
+      }
+      html += '</div>'; // fv-row
+    } else {
+      // Non-move line
+      var cls = raw.trim().startsWith(';') ? 'fv-comment' : (raw.trim() === '' ? 'fv-empty' : 'fv-plain');
+      html += '<div class="fv-row ' + cls + '" data-line="' + i + '">';
+      html += '<span class="fv-plaintext">' + escHtml(raw.trim() || '&nbsp;') + '</span>';
+      html += '</div>';
+    }
+    // Insert button between lines
+    html += '<div class="fv-insert-bar" data-after="' + i + '" onclick="fvInsertNew(' + i + ')">' +
+            '<span class="fv-insert-btn">+ Neu</span></div>';
+  }
+  fv.innerHTML = html;
+  // Scroll to expanded row
+  if (expandLine >= 0) {
+    var el = fv.querySelector('[data-line="' + expandLine + '"]');
+    if (el) el.scrollIntoView({ block: 'nearest' });
+  }
+}
+
+function fvVerlOpts(moveType) {
+  if (moveType === 'PTP') return ['', 'C_PTP'];
+  return ['', 'C_DIS', 'C_VEL', 'C_ORI'];
+}
+
+function fvToggle(lineIdx) {
+  formExpandedLine = (formExpandedLine === lineIdx) ? -1 : lineIdx;
+  buildFormView(formExpandedLine);
+}
+
+function fvTypeChange(lineIdx) {
+  // Rebuild the form for the changed type
+  var sel = document.getElementById('fv-type-' + lineIdx);
+  if (!sel) return;
+  var newType = sel.value;
+  // Read current values
+  var data = fvReadFormData(lineIdx);
+  data.moveType = newType;
+  // PTP → axis or cart: keep cart if switching from LIN/SLIN, keep axis if already axis
+  if (newType !== 'PTP') data.subtype = 'cart';
+  // Update Verschleifung opts
+  var verlSel = document.getElementById('fv-verl-' + lineIdx);
+  var curVerl = verlSel ? verlSel.value : '';
+  var opts = fvVerlOpts(newType);
+  if (opts.indexOf(curVerl) < 0) curVerl = '';
+  if (verlSel) {
+    verlSel.innerHTML = '';
+    opts.forEach(function(vo) {
+      var opt = document.createElement('option');
+      opt.value = vo; opt.textContent = vo || '—';
+      if (vo === curVerl) opt.selected = true;
+      verlSel.appendChild(opt);
+    });
+  }
+}
+
+function fvReadFormData(lineIdx) {
+  var ta = document.getElementById('code-input');
+  var lines = ta.value.split(/\r?\n/);
+  var raw = lines[lineIdx] || '';
+  var mv = fvParseMoveLine(raw);
+  if (!mv) return null;
+  var typeSel = document.getElementById('fv-type-' + lineIdx);
+  var verlSel = document.getElementById('fv-verl-' + lineIdx);
+  mv.moveType = typeSel ? typeSel.value : mv.moveType;
+  mv.verl = verlSel ? verlSel.value : mv.verl;
+  // Adapt subtype
+  if (mv.moveType === 'PTP' && mv.subtype === 'axis') {
+    ['A1','A2','A3','A4','A5','A6'].forEach(function(ax) {
+      var inp = document.getElementById('fv-' + ax + '-' + lineIdx);
+      if (inp) mv.pos[ax] = parseFloat(inp.value) || 0;
+    });
+  } else {
+    mv.subtype = 'cart';
+    ['X','Y','Z','A','B','C'].forEach(function(f) {
+      var inp = document.getElementById('fv-' + f + '-' + lineIdx);
+      if (inp) mv.pos[f] = parseFloat(inp.value) || 0;
+    });
+  }
+  return mv;
+}
+
+function fvApply(lineIdx) {
+  var data = fvReadFormData(lineIdx);
+  if (!data) return;
+  var newKrl = fvBuildKRL(data);
+  var ta = document.getElementById('code-input');
+  var lines = ta.value.split(/\r?\n/);
+  lines[lineIdx] = newKrl;
+  ta.value = lines.join('\n');
+  formExpandedLine = -1;
+  buildFormView(-1);
+}
+
+function fvDelete(lineIdx) {
+  var ta = document.getElementById('code-input');
+  var lines = ta.value.split(/\r?\n/);
+  lines.splice(lineIdx, 1);
+  ta.value = lines.join('\n');
+  formExpandedLine = -1;
+  buildFormView(-1);
+}
+
+function fvInsertNew(afterLineIdx) {
+  var ta = document.getElementById('code-input');
+  var lines = ta.value.split(/\r?\n/);
+  var newLine = 'LIN {X 0.000, Y 0.000, Z 0.000, A 0.000, B 0.000, C 0.000}';
+  lines.splice(afterLineIdx + 1, 0, newLine);
+  ta.value = lines.join('\n');
+  formExpandedLine = afterLineIdx + 1;
+  buildFormView(formExpandedLine);
+}
+
+function escHtml(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
