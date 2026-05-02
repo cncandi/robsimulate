@@ -4139,9 +4139,9 @@ function aPlotAutoSolve() {
   }
 
   // Kosten pro A-Schritt: Singularität + Pufferzone zu gelben Bereichen
-  var SING_PENALTY   = 300;  // singuläre Schritte stark bestrafen
-  var BUFFER_PENALTY = 80;   // Schritte neben gelben Bereichen bestrafen
-  var BUFFER_WIDTH   = 2;    // Schritte Abstand zu unreachable Zone
+  var SING_PENALTY   = 9999; // singuläre Schritte praktisch sperren
+  var BUFFER_PENALTY = 150;  // Schritte neben gelben Bereichen bestrafen
+  var BUFFER_WIDTH   = 3;    // 3 Schritte = 18° Abstand zu unreachable Zone
 
   function stepCost(nodeIdx, stepIdx) {
     var nd = nodes[nodeIdx];
@@ -4339,8 +4339,8 @@ function aPlotApply() {
   _aPlotAutoInserts = [];
   var hint = document.getElementById('aplot-edit-hint');
   if (hint) hint.style.display = 'none';
-  // Nur neu parsen, KEIN Reachability-Scan (bleibt gültig)
-  parseAndLoad();
+  var info = document.getElementById('aplot-info');
+  if (info) info.textContent = '✓ Übernommen — bitte PARSE & LOAD klicken';
 }
 
 // Drag-Handler fuer aplot-panel
