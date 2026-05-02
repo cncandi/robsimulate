@@ -2519,7 +2519,7 @@ function buildTrajectory(positions, ikTab) {
       new THREE.LineBasicMaterial({color:hexToInt((document.getElementById('cfg-planned-col')||{value:'#1a3050'}).value)})
     ));
   }
-  aPlotDraw();
+  if (!_aPlotSuppressDraw) aPlotDraw();
   // Reachability-Scan asynchron starten
   if (_aPlotScanPending) {
     _aPlotScanPending = false;
@@ -3691,7 +3691,8 @@ var _aPlotReach       = null;  // [{ok:[bool,…]}] pro Wegpunkt
 var _aPlotReachMid    = null;  // [{ok:[bool,…]}] pro Mittelpunkt
 var _aPlotReachAngles = null;  // [[angles|null,…]] IK-Lösung pro Wegpunkt × A-Step
 var _aPlotReachSing   = null;  // [[types[],…]] Singularitätstypen pro Wegpunkt × A-Step
-var _aPlotScanPending = false; // Scan nur starten wenn explizit angefordert
+var _aPlotScanPending    = false; // Scan nur starten wenn explizit angefordert
+var _aPlotSuppressDraw  = false; // aPlotDraw in buildScene unterdrücken
 var _aPlotReachScanId = 0;
 var _aPlotAutoInserts = []; // [{afterIdx, X,Y,Z,A,B,C}] eingefügte Hilfspunkte
 var _aPlotDragIdx  = -1;
@@ -3787,9 +3788,9 @@ function aPlotDraw() {
   ctx.strokeRect(ML, MT, CW, CH);
 
   // Gelbe Bänder: unlösbare A-Bereiche je Wegpunkt
-  if (_aPlotReach && _aPlotReach.length === pos.length) {
+  if (_aPlotReach && _aPlotReach.length > 0) { var _reachN = Math.min(_aPlotReach.length, pos.length);
     var ASTEP = 6, NSTEPS = Math.round(720 / ASTEP); // -360..+360
-    for (var ri = 0; ri < pos.length; ri++) {
+    for (var ri = 0; ri < _reachN; ri++) {
       var reach = _aPlotReach[ri];
       if (!reach) continue;
       var x0 = ri > 0 ? ML + (_aPlotDists[ri-1] / total) * CW : ML;
@@ -3888,8 +3889,9 @@ function aPlotDraw() {
     }
 
     // ── B: Aktueller Pfad (ikTable) → Raute-Symbol am A-Wert ───
-    if (typeof ikTable !== 'undefined' && ikTable.length === pos.length) {
-      for (var si = 0; si < pos.length; si++) {
+    if (typeof ikTable !== 'undefined' && ikTable.length > 0) {
+      var _singN = Math.min(ikTable.length, pos.length);
+      for (var si = 0; si < _singN; si++) {
         var ik = ikTable[si]; if (!ik || !ik.angles) continue;
         var stypes = classifySingTypes(ik.angles);
         if (!stypes.length) continue;
@@ -4365,9 +4367,12 @@ function aPlotApply() {
   var hint = document.getElementById('aplot-edit-hint');
   if (hint) hint.style.display = 'none';
   var info = document.getElementById('aplot-info');
-  // parseAndLoad ohne Scan (_aPlotScanPending bleibt false)
+  // parseAndLoad ohne Scan und ohne Map-Neuzeichnen
+  _aPlotSuppressDraw = true;
   parseAndLoad();
-  if (info) info.textContent = '✓ Übernommen';
+  _aPlotSuppressDraw = false;
+  aPlotDraw(); // Map mit bestehenden Scan-Daten neu zeichnen
+  if (info) info.textContent = '✓ Übernommen — MAP-Scan bei nächstem PARSE & LOAD';
 }
 
 // Drag-Handler fuer aplot-panel
