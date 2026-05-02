@@ -2448,23 +2448,22 @@ function buildTrajectory(positions, ikTab) {
       const angCurrLin = angCurr.map(function(v, j) {
         return angPrev[j] + shortestAngleDiff(angPrev[j], v);
       });
-      let warmAng = [...angPrev];
-      for (let s = 1; s <= steps; s++) {
+      // Für ersten Schritt: linear interpolieren als sicherer Warm-Start
+      let warmAng = lerpAngles(angPrev, angCurrLin, 1/steps);
+      // Erster Schritt immer linear (kein IK-Sprung am Segment-Anfang)
+      pushSample(lerpPos(prev, curr, 1/steps), warmAng, i);
+      for (let s = 2; s <= steps; s++) {
         const f = s / steps;
         const pos = lerpPos(prev, curr, f);
         if (dist < 20) {
-          // Sehr kurze LIN: direkt zwischen ikTable-Winkeln interpolieren
-          // (IK würde falsche Konfiguration finden)
           warmAng = lerpAngles(angPrev, angCurrLin, f);
         } else {
           const res = solveIK(pos.X, pos.Y, pos.Z, pos.A, pos.B, pos.C, warmAng);
-          // Nur übernehmen wenn nah an der erwarteten Konfiguration
           if (res.ok) {
             const resN = res.angles.map(function(v, j) {
               return warmAng[j] + shortestAngleDiff(warmAng[j], v);
             });
             const totalDelta = resN.reduce(function(s, v, j) { return s + Math.abs(v - warmAng[j]); }, 0);
-            // Max single-axis jump: prevent config flips
             const maxDelta = resN.reduce(function(s, v, j) { return Math.max(s, Math.abs(v - warmAng[j])); }, 0);
             warmAng = (totalDelta < 45 && maxDelta < 30) ? resN : lerpAngles(angPrev, angCurrLin, f);
           } else {
