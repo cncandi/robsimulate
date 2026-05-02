@@ -63,14 +63,9 @@
     <div class="pt" style="display:flex;align-items:center;gap:8px">
       <span id="editor-lang-label">KRL Programm</span>
       <span style="color:var(--txt3);text-transform:none;font-size:1.1em;flex:1">— Zeile klicken = Breakpoint</span>
-      <div id="editor-lang-toggle" style="display:flex;background:var(--bg3);border:1px solid var(--bdr);border-radius:4px;overflow:hidden;flex-shrink:0">
-        <button id="btn-lang-kuka" onclick="setEditorLang('kuka')"
-          style="padding:2px 10px;border:none;background:var(--acc);color:#fff;font-family:inherit;font-size:.85em;cursor:pointer;font-weight:bold">KUKA</button>
-        <button id="btn-lang-drcode" onclick="setEditorLang('drcode')"
-          style="padding:2px 10px;border:none;background:transparent;color:var(--txt3);font-family:inherit;font-size:.85em;cursor:pointer">DRCODE</button>
-        <button id="btn-form-view" onclick="toggleFormView()"
-          style="padding:2px 10px;border:none;border-left:1px solid var(--bdr);background:transparent;color:var(--txt3);font-family:inherit;font-size:.85em;cursor:pointer">FORM</button>
-      </div>
+      <select id="format-select" onchange="FormatRegistry.setActive(this.value)"
+        style="background:var(--bg3);color:var(--txt);border:1px solid var(--bdr);border-radius:4px;
+               padding:2px 6px;font-family:inherit;font-size:.85em;cursor:pointer;flex-shrink:0"></select>
     </div>
     <div class="ew">
       <div id="gutter"></div>
@@ -302,7 +297,11 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <script src="./js/i18n.js"></script>
 <script src="./js/dp-solver.js"></script>
+<script src="./js/formats/registry.js"></script>
 <script src="./js/simulator.js"></script>
+<script src="./js/formats/kuka.js"></script>
+<script src="./js/formats/drcode.js"></script>
+<script src="./js/formats/kuka-form.js"></script>
 
 <!-- A-Winkel Diagramm -->
 <div id="aplot-panel" style="position:fixed;bottom:60px;left:320px;width:660px;background:rgba(8,18,28,.97);border:1px solid var(--acc);border-radius:5px;z-index:30;user-select:none;box-shadow:0 4px 20px rgba(0,0,0,.8);display:none">
