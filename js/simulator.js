@@ -3884,6 +3884,7 @@ function aPlotLivePreview(idx, newA) {
   window._aPlotPos = pos;
   if (!pos[idx]) return;
   var p = pos[idx];
+
   // Warm-Start per segIdx
   var warmQ = jointAngles.slice();
   if (trajectory && trajectory.length) {
@@ -3891,9 +3892,44 @@ function aPlotLivePreview(idx, newA) {
       if (trajectory[ti].segIdx === idx) { warmQ = trajectory[ti].angles; break; }
     }
   }
-  // Nur A ändert sich — X,Y,Z,B,C exakt aus Programm-Pose
+
+  // Spezial-IK: nur A ändert sich, X Y Z B C bleiben EXAKT
+  // Methode: solveIK mit sehr vielen Iterationen und engem Toleranz,
+  // Warm-Start ist bereits nahe an der Lösung.
+  // B und C erzwingen wir durch analytische Wrist-Zerlegung nach dem Lösen.
+
+  var D2R = Math.PI/180, R2D = 180/Math.PI;
+  function mT3(M){return[[M[0][0],M[1][0],M[2][0]],[M[0][1],M[1][1],M[2][1]],[M[0][2],M[1][2],M[2][2]]];}
+  function mm3(A,B){var C=[[0,0,0],[0,0,0],[0,0,0]];for(var i=0;i<3;i++)for(var j=0;j<3;j++)for(var k=0;k<3;k++)C[i][j]+=A[i][k]*B[k][j];return C;}
+
+  // Ziel-Rotation: nur A geändert
+  var Rtgt = rotZYX(newA, p.B, p.C);
+  var Rfc  = [[0,0,1],[0,1,0],[-1,0,0]];
+  var Rtcp = mm3(Rfc, rotZYX(TCP_DEF.a, TCP_DEF.b, TCP_DEF.c));
+  var RtcpT = mT3(Rtcp);
+
+  // Vollständige IK für Position
   var res = solveIKFast(p.X, p.Y, p.Z, newA, p.B, p.C, warmQ);
-  if (res && res.ok) applyAngles(res.angles);
+  if (!res || !res.ok) return;
+  var q = res.angles;
+
+  // Exakte Wrist-Korrektur: A1,A2,A3 aus IK-Ergebnis, A4,A5,A6 analytisch neu
+  var Rarm = fkAll([q[0],q[1],q[2],0,0,0]).rot_final;
+  var Rw   = mm3(mm3(mT3(Rarm), Rtgt), RtcpT);
+  // A6 aus Warm-Start behalten
+  var a6 = warmQ[5];
+  var c6 = Math.cos(a6*D2R), s6 = Math.sin(a6*D2R);
+  var Rp = mm3(Rw, [[1,0,0],[0,c6,-s6],[0,s6,c6]]);
+  var s5 = Math.max(-1, Math.min(1, Rp[0][2]));
+  var a5 = Math.asin(s5) * R2D;
+  var a4 = Math.atan2(-Rp[2][1], Rp[1][1]) * R2D;
+
+  if (a4 >= JOINTS_DEF[3].min && a4 <= JOINTS_DEF[3].max &&
+      a5 >= JOINTS_DEF[4].min && a5 <= JOINTS_DEF[4].max) {
+    applyAngles([q[0], q[1], q[2], a4, a5, a6]);
+  } else {
+    applyAngles(res.angles);
+  }
 }
 
 function aPlotReset() {
