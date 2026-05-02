@@ -3679,6 +3679,11 @@ function setEditorLang(lang) {
 // A-WINKEL DIAGRAMM
 // ══════════════════════════════════════════════════════
 var _aPlotDists = [];
+var _aPlotEdits = {};   // {idx: newA} — geänderte A-Werte
+var _aPlotDragging = false;
+var _aPlotDragIdx  = -1;
+var _aPlotML = 56, _aPlotMT = 14, _aPlotMR = 10, _aPlotMB = 30;
+var _aPlotAMIN = -360, _aPlotAMAX = 360;
 
 function toggleAPlot() {
   var p = document.getElementById('aplot-panel');
@@ -3744,6 +3749,8 @@ function aPlotDraw() {
 
   _aPlotCalcDists(pos);
   var total = _aPlotDists[_aPlotDists.length - 1] || 1;
+  _aPlotML=ML; _aPlotMT=MT; window._aPlotCW=CW; window._aPlotCH=CH;
+  window._aPlotTotal=total; window._aPlotPos=pos;
 
   // Vertikale Gitterlinien + X-Beschriftung (Distanz)
   var xSteps = Math.min(8, pos.length - 1);
@@ -3770,13 +3777,26 @@ function aPlotDraw() {
   });
   ctx.stroke();
 
-  // Wegpunkte als Punkte
+  // Wegpunkte als Punkte (original + editiert)
   pos.forEach(function(p, i) {
+    var aVal = (_aPlotEdits[i] !== undefined) ? _aPlotEdits[i] : p.A;
     var xp = ML + (_aPlotDists[i] / total) * CW;
-    var yp = MT + (1 - (p.A - AMIN) / ARNG) * CH;
-    ctx.fillStyle = '#ff8800';
-    ctx.beginPath(); ctx.arc(xp, yp, 3, 0, 2 * Math.PI); ctx.fill();
+    var yp = MT + (1 - (aVal - AMIN) / ARNG) * CH;
+    ctx.fillStyle = (_aPlotEdits[i] !== undefined) ? '#ffee00' : '#ff8800';
+    ctx.beginPath(); ctx.arc(xp, yp, 4, 0, 2 * Math.PI); ctx.fill();
   });
+
+  // Editierte Linie (gelb) überzeichnen
+  if (Object.keys(_aPlotEdits).length > 0) {
+    ctx.beginPath(); ctx.strokeStyle = '#ffee00'; ctx.lineWidth = 1.5; ctx.setLineDash([4,3]);
+    pos.forEach(function(p, i) {
+      var aVal = (_aPlotEdits[i] !== undefined) ? _aPlotEdits[i] : p.A;
+      var xp = ML + (_aPlotDists[i] / total) * CW;
+      var yp = MT + (1 - (aVal - AMIN) / ARNG) * CH;
+      if (i === 0) ctx.moveTo(xp, yp); else ctx.lineTo(xp, yp);
+    });
+    ctx.stroke(); ctx.setLineDash([]);
+  }
 
   // Simulations-Cursor
   if (typeof sim !== 'undefined' && pos.length >= 2) {
@@ -3798,6 +3818,111 @@ function aPlotDraw() {
     var info = document.getElementById('aplot-info');
     if (info) info.textContent = 'A = ' + ca.toFixed(2) + '°  ·  Pos ' + (i0 + 1) + '/' + N + '  ·  ' + (cd / 1000).toFixed(3) + ' m';
   }
+}
+
+// A-Plot Canvas Drag: A-Wert eines Punktes ändern
+(function() {
+  function getCanvas() { return document.getElementById('aplot-canvas'); }
+  function nearestPoint(mx) {
+    var pos = window._aPlotPos; if (!pos || !pos.length) return -1;
+    var CW = window._aPlotCW||600, total = window._aPlotTotal||1;
+    var best = -1, bestD = 20;
+    pos.forEach(function(p,i) {
+      var xp = _aPlotML + (_aPlotDists[i] / total) * CW;
+      var d = Math.abs(mx - xp);
+      if (d < bestD) { bestD = d; best = i; }
+    });
+    return best;
+  }
+  function yToA(my) {
+    var CH = window._aPlotCH||180;
+    var a = _aPlotAMIN + (1 - (my - _aPlotMT) / CH) * (_aPlotAMAX - _aPlotAMIN);
+    return Math.max(_aPlotAMIN, Math.min(_aPlotAMAX, a));
+  }
+  document.addEventListener('DOMContentLoaded', function() {
+    var c = getCanvas(); if (!c) return;
+    c.style.cursor = 'ns-resize';
+    c.addEventListener('mousedown', function(e) {
+      var r = c.getBoundingClientRect();
+      var mx = e.clientX - r.left;
+      var idx = nearestPoint(mx);
+      if (idx < 0) return;
+      _aPlotDragging = true; _aPlotDragIdx = idx;
+      e.preventDefault();
+    });
+    document.addEventListener('mousemove', function(e) {
+      if (!_aPlotDragging || _aPlotDragIdx < 0) return;
+      var c2 = getCanvas(); if (!c2) return;
+      var r = c2.getBoundingClientRect();
+      var my = e.clientY - r.top;
+      var newA = Math.round(yToA(my) * 10) / 10;
+      _aPlotEdits[_aPlotDragIdx] = newA;
+      var hint = document.getElementById('aplot-edit-hint');
+      if (hint) hint.style.display = '';
+      aPlotDraw();
+    });
+    document.addEventListener('mouseup', function() {
+      _aPlotDragging = false; _aPlotDragIdx = -1;
+    });
+  });
+})();
+
+function aPlotReset() {
+  _aPlotEdits = {};
+  var hint = document.getElementById('aplot-edit-hint');
+  if (hint) hint.style.display = 'none';
+  aPlotDraw();
+}
+
+function aPlotApply() {
+  var pos = (parsedData && parsedData.positions) ? parsedData.positions : [];
+  if (!pos.length || !Object.keys(_aPlotEdits).length) return;
+  var code = document.getElementById('code-input');
+  if (!code) return;
+  var nl='\n'; var lines = code.value.split(nl);
+  var moved = 0;
+  // For each edited index, find the corresponding LIN line and update A value
+  Object.keys(_aPlotEdits).forEach(function(idxStr) {
+    var idx = parseInt(idxStr);
+    var newA = _aPlotEdits[idx];
+    if (!pos[idx]) return;
+    var p = pos[idx];
+    // Find LIN line matching X,Y,Z of this point
+    var lineIdx = -1;
+    var linCount = 0;
+    for (var li = 0; li < lines.length; li++) {
+      var l = lines[li];
+      if (!l.match(/^\s*(LIN|CIRC)\s*[{]/i)) continue;
+      if (linCount === idx) { lineIdx = li; break; }
+      linCount++;
+    }
+    // Fallback: search by X,Y,Z values
+    if (lineIdx < 0) {
+      for (var li = 0; li < lines.length; li++) {
+        var l = lines[li];
+        if (!l.match(/X\s*[\d\.\-]+/)) continue;
+        var mx = l.match(/X\s*([\-\d\.]+)/), my = l.match(/Y\s*([\-\d\.]+)/);
+        if (!mx || !my) continue;
+        if (Math.abs(parseFloat(mx[1]) - p.X) < 1 && Math.abs(parseFloat(my[1]) - p.Y) < 1) {
+          lineIdx = li; break;
+        }
+      }
+    }
+    if (lineIdx < 0) return;
+    // Replace A value in that line
+    lines[lineIdx] = lines[lineIdx].replace(
+      /,\s*A\s*([\-\d\.]+)/,
+      ', A ' + newA.toFixed(3)
+    );
+    moved++;
+  });
+  code.value = lines.join(nl);
+  _aPlotEdits = {};
+  var hint = document.getElementById('aplot-edit-hint');
+  if (hint) hint.style.display = 'none';
+  parseAndLoad();
+  aPlotDraw();
+  alert('✓ ' + moved + ' A-Werte übernommen');
 }
 
 // Drag-Handler fuer aplot-panel
