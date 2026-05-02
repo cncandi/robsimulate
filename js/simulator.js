@@ -3618,8 +3618,8 @@ var _aPlotDists = [];
 function toggleAPlot() {
   var p = document.getElementById('aplot-panel');
   if (!p) return;
-  p.classList.toggle('visible');
-  var show = p.classList.contains('visible');
+  var show = p.style.display === 'none';
+  p.style.display = show ? 'block' : 'none';
   var btn = document.getElementById('btn-aplot');
   if (btn) btn.classList.toggle('on', show);
   if (show) aPlotDraw();
@@ -3636,7 +3636,7 @@ function _aPlotCalcDists(pos) {
 function aPlotDraw() {
   var canvas = document.getElementById('aplot-canvas');
   var panel  = document.getElementById('aplot-panel');
-  if (!canvas || !panel || !panel.classList.contains('visible')) return;
+  if (!canvas || !panel || panel.style.display === 'none') return;
   var pos = (parsedData && parsedData.positions) ? parsedData.positions : [];
   var W = canvas.width, H = canvas.height;
   var ML=56, MT=14, MR=10, MB=30;

@@ -303,6 +303,5 @@ input[type=number] {
 }
 
 /* A-Plot Diagramm */
-#aplot-panel { font-family: 'Consolas','Courier New',monospace; display:none; }
-#aplot-panel.visible { display:block; }
+#aplot-panel { font-family: 'Consolas','Courier New',monospace; }
 #aplot-hdr:active { cursor: grabbing; }
