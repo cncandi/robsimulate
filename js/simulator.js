@@ -3772,4 +3772,17 @@ window.addEventListener('load', function() {
   bindSettingsEvents();
   splashProgress(100, 'Bereit.');
   setTimeout(splashHide, 400);
+
+  // A-Plot button — direkte Bindung nach DOM-Load
+  var _abtn = document.getElementById('btn-aplot');
+  if (_abtn) {
+    _abtn.onclick = function() {
+      var p = document.getElementById('aplot-panel');
+      if (!p) return;
+      var show = p.style.display === 'none';
+      p.style.display = show ? 'block' : 'none';
+      _abtn.classList.toggle('on', show);
+      if (show) { try { aPlotDraw(); } catch(e) { console.error('aPlotDraw:', e); } }
+    };
+  }
 });
