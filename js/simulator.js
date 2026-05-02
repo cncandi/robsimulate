@@ -2464,7 +2464,9 @@ function buildTrajectory(positions, ikTab) {
               return warmAng[j] + shortestAngleDiff(warmAng[j], v);
             });
             const totalDelta = resN.reduce(function(s, v, j) { return s + Math.abs(v - warmAng[j]); }, 0);
-            warmAng = (totalDelta < 90) ? resN : lerpAngles(angPrev, angCurrLin, f);
+            // Max single-axis jump: prevent config flips
+            const maxDelta = resN.reduce(function(s, v, j) { return Math.max(s, Math.abs(v - warmAng[j])); }, 0);
+            warmAng = (totalDelta < 45 && maxDelta < 30) ? resN : lerpAngles(angPrev, angCurrLin, f);
           } else {
             warmAng = lerpAngles(angPrev, angCurrLin, f);
           }
