@@ -2128,6 +2128,9 @@ function autoLoadSTLFiles() {
   var axisFiles = ['a1.stl','a2.stl','a3.stl','a4.stl','a5.stl','a6.stl'];
   var base = 'stl/';
 
+  var loadedCount = 0;
+  var totalAxis = axisFiles.length;
+
   axisFiles.forEach(function(name, idx) {
     fetch(base + name)
       .then(function(r) { if(!r.ok) throw new Error('not found'); return r.arrayBuffer(); })
@@ -2144,9 +2147,18 @@ function autoLoadSTLFiles() {
         var delEl  = document.getElementById('asl-del'+idx);
         if (nameEl) nameEl.textContent = name.replace(/\.stl$/i,'');
         if (delEl)  delEl.style.display = '';
-        buildRobotModel(jointAngles);
+        // Nach letzter Achse: buildRobotModel aufrufen
+        loadedCount++;
+        if (loadedCount === totalAxis) {
+          buildRobotModel(jointAngles);
+        }
       })
-      .catch(function() {}); // Datei nicht vorhanden → ignorieren
+      .catch(function() {
+        loadedCount++;
+        if (loadedCount === totalAxis) {
+          buildRobotModel(jointAngles);
+        }
+      });
   });
 
   // Podest
