@@ -3978,6 +3978,93 @@ function aPlotScanReachability() {
   setTimeout(scanNext, 0);
 }
 
+// ── Auto-Lösung: DP über erreichbare A-Werte ─────────────────
+function aPlotAutoSolve() {
+  var infoEl = document.getElementById('aplot-info');
+  var btn    = document.getElementById('aplot-auto-btn');
+
+  // Scan muss vorliegen
+  if (!_aPlotReach) {
+    if (infoEl) infoEl.textContent = 'Scan läuft noch — bitte warten…';
+    return;
+  }
+  var pos = (parsedData && parsedData.positions) ? parsedData.positions : [];
+  if (!pos.length) { if (infoEl) infoEl.textContent = 'Kein Programm geladen.'; return; }
+  if (_aPlotReach.length !== pos.length) {
+    if (infoEl) infoEl.textContent = 'Scan nicht aktuell — bitte neu parsen.'; return;
+  }
+
+  var ASTEP = 6, NSTEPS = Math.round(720 / ASTEP); // 120 Schritte
+  var INF   = 1e9;
+
+  // DP-Tabelle: dp[i][s] = {cost, prev}
+  // s = A-Step-Index (0..119), A-Wert = -360 + s*6
+  var dp = [];
+  for (var i = 0; i < pos.length; i++) {
+    dp.push(new Array(NSTEPS));
+    for (var s = 0; s < NSTEPS; s++) dp[i][s] = { cost: INF, prev: -1 };
+  }
+
+  // Startpunkt: alle erreichbaren A-Werte, Präferenz: nah am aktuellen A
+  var curA = pos[0].A;
+  for (var s = 0; s < NSTEPS; s++) {
+    if (!_aPlotReach[0][s]) continue;
+    var aVal = -360 + s * ASTEP;
+    dp[0][s].cost = Math.abs(aVal - curA);
+    dp[0][s].prev = -1;
+  }
+
+  // DP vorwärts
+  for (var i = 1; i < pos.length; i++) {
+    var prevCurA = pos[i-1].A;
+    for (var s = 1; s < NSTEPS; s++) {           // Ziel-Step
+      if (!_aPlotReach[i][s]) continue;
+      var aTo = -360 + s * ASTEP;
+      for (var ps = 0; ps < NSTEPS; ps++) {      // Quell-Step
+        if (dp[i-1][ps].cost >= INF) continue;
+        if (!_aPlotReach[i-1][ps]) continue;
+        var aFrom = -360 + ps * ASTEP;
+        // Übergang: Kosten = Winkeländerung
+        var delta = Math.abs(aTo - aFrom);
+        var newCost = dp[i-1][ps].cost + delta;
+        if (newCost < dp[i][s].cost) {
+          dp[i][s].cost = newCost;
+          dp[i][s].prev = ps;
+        }
+      }
+    }
+  }
+
+  // Bestes Ende finden
+  var N    = pos.length;
+  var best = -1, bestCost = INF;
+  for (var s = 0; s < NSTEPS; s++) {
+    if (dp[N-1][s].cost < bestCost) { bestCost = dp[N-1][s].cost; best = s; }
+  }
+
+  if (best < 0) {
+    if (infoEl) infoEl.textContent = '⚠ Keine durchgehende Lösung gefunden.';
+    return;
+  }
+
+  // Pfad zurückverfolgen
+  var path = new Array(N);
+  path[N-1] = best;
+  for (var i = N-2; i >= 0; i--) path[i] = dp[i+1][path[i+1]].prev;
+
+  // Ins _aPlotEdits schreiben
+  for (var i = 0; i < N; i++) {
+    var aNew = -360 + path[i] * ASTEP;
+    // Nur wenn verschieden vom Original
+    if (Math.abs(aNew - pos[i].A) > 0.01) _aPlotEdits[i] = aNew;
+  }
+
+  var hint = document.getElementById('aplot-edit-hint');
+  if (hint) hint.style.display = '';
+  if (infoEl) infoEl.textContent = '⚡ Auto-Lösung: Δ' + bestCost.toFixed(0) + '° gesamt — Übernehmen zum Anwenden';
+  aPlotDraw();
+}
+
 function aPlotReset() {
   _aPlotEdits = {};
   var hint = document.getElementById('aplot-edit-hint');
