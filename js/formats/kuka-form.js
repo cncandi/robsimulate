@@ -10,7 +10,7 @@ var fvPTPSubtypeOverride = {}; // lineIdx -> 'axis'|'cart'
 // ── Registrierung ────────────────────────────────────
 FormatRegistry.register({
   id:    'kuka-form',
-  label: 'KUKA Formular',
+  label: 'Formular',
 
   activate: function () {
     document.getElementById('code-input').style.display = 'none';

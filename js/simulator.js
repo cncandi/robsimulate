@@ -2510,6 +2510,9 @@ function buildTrajectory(positions, ikTab) {
     ));
   }
   aPlotDraw();
+  // Reachability-Scan asynchron starten
+  _aPlotReach = null;
+  setTimeout(function() { try { aPlotScanReachability(); } catch(e){} }, 200);
 }
 
 function getTrajSample(t) {
@@ -3671,6 +3674,8 @@ function setEditorLang(lang) { FormatRegistry.setActive(lang); }
 var _aPlotDists = [];
 var _aPlotEdits = {};   // {idx: newA} — geänderte A-Werte
 var _aPlotDragging = false;
+var _aPlotReach = null;  // [{ok:[bool,…]}, …] pro Wegpunkt, 6°-Schritte von -360
+var _aPlotReachScanId = 0; // für Abbruch laufender Scans
 var _aPlotDragIdx  = -1;
 var _aPlotML = 56, _aPlotMT = 14, _aPlotMR = 10, _aPlotMB = 30;
 var _aPlotAMIN = -360, _aPlotAMAX = 360;
@@ -3762,6 +3767,36 @@ function aPlotDraw() {
   // Rahmen
   ctx.strokeStyle = '#2a5070'; ctx.lineWidth = 1;
   ctx.strokeRect(ML, MT, CW, CH);
+
+  // Gelbe Bänder: unlösbare A-Bereiche je Wegpunkt
+  if (_aPlotReach && _aPlotReach.length === pos.length) {
+    var ASTEP = 6, NSTEPS = Math.round(720 / ASTEP); // -360..+360
+    for (var ri = 0; ri < pos.length; ri++) {
+      var reach = _aPlotReach[ri];
+      if (!reach) continue;
+      var x0 = ri > 0 ? ML + (_aPlotDists[ri-1] / total) * CW : ML;
+      var x1 = ri < pos.length-1 ? ML + (_aPlotDists[ri+1] / total) * CW : ML + CW;
+      var xMid = ML + (_aPlotDists[ri] / total) * CW;
+      var xL = (x0 + xMid) / 2, xR = (xMid + x1) / 2;
+      if (ri === 0) xL = ML;
+      if (ri === pos.length-1) xR = ML + CW;
+      ctx.save();
+      ctx.beginPath(); ctx.rect(xL, MT, xR - xL, CH); ctx.clip();
+      for (var si = 0; si < NSTEPS; si++) {
+        if (reach[si]) continue; // lösbar
+        var aLo = -360 + si * ASTEP, aHi = aLo + ASTEP;
+        var yTop = MT + (1 - (aHi - AMIN) / ARNG) * CH;
+        var yBot = MT + (1 - (aLo - AMIN) / ARNG) * CH;
+        ctx.fillStyle = 'rgba(200,160,0,0.18)';
+        ctx.fillRect(xL, yTop, xR - xL, yBot - yTop);
+      }
+      ctx.restore();
+    }
+    // Legende
+    ctx.fillStyle = 'rgba(200,160,0,0.5)'; ctx.fillRect(ML+4, MT+4, 10, 8);
+    ctx.fillStyle = '#aaa080'; ctx.font = '9px monospace'; ctx.textAlign = 'left';
+    ctx.fillText('keine IK-Lösung', ML+17, MT+11);
+  }
 
   // A-Winkel Linie
   ctx.beginPath(); ctx.strokeStyle = '#f05500'; ctx.lineWidth = 2;
@@ -3904,6 +3939,45 @@ function aPlotLivePreview(idx, newA) {
   if (res && res.ok) applyAngles(res.angles);
 }
 
+// Reachability-Scan: pro Wegpunkt A-Bereich -360…+360 in 6°-Schritten testen
+function aPlotScanReachability() {
+  var pos = (parsedData && parsedData.positions) ? parsedData.positions : [];
+  if (!pos.length) { _aPlotReach = null; return; }
+  _aPlotReach = null;
+  var ASTEP = 6, NSTEPS = Math.round(720 / ASTEP);
+  var scanId = ++_aPlotReachScanId;
+  var result = [];
+  var pi = 0;
+
+  function scanNext() {
+    if (scanId !== _aPlotReachScanId) return; // veraltet
+    if (pi >= pos.length) {
+      _aPlotReach = result;
+      aPlotDraw();
+      return;
+    }
+    var p = pos[pi];
+    var initQ = jointAngles.slice();
+    // Warm-Start aus Trajektorie falls vorhanden
+    if (trajectory && trajectory.length) {
+      for (var ti = trajectory.length-1; ti >= 0; ti--) {
+        if (trajectory[ti].segIdx === pi) { initQ = trajectory[ti].angles; break; }
+      }
+    }
+    var reach = new Array(NSTEPS);
+    for (var si = 0; si < NSTEPS; si++) {
+      var aTest = -360 + si * ASTEP;
+      var res = solveIKPrecise(p.X, p.Y, p.Z, aTest, p.B, p.C, initQ);
+      reach[si] = !!(res && res.ok);
+      if (reach[si]) initQ = res.angles; // Warm-Start weitergeben
+    }
+    result.push(reach);
+    pi++;
+    setTimeout(scanNext, 0);
+  }
+  setTimeout(scanNext, 0);
+}
+
 function aPlotReset() {
   _aPlotEdits = {};
   var hint = document.getElementById('aplot-edit-hint');
@@ -4013,7 +4087,7 @@ window.addEventListener('load', function() {
       var show = p.style.display === 'none';
       p.style.display = show ? 'block' : 'none';
       _abtn.classList.toggle('on', show);
-      if (show) { try { aPlotDraw(); } catch(e) { console.error('aPlotDraw:', e); } }
+      if (show) { try { aPlotDraw(); if (!_aPlotReach) aPlotScanReachability(); } catch(e) { console.error('aPlotDraw:', e); } }
     };
   }
 

@@ -307,7 +307,7 @@ input[type=number] {
 #aplot-hdr:active { cursor: grabbing; }
 
 /* ── KRL Form View ── */
-#krl-form-view { font-size: .82em; padding: 2px 0; }
+#krl-form-view { font-size: .92em; padding: 2px 0; }
 .fv-row { border-bottom: 1px solid var(--bdr); }
 .fv-plain, .fv-empty, .fv-comment { padding: 2px 8px; }
 .fv-plaintext { color: var(--txt3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; }
