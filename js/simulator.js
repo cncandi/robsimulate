@@ -1538,6 +1538,52 @@ function solveIKFast(tx, ty, tz, ta, tb, tc, initAngles) {
 }
 
 
+// Hochpräzisions-IK für A-Plot: viele Iterationen, enge Toleranz
+function solveIKPrecise(tx, ty, tz, ta, tb, tc, initAngles) {
+  var clamp = function(v,lo,hi){ return Math.max(lo,Math.min(hi,v)); };
+  var tp = [tx, ty, tz];
+  var Rt = rotZYX(ta, tb, tc);
+  var dt = 0.2, lam = 0.3, tolP = 0.01, tolO = 0.01;
+  var starts = [
+    initAngles ? initAngles.slice() : jointAngles.slice(),
+  ];
+  var bestScore = Infinity, bestQ = starts[0].slice();
+  for (var si = 0; si < starts.length; si++) {
+    var q = starts[si].slice();
+    for (var iter = 0; iter < 500; iter++) {
+      var e = err6(q, tp, Rt);
+      var eP = Math.sqrt(e[0]*e[0]+e[1]*e[1]+e[2]*e[2]);
+      var eO = Math.sqrt(e[3]*e[3]+e[4]*e[4]+e[5]*e[5]);
+      var score = eP + eO;
+      if (score < bestScore) { bestScore = score; bestQ = q.slice(); }
+      if (eP < tolP && eO < tolO) break;
+      var J = [];
+      for (var i = 0; i < 6; i++) {
+        var q1 = q.slice(); q1[i] += dt;
+        var e1 = err6(q1, tp, Rt);
+        J.push([(e1[0]-e[0])/dt,(e1[1]-e[1])/dt,(e1[2]-e[2])/dt,
+                 (e1[3]-e[3])/dt,(e1[4]-e[4])/dt,(e1[5]-e[5])/dt]);
+      }
+      var JtJ = Array.from({length:6}, function(){ return Array(6).fill(0); });
+      var Jte = Array(6).fill(0);
+      for (var i = 0; i < 6; i++) {
+        for (var r = 0; r < 6; r++) {
+          Jte[i] += J[i][r] * e[r];
+          for (var j = 0; j < 6; j++) JtJ[i][j] += J[i][r] * J[j][r];
+        }
+        JtJ[i][i] += lam;
+      }
+      var dq = solve6x6(JtJ, Jte);
+      var step = Math.min(1.0, 5.0 / Math.max(1, bestScore));
+      for (var i = 0; i < 6; i++) {
+        if (!isFinite(dq[i])) continue;
+        q[i] = clamp(q[i] - step*dq[i], JOINTS_DEF[i].min, JOINTS_DEF[i].max);
+      }
+    }
+  }
+  return { angles: bestQ, score: bestScore, ok: bestScore < 0.1 };
+}
+
 // ── Jacobi-Singularitätserkennung (PDF Punkt 2) ───────────────
 // Berechne numerischen Jacobi J(6x6), dann kleinsten Singulärwert via
 // J^T * J Eigenwert-Approximation (Frobenius-Norm Vereinfachung)
@@ -3884,7 +3930,6 @@ function aPlotLivePreview(idx, newA) {
   window._aPlotPos = pos;
   if (!pos[idx]) return;
   var p = pos[idx];
-
   // Warm-Start per segIdx
   var warmQ = jointAngles.slice();
   if (trajectory && trajectory.length) {
@@ -3892,39 +3937,9 @@ function aPlotLivePreview(idx, newA) {
       if (trajectory[ti].segIdx === idx) { warmQ = trajectory[ti].angles; break; }
     }
   }
-
-  // A1,A2,A3 EXAKT aus Trajektorie — Position ändert sich NICHT
-  // A4,A5 analytisch aus neuer Orientierung (newA, p.B, p.C bleiben)
-  // A6 aus Trajektorie
-  var D2R = Math.PI/180, R2D = 180/Math.PI;
-  function mT3(M){return[[M[0][0],M[1][0],M[2][0]],[M[0][1],M[1][1],M[2][1]],[M[0][2],M[1][2],M[2][2]]];}
-  function mm3(A,B){var C=[[0,0,0],[0,0,0],[0,0,0]];for(var i=0;i<3;i++)for(var j=0;j<3;j++)for(var k=0;k<3;k++)C[i][j]+=A[i][k]*B[k][j];return C;}
-
-  var Rfc  = [[0,0,1],[0,1,0],[-1,0,0]];
-  var Rtcp = mm3(Rfc, rotZYX(TCP_DEF.a, TCP_DEF.b, TCP_DEF.c));
-
-  // R_arm aus A1,A2,A3 der Referenz (unveränderlich)
-  var Rarm = fkAll([warmQ[0], warmQ[1], warmQ[2], 0, 0, 0]).rot_final;
-
-  // Ziel-Orientierung: nur A geändert, B und C aus Programm
-  var Rtgt = rotZYX(newA, p.B, p.C);
-
-  // Benötigte Wrist-Rotation
-  var Rw = mm3(mm3(mT3(Rarm), Rtgt), mT3(Rtcp));
-
-  // A6 aus Referenz behalten
-  var a6  = warmQ[5];
-  var c6  = Math.cos(a6*D2R), s6 = Math.sin(a6*D2R);
-  var Rp  = mm3(Rw, [[1,0,0],[0,c6,-s6],[0,s6,c6]]);
-  var s5  = Math.max(-1, Math.min(1, Rp[0][2]));
-  var a5  = Math.asin(s5) * R2D;
-  var a4  = Math.atan2(-Rp[2][1], Rp[1][1]) * R2D;
-
-  // Nur wenn A4,A5 innerhalb Limits
-  if (a4 >= JOINTS_DEF[3].min && a4 <= JOINTS_DEF[3].max &&
-      a5 >= JOINTS_DEF[4].min && a5 <= JOINTS_DEF[4].max) {
-    applyAngles([warmQ[0], warmQ[1], warmQ[2], a4, a5, a6]);
-  }
+  // Hochpräzisions-IK: nur A ändert sich, XYZ BC exakt aus Programm
+  var res = solveIKPrecise(p.X, p.Y, p.Z, newA, p.B, p.C, warmQ);
+  if (res && res.ok) applyAngles(res.angles);
 }
 
 function aPlotReset() {
