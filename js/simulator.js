@@ -3692,7 +3692,12 @@ function toggleAPlot() {
   p.style.display = show ? 'block' : 'none';
   var btn = document.getElementById('btn-aplot');
   if (btn) btn.classList.toggle('on', show);
-  if (show) aPlotDraw();
+  if (show) {
+    // Sofort _aPlotPos setzen damit erster Drag funktioniert
+    window._aPlotPos = (parsedData && parsedData.positions) ? parsedData.positions : [];
+    _aPlotCalcDists(window._aPlotPos);
+    aPlotDraw();
+  }
 }
 
 function _aPlotCalcDists(pos) {
@@ -3871,6 +3876,7 @@ function aPlotDraw() {
 function aPlotLivePreview(idx, newA) {
   // Robote live bewegen: IK für diesen Punkt mit neuem A-Wert
   var pos = (parsedData && parsedData.positions) ? parsedData.positions : [];
+  window._aPlotPos = pos;  // sicherstellen dass immer aktuell
   if (!pos[idx]) return;
   var p = pos[idx];
   var warmQ = (trajectory && trajectory[idx]) ? trajectory[idx].angles : jointAngles.slice();
