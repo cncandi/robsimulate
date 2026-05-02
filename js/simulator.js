@@ -3880,12 +3880,17 @@ function aPlotDraw() {
 })();
 
 function aPlotLivePreview(idx, newA) {
-  // Robote live bewegen: IK für diesen Punkt mit neuem A-Wert
   var pos = (parsedData && parsedData.positions) ? parsedData.positions : [];
-  window._aPlotPos = pos;  // sicherstellen dass immer aktuell
+  window._aPlotPos = pos;
   if (!pos[idx]) return;
   var p = pos[idx];
-  var warmQ = (trajectory && trajectory[idx]) ? trajectory[idx].angles : jointAngles.slice();
+  // Richtigen Trajektorie-Eintrag per segIdx finden
+  var warmQ = jointAngles.slice();
+  if (trajectory && trajectory.length) {
+    for (var ti = trajectory.length-1; ti >= 0; ti--) {
+      if (trajectory[ti].segIdx === idx) { warmQ = trajectory[ti].angles; break; }
+    }
+  }
   var res = solveIKFast(p.X, p.Y, p.Z, newA, p.B, p.C, warmQ);
   if (res && res.ok) applyAngles(res.angles);
 }
