@@ -2386,10 +2386,9 @@ function buildTrajectory(positions, ikTab) {
       if (_st.type==='move') break;
     }
   }
-  // Erster Punkt: IK berechnen statt PTP-Winkel verwenden
-  var _ik0 = solveIKFast(positions[0].X, positions[0].Y, positions[0].Z,
-    positions[0].A, positions[0].B, positions[0].C, _buildStart);
-  pushSample(positions[0], _ik0.ok ? _ik0.angles : _buildStart, 0);
+  // Erster Punkt: direkt ikTab[0] verwenden — exakt gleich wie angPrev im Loop
+  var _ang0 = (ikTab[0]&&ikTab[0].angles) ? ikTab[0].angles : _buildStart;
+  pushSample(positions[0], _ang0, 0);
 
   for (let i = 1; i < N; i++) {
     const prev = positions[i-1];
