@@ -1,3 +1,5 @@
+const APP_VERSION = 'V0.62';
+
 
 // ── Splash Screen ─────────────────────────────────────────────
 function splashProgress(pct, msg) {
@@ -4355,6 +4357,13 @@ window.addEventListener('load', function() {
       if (show) { try { aPlotDraw(); if (!_aPlotReach) aPlotScanReachability(); } catch(e) { console.error('aPlotDraw:', e); } }
     };
   }
+
+  // Versionsnummer setzen
+  ['ver-header','ver-help','ver-splash'].forEach(function(id) {
+    var el = document.getElementById(id);
+    if (el) el.textContent = APP_VERSION;
+  });
+  document.title = 'RobSimul ' + APP_VERSION + ' · cnc-technik.de';
 
   // Format-Dropdown initialisieren
   var _fmtSel = document.getElementById('format-select');

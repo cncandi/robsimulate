@@ -307,7 +307,7 @@ input[type=number] {
 #aplot-hdr:active { cursor: grabbing; }
 
 /* ── KRL Form View ── */
-#krl-form-view { font-size: .92em; padding: 2px 0; }
+#krl-form-view { font-size: var(--fsz); padding: 2px 0; }
 .fv-row { border-bottom: 1px solid var(--bdr); }
 .fv-plain, .fv-empty, .fv-comment { padding: 2px 8px; }
 .fv-plaintext { color: var(--txt3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; }
@@ -323,7 +323,7 @@ input[type=number] {
 .fv-chevron { color: var(--txt3); font-size: .8em; flex-shrink: 0; }
 .fv-form { padding: 6px 8px 8px; background: var(--bg2); }
 .fv-row2 { display: flex; gap: 8px; margin-bottom: 6px; }
-.fv-row2 label { display: flex; align-items: center; gap: 4px; color: var(--txt3); font-size: .85em; }
+.fv-row2 label { display: flex; align-items: center; gap: 4px; color: var(--txt3); }
 .fv-sel { background: var(--bg3); color: var(--txt); border: 1px solid var(--bdr); border-radius: 3px; padding: 1px 3px; font-family: inherit; font-size: .9em; }
 .fv-sel:focus { border-color: var(--acc); outline: none; }
 .fv-grid3 { display: grid; grid-template-columns: 1fr 1fr; gap: 3px 8px; margin-bottom: 6px; }
