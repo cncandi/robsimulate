@@ -340,3 +340,6 @@ input[type=number] {
 .fv-insert-bar { height: 8px; display: flex; align-items: center; justify-content: center; cursor: pointer; opacity: 0; transition: opacity .15s; }
 .fv-insert-bar:hover { opacity: 1; background: rgba(240,85,0,.08); }
 .fv-insert-btn { font-size: .72em; color: var(--acc); border: 1px dashed var(--acc); border-radius: 2px; padding: 0 6px; pointer-events: none; }
+.fv-badge-circ { background: rgba(170,68,255,.2); color: #aa44ff; }
+.fv-circ-lbl { font-size: .75em; color: var(--txt3); text-transform: uppercase; letter-spacing: 1px; margin: 4px 0 2px; }
+.fv-sub-on { background: var(--acc) !important; color: #fff !important; border-color: var(--acc) !important; }

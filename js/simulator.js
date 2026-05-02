@@ -4037,157 +4037,216 @@ window.addEventListener('load', function() {
     };
   }
 });
+
 // ══════════════════════════════════════════════════════
 // KRL FORM VIEW
 // ══════════════════════════════════════════════════════
 var formViewActive = false;
 var formExpandedLine = -1;
+var fvPTPSubtypeOverride = {}; // lineIdx -> 'axis' | 'cart'
 
 function toggleFormView() {
   formViewActive = !formViewActive;
-  var ta = document.getElementById('code-input');
+  var ta  = document.getElementById('code-input');
   var gut = document.getElementById('gutter');
-  var fv = document.getElementById('krl-form-view');
+  var fv  = document.getElementById('krl-form-view');
   var btn = document.getElementById('btn-form-view');
   if (formViewActive) {
-    ta.style.display = 'none';
+    ta.style.display  = 'none';
     gut.style.display = 'none';
-    fv.style.display = 'flex';
+    fv.style.display  = 'flex';
     if (btn) { btn.style.background = 'var(--acc)'; btn.style.color = '#fff'; }
     buildFormView(formExpandedLine);
   } else {
-    ta.style.display = '';
+    ta.style.display  = '';
     gut.style.display = '';
-    fv.style.display = 'none';
+    fv.style.display  = 'none';
     if (btn) { btn.style.background = 'transparent'; btn.style.color = 'var(--txt3)'; }
   }
 }
 
+// ── Parser ──────────────────────────────────────────
 function fvParseMoveLine(raw) {
   var t = raw.trim();
+
+  // CIRC {aux}, {end} [versch]
+  var mCirc = t.match(/^CIRC\s+\{([^}]+)\}\s*,\s*\{([^}]+)\}\s*(C_DIS|C_PTP|C_VEL|C_ORI)?\s*$/i);
+  if (mCirc) {
+    return { moveType:'CIRC', subtype:'circ',
+             aux: parsePos(mCirc[1]), end: parsePos(mCirc[2]),
+             verl: mCirc[3] || '' };
+  }
+
   // LIN / SLIN
   var mLin = t.match(/^(LIN|SLIN)\s+\{([^}]+)\}\s*(C_DIS|C_PTP|C_VEL|C_ORI)?\s*$/i);
   if (mLin) {
-    var pos = parsePos(mLin[2]);
-    return { moveType: mLin[1].toUpperCase(), subtype: 'cart', pos: pos, verl: mLin[3] || '' };
+    return { moveType: mLin[1].toUpperCase(), subtype:'cart',
+             pos: parsePos(mLin[2]), verl: mLin[3] || '' };
   }
-  // PTP axis
-  var mAxis = t.match(/^PTP\s+\{([^}]+)\}\s*(C_PTP)?\s*$/i);
-  if (mAxis && /A[123456]\s/.test(mAxis[1])) {
-    var ap = {}; var am;
-    var arx = /A([123456])\s+([-+]?\d+(?:\.\d+)?)/g;
-    while ((am = arx.exec(mAxis[1])) !== null) ap['A' + am[1]] = parseFloat(am[2]);
-    return { moveType: 'PTP', subtype: 'axis', pos: ap, verl: mAxis[2] || '' };
-  }
-  // PTP cartesian
-  var mPtpC = t.match(/^PTP\s+\{([^}]+)\}\s*(C_PTP)?\s*$/i);
-  if (mPtpC) {
-    var pp = parsePos(mPtpC[1]);
-    return { moveType: 'PTP', subtype: 'cart', pos: pp, verl: mPtpC[2] || '' };
+
+  // PTP axis (A1..A6)
+  var mPtp = t.match(/^PTP\s+\{([^}]+)\}\s*(C_PTP)?\s*$/i);
+  if (mPtp) {
+    var inner = mPtp[1];
+    if (/A[123456]\s/.test(inner)) {
+      var ap = {A1:0,A2:0,A3:0,A4:0,A5:0,A6:0};
+      var am; var arx = /A([123456])\s+([-+]?\d+(?:\.\d+)?)/g;
+      while ((am = arx.exec(inner)) !== null) ap['A'+am[1]] = parseFloat(am[2]);
+      return { moveType:'PTP', subtype:'axis', pos: ap, verl: mPtp[2] || '' };
+    }
+    // PTP cartesian
+    return { moveType:'PTP', subtype:'cart', pos: parsePos(inner), verl: mPtp[2] || '' };
   }
   return null;
 }
 
+// ── KRL serialisierung ───────────────────────────────
 function fvBuildKRL(data) {
   var v = data.verl ? ' ' + data.verl : '';
+  if (data.moveType === 'CIRC') {
+    return 'CIRC ' + fvFmtPos(data.aux) + ', ' + fvFmtPos(data.end) + v;
+  }
   if (data.subtype === 'axis') {
     var p = data.pos;
-    return 'PTP {A1 ' + fmtN(p.A1||0) + ', A2 ' + fmtN(p.A2||0) + ', A3 ' + fmtN(p.A3||0) +
-           ', A4 ' + fmtN(p.A4||0) + ', A5 ' + fmtN(p.A5||0) + ', A6 ' + fmtN(p.A6||0) + '}' + v;
+    return 'PTP {A1 '+fmtN(p.A1)+', A2 '+fmtN(p.A2)+', A3 '+fmtN(p.A3)+
+           ', A4 '+fmtN(p.A4)+', A5 '+fmtN(p.A5)+', A6 '+fmtN(p.A6)+'}'+v;
   }
-  var p = data.pos;
-  return data.moveType + ' {X ' + fmtN(p.X||0) + ', Y ' + fmtN(p.Y||0) + ', Z ' + fmtN(p.Z||0) +
-         ', A ' + fmtN(p.A||0) + ', B ' + fmtN(p.B||0) + ', C ' + fmtN(p.C||0) + '}' + v;
+  return data.moveType + ' ' + fvFmtPos(data.pos) + v;
 }
 
-function fmtN(n) { return parseFloat(n).toFixed(3); }
+function fvFmtPos(p) {
+  return '{X '+fmtN(p.X||0)+', Y '+fmtN(p.Y||0)+', Z '+fmtN(p.Z||0)+
+         ', A '+fmtN(p.A||0)+', B '+fmtN(p.B||0)+', C '+fmtN(p.C||0)+'}';
+}
+function fmtN(n) { return parseFloat(n||0).toFixed(3); }
 
+// ── Form View rendern ────────────────────────────────
 function buildFormView(expandLine) {
   var fv = document.getElementById('krl-form-view');
   if (!fv) return;
-  var ta = document.getElementById('code-input');
-  var lines = ta.value.split(/\r?\n/);
+  var lines = document.getElementById('code-input').value.split(/\r?\n/);
   var html = '';
+
   for (var i = 0; i < lines.length; i++) {
     var raw = lines[i];
-    var mv = fvParseMoveLine(raw);
-    var li = i;
+    var mv  = fvParseMoveLine(raw);
+
     if (mv) {
-      var isExp = (expandLine === i);
-      var badge = mv.moveType + (mv.subtype === 'axis' ? ' Ax' : '');
-      var verlOpts = fvVerlOpts(mv.moveType);
-      var summary = raw.trim().substring(0, 44) + (raw.trim().length > 44 ? '…' : '');
-      html += '<div class="fv-row fv-move' + (isExp ? ' fv-open' : '') + '" data-line="' + i + '">';
-      html += '<div class="fv-head" onclick="fvToggle(' + i + ')">';
-      html += '<span class="fv-badge fv-badge-' + mv.moveType.toLowerCase() + '">' + badge + '</span>';
-      html += '<span class="fv-summary">' + escHtml(summary) + '</span>';
-      html += '<span class="fv-chevron">' + (isExp ? '▲' : '▼') + '</span>';
+      // Apply per-line subtype override for PTP
+      if (mv.moveType === 'PTP' && fvPTPSubtypeOverride[i] !== undefined)
+        mv.subtype = fvPTPSubtypeOverride[i];
+
+      var isExp   = (expandLine === i);
+      var badge   = mv.moveType;
+      var summary = raw.trim().substring(0,44) + (raw.trim().length > 44 ? '…' : '');
+
+      html += '<div class="fv-row fv-move" data-line="'+i+'">';
+      html += '<div class="fv-head" onclick="fvToggle('+i+')">';
+      html += '<span class="fv-badge fv-badge-'+mv.moveType.toLowerCase()+'">'+badge+'</span>';
+      html += '<span class="fv-summary">'+escHtml(summary)+'</span>';
+      html += '<span class="fv-chevron">'+(isExp?'▲':'▼')+'</span>';
       html += '</div>';
+
       if (isExp) {
         html += '<div class="fv-form">';
-        // Row 1: Type + Verschleifung
-        html += '<div class="fv-row2">';
-        html += '<label>Typ<select class="fv-sel" id="fv-type-' + i + '" onchange="fvTypeChange(' + i + ')">';
-        ['LIN','PTP','SLIN'].forEach(function(tp) {
-          var sel = (mv.moveType === tp) ? ' selected' : '';
-          html += '<option value="' + tp + '"' + sel + '>' + tp + '</option>';
-        });
-        html += '</select></label>';
-        html += '<label>Versch.<select class="fv-sel" id="fv-verl-' + i + '">';
-        verlOpts.forEach(function(vo) {
-          var sel = (mv.verl === vo) ? ' selected' : '';
-          html += '<option value="' + vo + '"' + sel + '>' + (vo || '—') + '</option>';
-        });
-        html += '</select></label>';
-        html += '</div>'; // fv-row2
-        if (mv.subtype === 'axis') {
-          // Axis form
-          html += '<div class="fv-grid2">';
-          ['A1','A2','A3','A4','A5','A6'].forEach(function(ax) {
-            html += '<label>' + ax + '<input class="fv-inp" id="fv-' + ax + '-' + i + '" type="number" step="0.001" value="' + fmtN(mv.pos[ax]||0) + '"></label>';
-          });
-          html += '</div>';
-        } else {
-          // Cartesian form
-          html += '<div class="fv-grid3">';
-          html += '<label>X<input class="fv-inp" id="fv-X-' + i + '" type="number" step="0.1" value="' + fmtN(mv.pos.X||0) + '"><span>mm</span></label>';
-          html += '<label>A<input class="fv-inp" id="fv-A-' + i + '" type="number" step="0.1" value="' + fmtN(mv.pos.A||0) + '"><span>°</span></label>';
-          html += '<label>Y<input class="fv-inp" id="fv-Y-' + i + '" type="number" step="0.1" value="' + fmtN(mv.pos.Y||0) + '"><span>mm</span></label>';
-          html += '<label>B<input class="fv-inp" id="fv-B-' + i + '" type="number" step="0.1" value="' + fmtN(mv.pos.B||0) + '"><span>°</span></label>';
-          html += '<label>Z<input class="fv-inp" id="fv-Z-' + i + '" type="number" step="0.1" value="' + fmtN(mv.pos.Z||0) + '"><span>mm</span></label>';
-          html += '<label>C<input class="fv-inp" id="fv-C-' + i + '" type="number" step="0.1" value="' + fmtN(mv.pos.C||0) + '"><span>°</span></label>';
-          html += '</div>';
-        }
-        // Action buttons
+        html += fvRenderForm(mv, i);
         html += '<div class="fv-acts">';
-        html += '<button class="fv-btn fv-apply" onclick="fvApply(' + i + ')">✓ Übernehmen</button>';
-        html += '<button class="fv-btn fv-del" onclick="fvDelete(' + i + ')">✕ Löschen</button>';
+        html += '<button class="fv-btn fv-apply" onclick="fvApply('+i+')">✓ Übernehmen</button>';
+        html += '<button class="fv-btn fv-del"   onclick="fvDelete('+i+')">✕ Löschen</button>';
         html += '</div>';
-        html += '</div>'; // fv-form
+        html += '</div>';
       }
-      html += '</div>'; // fv-row
+      html += '</div>';
+
     } else {
-      // Non-move line
-      var cls = raw.trim().startsWith(';') ? 'fv-comment' : (raw.trim() === '' ? 'fv-empty' : 'fv-plain');
-      html += '<div class="fv-row ' + cls + '" data-line="' + i + '">';
-      html += '<span class="fv-plaintext">' + escHtml(raw.trim() || '&nbsp;') + '</span>';
+      var cls = raw.trim().startsWith(';') ? 'fv-comment' :
+                raw.trim() === '' ? 'fv-empty' : 'fv-plain';
+      html += '<div class="fv-row '+cls+'" data-line="'+i+'">';
+      if (cls !== 'fv-empty')
+        html += '<span class="fv-plaintext">'+escHtml(raw.trim())+'</span>';
       html += '</div>';
     }
-    // Insert button between lines
-    html += '<div class="fv-insert-bar" data-after="' + i + '" onclick="fvInsertNew(' + i + ')">' +
+
+    html += '<div class="fv-insert-bar" onclick="fvInsertNew('+i+')">' +
             '<span class="fv-insert-btn">+ Neu</span></div>';
   }
+
   fv.innerHTML = html;
-  // Scroll to expanded row
   if (expandLine >= 0) {
-    var el = fv.querySelector('[data-line="' + expandLine + '"]');
-    if (el) el.scrollIntoView({ block: 'nearest' });
+    var el = fv.querySelector('[data-line="'+expandLine+'"]');
+    if (el) el.scrollIntoView({ block:'nearest' });
   }
 }
 
+function fvRenderForm(mv, i) {
+  var html = '';
+  var verlOpts = fvVerlOpts(mv.moveType);
+
+  // ── Zeile 1: Typ + Verschleifung ──
+  html += '<div class="fv-row2">';
+  html += '<label>Typ<select class="fv-sel" id="fv-type-'+i+'" onchange="fvTypeChange('+i+')">';
+  ['LIN','PTP','SLIN','CIRC'].forEach(function(tp){
+    html += '<option value="'+tp+'"'+(mv.moveType===tp?' selected':'')+'>'+tp+'</option>';
+  });
+  html += '</select></label>';
+  html += '<label>Versch.<select class="fv-sel" id="fv-verl-'+i+'">';
+  verlOpts.forEach(function(vo){
+    html += '<option value="'+vo+'"'+(mv.verl===vo?' selected':'')+'>'+(vo||'—')+'</option>';
+  });
+  html += '</select></label>';
+  html += '</div>';
+
+  // ── PTP: Achswinkel/Kartesisch-Toggle ──
+  if (mv.moveType === 'PTP') {
+    html += '<div style="display:flex;gap:4px;margin-bottom:5px">';
+    html += '<button class="fv-btn'+(mv.subtype==='cart'?' fv-sub-on':'')+
+            '" onclick="fvPTPToggle('+i+',\'cart\')">X/Y/Z</button>';
+    html += '<button class="fv-btn'+(mv.subtype==='axis'?' fv-sub-on':'')+
+            '" onclick="fvPTPToggle('+i+',\'axis\')">A1–A6</button>';
+    html += '</div>';
+  }
+
+  if (mv.subtype === 'axis') {
+    html += '<div class="fv-grid2">';
+    ['A1','A2','A3','A4','A5','A6'].forEach(function(ax){
+      html += '<label>'+ax+'<input class="fv-inp" id="fv-'+ax+'-'+i+'" type="number" step="0.001" value="'+fmtN(mv.pos[ax]||0)+'"><span>°</span></label>';
+    });
+    html += '</div>';
+  } else if (mv.subtype === 'circ') {
+    // CIRC: Hilfspunkt + Endpunkt
+    html += '<div class="fv-circ-lbl">Hilfspunkt</div>';
+    html += '<div class="fv-grid3">';
+    html += fvCartFields(mv.aux, 'aux', i);
+    html += '</div>';
+    html += '<div class="fv-circ-lbl">Endpunkt</div>';
+    html += '<div class="fv-grid3">';
+    html += fvCartFields(mv.end, 'end', i);
+    html += '</div>';
+  } else {
+    // LIN / SLIN / PTP cart
+    var prefix = mv.subtype === 'circ' ? 'end' : 'pos';
+    html += '<div class="fv-grid3">';
+    html += fvCartFields(mv.pos, 'pos', i);
+    html += '</div>';
+  }
+
+  return html;
+}
+
+function fvCartFields(p, prefix, i) {
+  var html = '';
+  var pairs = [['X','mm','Y','mm'],['A','°','B','°'],['Z','mm','C','°']];
+  [['X','mm'],['A','°'],['Y','mm'],['B','°'],['Z','mm'],['C','°']].forEach(function(f){
+    html += '<label>'+f[0]+'<input class="fv-inp" id="fv-'+prefix+'-'+f[0]+'-'+i+
+            '" type="number" step="0.1" value="'+fmtN(p[f[0]]||0)+'"><span>'+f[1]+'</span></label>';
+  });
+  return html;
+}
+
+// ── Hilfsfunktionen ──────────────────────────────────
 function fvVerlOpts(moveType) {
-  if (moveType === 'PTP') return ['', 'C_PTP'];
-  return ['', 'C_DIS', 'C_VEL', 'C_ORI'];
+  if (moveType === 'PTP') return ['','C_PTP'];
+  return ['','C_DIS','C_VEL','C_ORI'];
 }
 
 function fvToggle(lineIdx) {
@@ -4195,54 +4254,87 @@ function fvToggle(lineIdx) {
   buildFormView(formExpandedLine);
 }
 
+function fvPTPToggle(lineIdx, subtype) {
+  fvPTPSubtypeOverride[lineIdx] = subtype;
+  formExpandedLine = lineIdx;
+  buildFormView(lineIdx);
+}
+
 function fvTypeChange(lineIdx) {
-  // Rebuild the form for the changed type
-  var sel = document.getElementById('fv-type-' + lineIdx);
+  var sel = document.getElementById('fv-type-'+lineIdx);
   if (!sel) return;
   var newType = sel.value;
-  // Read current values
-  var data = fvReadFormData(lineIdx);
-  data.moveType = newType;
-  // PTP → axis or cart: keep cart if switching from LIN/SLIN, keep axis if already axis
-  if (newType !== 'PTP') data.subtype = 'cart';
-  // Update Verschleifung opts
-  var verlSel = document.getElementById('fv-verl-' + lineIdx);
+  // Verschleifung-Optionen anpassen
+  var verlSel = document.getElementById('fv-verl-'+lineIdx);
   var curVerl = verlSel ? verlSel.value : '';
   var opts = fvVerlOpts(newType);
   if (opts.indexOf(curVerl) < 0) curVerl = '';
   if (verlSel) {
     verlSel.innerHTML = '';
-    opts.forEach(function(vo) {
+    opts.forEach(function(vo){
       var opt = document.createElement('option');
-      opt.value = vo; opt.textContent = vo || '—';
-      if (vo === curVerl) opt.selected = true;
+      opt.value = vo; opt.textContent = vo||'—';
+      if (vo===curVerl) opt.selected = true;
       verlSel.appendChild(opt);
     });
   }
+  // Subtype reset bei Typ-Wechsel
+  if (newType !== 'PTP') delete fvPTPSubtypeOverride[lineIdx];
+  // Form-Bereich neu rendern (nur Inhaltsbereich)
+  var ta    = document.getElementById('code-input');
+  var lines = ta.value.split(/\r?\n/);
+  var mv    = fvParseMoveLine(lines[lineIdx]);
+  if (!mv) return;
+  mv.moveType = newType;
+  if (newType === 'CIRC') { mv.subtype='circ'; if (!mv.aux) mv.aux={X:0,Y:0,Z:0,A:0,B:0,C:0}; if (!mv.end) mv.end=mv.pos||{X:0,Y:0,Z:0,A:0,B:0,C:0}; }
+  else if (newType !== 'PTP') mv.subtype = 'cart';
+  if (fvPTPSubtypeOverride[lineIdx]) mv.subtype = fvPTPSubtypeOverride[lineIdx];
+  var formDiv = document.querySelector('#krl-form-view [data-line="'+lineIdx+'"] .fv-form');
+  if (!formDiv) return;
+  formDiv.innerHTML = fvRenderForm(mv, lineIdx) +
+    '<div class="fv-acts">' +
+    '<button class="fv-btn fv-apply" onclick="fvApply('+lineIdx+')">✓ Übernehmen</button>' +
+    '<button class="fv-btn fv-del"   onclick="fvDelete('+lineIdx+')">✕ Löschen</button>' +
+    '</div>';
 }
 
 function fvReadFormData(lineIdx) {
-  var ta = document.getElementById('code-input');
+  var ta    = document.getElementById('code-input');
   var lines = ta.value.split(/\r?\n/);
-  var raw = lines[lineIdx] || '';
-  var mv = fvParseMoveLine(raw);
+  var mv    = fvParseMoveLine(lines[lineIdx]);
   if (!mv) return null;
-  var typeSel = document.getElementById('fv-type-' + lineIdx);
-  var verlSel = document.getElementById('fv-verl-' + lineIdx);
+
+  var typeSel = document.getElementById('fv-type-'+lineIdx);
+  var verlSel = document.getElementById('fv-verl-'+lineIdx);
   mv.moveType = typeSel ? typeSel.value : mv.moveType;
-  mv.verl = verlSel ? verlSel.value : mv.verl;
-  // Adapt subtype
-  if (mv.moveType === 'PTP' && mv.subtype === 'axis') {
-    ['A1','A2','A3','A4','A5','A6'].forEach(function(ax) {
-      var inp = document.getElementById('fv-' + ax + '-' + lineIdx);
-      if (inp) mv.pos[ax] = parseFloat(inp.value) || 0;
+  mv.verl     = verlSel ? verlSel.value : mv.verl;
+
+  // Subtype aus Override oder erkanntem Typ
+  if (mv.moveType === 'PTP' && fvPTPSubtypeOverride[lineIdx])
+    mv.subtype = fvPTPSubtypeOverride[lineIdx];
+  if (mv.moveType === 'CIRC') mv.subtype = 'circ';
+
+  function readCart(prefix) {
+    var p = {};
+    ['X','Y','Z','A','B','C'].forEach(function(f){
+      var inp = document.getElementById('fv-'+prefix+'-'+f+'-'+lineIdx);
+      p[f] = inp ? parseFloat(inp.value)||0 : 0;
     });
+    return p;
+  }
+
+  if (mv.subtype === 'axis') {
+    var ap = {};
+    ['A1','A2','A3','A4','A5','A6'].forEach(function(ax){
+      var inp = document.getElementById('fv-'+ax+'-'+lineIdx);
+      ap[ax] = inp ? parseFloat(inp.value)||0 : 0;
+    });
+    mv.pos = ap;
+  } else if (mv.subtype === 'circ') {
+    mv.aux = readCart('aux');
+    mv.end = readCart('end');
   } else {
-    mv.subtype = 'cart';
-    ['X','Y','Z','A','B','C'].forEach(function(f) {
-      var inp = document.getElementById('fv-' + f + '-' + lineIdx);
-      if (inp) mv.pos[f] = parseFloat(inp.value) || 0;
-    });
+    mv.pos = readCart('pos');
   }
   return mv;
 }
@@ -4250,29 +4342,29 @@ function fvReadFormData(lineIdx) {
 function fvApply(lineIdx) {
   var data = fvReadFormData(lineIdx);
   if (!data) return;
-  var newKrl = fvBuildKRL(data);
-  var ta = document.getElementById('code-input');
+  var ta    = document.getElementById('code-input');
   var lines = ta.value.split(/\r?\n/);
-  lines[lineIdx] = newKrl;
+  lines[lineIdx] = fvBuildKRL(data);
   ta.value = lines.join('\n');
+  delete fvPTPSubtypeOverride[lineIdx];
   formExpandedLine = -1;
   buildFormView(-1);
 }
 
 function fvDelete(lineIdx) {
-  var ta = document.getElementById('code-input');
+  var ta    = document.getElementById('code-input');
   var lines = ta.value.split(/\r?\n/);
   lines.splice(lineIdx, 1);
   ta.value = lines.join('\n');
+  delete fvPTPSubtypeOverride[lineIdx];
   formExpandedLine = -1;
   buildFormView(-1);
 }
 
 function fvInsertNew(afterLineIdx) {
-  var ta = document.getElementById('code-input');
+  var ta    = document.getElementById('code-input');
   var lines = ta.value.split(/\r?\n/);
-  var newLine = 'LIN {X 0.000, Y 0.000, Z 0.000, A 0.000, B 0.000, C 0.000}';
-  lines.splice(afterLineIdx + 1, 0, newLine);
+  lines.splice(afterLineIdx + 1, 0, 'LIN {X 0.000, Y 0.000, Z 0.000, A 0.000, B 0.000, C 0.000}');
   ta.value = lines.join('\n');
   formExpandedLine = afterLineIdx + 1;
   buildFormView(formExpandedLine);
