@@ -573,10 +573,11 @@ function fvMoveRow(lineIdx, dir) {
 }
 
 function fvToggle(lineIdx) {
-  fvExpandedLine = (fvExpandedLine===lineIdx) ? -1 : lineIdx;
+  var opening = (fvExpandedLine !== lineIdx);
+  fvExpandedLine = opening ? lineIdx : -1;
+  // Roboter sofort bewegen wenn Move-Karte geöffnet wird
+  if (opening) fvGoToLine(lineIdx);
   fvBuild(fvExpandedLine);
-  // Roboter an Position bewegen wenn Wegbefehl ausgewählt
-  if (fvExpandedLine === lineIdx) fvGoToLine(lineIdx);
 }
 
 function fvGoToLine(lineIdx) {
