@@ -11,7 +11,7 @@ body.bg-white #code-input{color:#0a1e38 !important}
 header{background:var(--bg3);padding:4px 14px;border-bottom:2px solid var(--acc);
        display:flex;align-items:center;gap:10px;flex-shrink:0}
 header h1{color:var(--acc);font-size:1em;letter-spacing:1px}
-.htag{background:var(--bg2);color:var(--txt3);border:1px solid var(--bdr);border-radius:2px;padding:0 5px;font-size:.7em}
+.htag{background:var(--bg2);color:var(--txt2);border:1px solid var(--bdr);border-radius:2px;padding:0 5px;font-size:.7em}
 .hright{margin-left:auto;display:flex;align-items:center;gap:8px}
 .dot{width:7px;height:7px;border-radius:50%;background:var(--ok);box-shadow:0 0 4px #00aa30}
 
@@ -313,7 +313,7 @@ input[type=number] {
 .fv-plain, .fv-empty, .fv-comment { width: 100%; box-sizing: border-box; padding: 2px 4px; display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
 .fv-lineno { font-size: .8em; color: var(--txt3); min-width: 22px; text-align: right; flex-shrink: 0; opacity: .5; }
 .fv-plaintext { color: var(--txt3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.fv-comment .fv-plaintext { color: #3a7060; }
+.fv-comment .fv-plaintext { color: #5a9080; }
 
 .fv-card { width: 100%; box-sizing: border-box; border: 1px solid rgba(240,85,0,.3); border-left: 3px solid var(--acc); border-radius: 3px; background: rgba(255,255,255,.05); overflow: hidden; flex-shrink: 0; }
 .fv-card:hover { border-color: rgba(240,85,0,.6); background: rgba(255,255,255,.08); }
