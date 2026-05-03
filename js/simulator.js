@@ -1993,6 +1993,13 @@ function setDragMode(mode){currentDragMode=mode;document.getElementById('ep-tran
 
 function selectPosition(idx){
   selectedPosIdx=idx;const pos=parsedData.positions[idx];
+  // Wenn Formular aktiv: zugehörige Karte öffnen + scrollen
+  if (typeof FormatRegistry !== 'undefined' && FormatRegistry.getActiveId() === 'kuka-form') {
+    if (typeof fvBuild === 'function' && pos.lineNum !== undefined) {
+      fvExpandedLine = pos.lineNum;
+      fvBuild(pos.lineNum);
+    }
+  }
   selSphere.position.set(pos.X,pos.Y,pos.Z);selSphere.visible=true;
   document.getElementById('ep-title').textContent=`#${idx+1}  ${pos.type}  (Z.${pos.lineNum+1})`;
   ['x','y','z','a','b','c'].forEach(k=>document.getElementById('ep-'+k).value=pos[k.toUpperCase()].toFixed(3));
@@ -4025,6 +4032,14 @@ function aPlotLivePreview(idx, newA) {
   var pos = (parsedData && parsedData.positions) ? parsedData.positions : [];
   window._aPlotPos = pos;
   if (!pos[idx]) return;
+  // Wenn Formular aktiv: Karte öffnen
+  if (typeof FormatRegistry !== 'undefined' && FormatRegistry.getActiveId() === 'kuka-form'
+      && typeof fvBuild === 'function' && pos[idx].lineNum !== undefined) {
+    if (fvExpandedLine !== pos[idx].lineNum) {
+      fvExpandedLine = pos[idx].lineNum;
+      fvBuild(pos[idx].lineNum);
+    }
+  }
   var p = pos[idx];
   // Warm-Start per segIdx
   var warmQ = jointAngles.slice();
