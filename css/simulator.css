@@ -6,7 +6,7 @@
 body{font-family:'Consolas','Courier New',monospace;background:var(--bg0);color:var(--txt);
      display:flex;flex-direction:column;height:100vh;overflow:hidden}
 body.bg-white{--bg0:#f5f5f0;--bg1:#eaeae5;--bg2:#e0e0da;--bg3:#d5d5cf;--bg4:#cacac4;
-  --bdr:#b8b8b2;--txt:#0a1e38;--txt2:#1a3a5a;--txt3:#3a6080;--ok:#006622;--err:#991111;--warn:#7a5500}
+  --bdr:#b8b8b2;--txt:#060e1e;--txt2:#0a1e38;--txt3:#1a3a5a;--ok:#004418;--err:#880000;--warn:#5a3800}
 body.bg-white #code-input{color:#0a1e38 !important}
 header{background:var(--bg3);padding:4px 14px;border-bottom:2px solid var(--acc);
        display:flex;align-items:center;gap:10px;flex-shrink:0}
