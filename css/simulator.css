@@ -467,3 +467,55 @@ input[type=number] {
 body.bg-white .fv-inp { background: rgba(0,0,0,.08); }
 body.bg-white .fv-card { background: rgba(0,0,0,.04); border-color: rgba(0,0,0,.15); }
 body.bg-white .fv-coord-grid, body.bg-white .fv-axis-grid { background: rgba(0,0,0,.05); }
+
+/* ══════════════════════════════════════════════════════
+   THEME 3 — Minimal (Grau/Weiß/Schwarz, nüchtern)
+   ══════════════════════════════════════════════════════ */
+body.bg-minimal {
+  --bg0:#f4f4f4; --bg1:#ebebeb; --bg2:#e0e0e0; --bg3:#d4d4d4; --bg4:#c8c8c8;
+  --bdr:#b0b0b0; --txt:#111111; --txt2:#333333; --txt3:#666666;
+  --acc:#222222; --ok:#1a6b1a; --err:#b00000; --warn:#7a5000;
+}
+body.bg-minimal header { background: #222; border-bottom-color: #444; }
+body.bg-minimal header * { color: #eee !important; }
+body.bg-minimal .htag { background: #444; color: #ccc; border-color: #555; }
+body.bg-minimal .sbtn { background: #ddd; color: #222; border-color: #aaa; }
+body.bg-minimal .sbtn:hover:not(:disabled) { background: #ccc; }
+body.bg-minimal .sbtn.on { background: #222 !important; color: #fff !important; border-color: #000 !important; }
+body.bg-minimal #code-input { color: #111 !important; }
+body.bg-minimal .fv-badge-lin  { background: #222; color: #fff; }
+body.bg-minimal .fv-badge-ptp  { background: #555; color: #fff; }
+body.bg-minimal .fv-badge-slin { background: #777; color: #fff; }
+body.bg-minimal .fv-card { border-left-color: #555; border-color: #bbb; background: rgba(0,0,0,.04); }
+body.bg-minimal .fv-card.fv-open { border-left-color: #222; border-color: #888; }
+body.bg-minimal .fv-section-lbl, body.bg-minimal .fv-pv-lbl, body.bg-minimal .fv-coord-lbl { color: #333; }
+body.bg-minimal .fv-group-hdr { background: rgba(0,0,0,.07); border-left-color: #555; }
+body.bg-minimal .fv-group-name { color: #222; }
+body.bg-minimal .fv-group-arrow { color: #444; }
+
+/* ══════════════════════════════════════════════════════
+   THEME 4 — Windows 11 (blau, hell, kontrastreich)
+   ══════════════════════════════════════════════════════ */
+body.bg-win11 {
+  --bg0:#f3f6fc; --bg1:#e8eef8; --bg2:#dde5f5; --bg3:#d0daef; --bg4:#c3cfe9;
+  --bdr:#9aadcf; --txt:#0a0a14; --txt2:#1a2a4a; --txt3:#3a5080;
+  --acc:#0067c0; --ok:#107c10; --err:#c42b1c; --warn:#9a5b00;
+}
+body.bg-win11 header { background: #003d82; border-bottom: 2px solid #0067c0; }
+body.bg-win11 header * { color: #fff !important; }
+body.bg-win11 .htag { background: #0067c0; color: #fff; border-color: #0050a0; }
+body.bg-win11 .sbtn { background: #e8eef8; color: #0a0a14; border: 1px solid #9aadcf; border-radius: 4px; }
+body.bg-win11 .sbtn:hover:not(:disabled) { background: #d0daef; }
+body.bg-win11 .sbtn.on { background: #0067c0 !important; color: #fff !important; border-color: #0050a0 !important; }
+body.bg-win11 #code-input { color: #0a0a14 !important; }
+body.bg-win11 .fv-badge-lin  { background: #0067c0; color: #fff; }
+body.bg-win11 .fv-badge-ptp  { background: #0091ff; color: #fff; }
+body.bg-win11 .fv-badge-slin { background: #00a8e8; color: #fff; }
+body.bg-win11 .fv-card { border-left-color: #0067c0; border-color: #9aadcf; background: rgba(0,103,192,.04); }
+body.bg-win11 .fv-card.fv-open { border-color: #0067c0; background: rgba(0,103,192,.08); }
+body.bg-win11 .fv-section-lbl, body.bg-win11 .fv-pv-lbl, body.bg-win11 .fv-coord-lbl { color: #0067c0; }
+body.bg-win11 .fv-group-hdr { background: rgba(0,103,192,.08); border-left-color: #0067c0; }
+body.bg-win11 .fv-group-name { color: #003d82; }
+body.bg-win11 .fv-group-arrow { color: #0067c0; }
+body.bg-win11 .fv-inp { background: rgba(0,0,0,.06); }
+body.bg-win11 .fv-card:hover { background: rgba(0,103,192,.08); }

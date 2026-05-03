@@ -1476,15 +1476,18 @@ function toggleGrid(){
   document.getElementById('btn-grid').classList.toggle('on', grid.visible);
 }
 
+var _themeIndex = 0;
+var _themes = ['dark','bg-white','bg-minimal','bg-win11'];
+var _themeBg  = [0x070d1a, 0xf0f0eb, 0xf4f4f4, 0xf3f6fc];
+var _themeGrid= [0x0e1e30, 0xbbbbaa, 0xcccccc, 0xc8d8e8];
 document.getElementById('btn-bg').addEventListener('click', function(){
-  document.body.classList.toggle('bg-white');
-  const isWhite = document.body.classList.contains('bg-white');
-  scene.background=new THREE.Color(isWhite?0xf0f0eb:0x070d1a);
-  if(isWhite){
-    setGridColor(0xbbbbaa);
-  } else {
-    setGridColor(0x0e1e30);
-  }
+  // Alle Theme-Klassen entfernen
+  _themes.forEach(function(t){ document.body.classList.remove(t); });
+  _themeIndex = (_themeIndex + 1) % _themes.length;
+  var t = _themes[_themeIndex];
+  if (t !== 'dark') document.body.classList.add(t);
+  scene.background = new THREE.Color(_themeBg[_themeIndex]);
+  setGridColor(_themeGrid[_themeIndex]);
 });
 document.getElementById('btn-tcp-trace').addEventListener('click', function(){
   showTCPTrace=!showTCPTrace;this.classList.toggle('on',showTCPTrace);
