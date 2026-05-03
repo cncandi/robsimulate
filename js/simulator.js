@@ -1,4 +1,4 @@
-const APP_VERSION = 'V0.63';
+const APP_VERSION = 'V0.64';
 
 
 // ── Splash Screen ─────────────────────────────────────────────
