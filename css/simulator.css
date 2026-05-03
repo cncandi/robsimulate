@@ -519,3 +519,40 @@ body.bg-win11 .fv-group-name { color: #003d82; }
 body.bg-win11 .fv-group-arrow { color: #0067c0; }
 body.bg-win11 .fv-inp { background: rgba(0,0,0,.06); }
 body.bg-win11 .fv-card:hover { background: rgba(0,103,192,.08); }
+
+/* ── Helle Themes: Fixfarben überschreiben ── */
+body.bg-white, body.bg-minimal, body.bg-win11 {
+  /* Kinematik-Panel */
+}
+body.bg-white .sp-hdr-title, body.bg-minimal .sp-hdr-title, body.bg-win11 .sp-hdr-title,
+body.bg-white .sp-sec-title,  body.bg-minimal .sp-sec-title,  body.bg-win11 .sp-sec-title,
+body.bg-white .sett-lbl,      body.bg-minimal .sett-lbl,      body.bg-win11 .sett-lbl
+  { color: var(--txt) !important; }
+
+body.bg-white .sp-close,      body.bg-minimal .sp-close,      body.bg-win11 .sp-close,
+body.bg-white .sp-axis-min,   body.bg-minimal .sp-axis-min,   body.bg-win11 .sp-axis-min,
+body.bg-white .sp-axis-max,   body.bg-minimal .sp-axis-max,   body.bg-win11 .sp-axis-max,
+body.bg-white .sp-tcp-lbl,    body.bg-minimal .sp-tcp-lbl,    body.bg-win11 .sp-tcp-lbl,
+body.bg-white .sp-tool-lbl,   body.bg-minimal .sp-tool-lbl,   body.bg-win11 .sp-tool-lbl,
+body.bg-white .pf,             body.bg-minimal .pf,             body.bg-win11 .pf,
+body.bg-white .fv-comment .fv-plaintext, body.bg-minimal .fv-comment .fv-plaintext, body.bg-win11 .fv-comment .fv-plaintext
+  { color: var(--txt3) !important; }
+
+body.bg-white .sp-axis-val,   body.bg-minimal .sp-axis-val,   body.bg-win11 .sp-axis-val,
+body.bg-white .sp-tool-val,   body.bg-minimal .sp-tool-val,   body.bg-win11 .sp-tool-val,
+body.bg-white .rb-val,         body.bg-minimal .rb-val,         body.bg-win11 .rb-val,
+body.bg-white .vn,             body.bg-minimal .vn,             body.bg-win11 .vn,
+body.bg-white .vv,             body.bg-minimal .vv,             body.bg-win11 .vv,
+body.bg-white .sn,             body.bg-minimal .sn,             body.bg-win11 .sn,
+body.bg-white .an,             body.bg-minimal .an,             body.bg-win11 .an,
+body.bg-white .av,             body.bg-minimal .av,             body.bg-win11 .av,
+body.bg-white .stl-name,       body.bg-minimal .stl-name,       body.bg-win11 .stl-name,
+body.bg-white .sett-val,       body.bg-minimal .sett-val,       body.bg-win11 .sett-val
+  { color: var(--txt2) !important; }
+
+body.bg-white .sp-axis-inp, body.bg-minimal .sp-axis-inp, body.bg-win11 .sp-axis-inp
+  { color: var(--txt) !important; border-bottom-color: var(--bdr) !important; }
+body.bg-white .sp-jog-inp, body.bg-minimal .sp-jog-inp, body.bg-win11 .sp-jog-inp
+  { background: var(--bg2) !important; color: var(--txt) !important; border-color: var(--bdr) !important; }
+body.bg-white .sp-tcp-val, body.bg-minimal .sp-tcp-val, body.bg-win11 .sp-tcp-val
+  { background: var(--bg2) !important; color: var(--txt) !important; }
