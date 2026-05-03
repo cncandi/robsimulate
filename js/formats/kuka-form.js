@@ -575,6 +575,28 @@ function fvMoveRow(lineIdx, dir) {
 function fvToggle(lineIdx) {
   fvExpandedLine = (fvExpandedLine===lineIdx) ? -1 : lineIdx;
   fvBuild(fvExpandedLine);
+  // Roboter an Position bewegen wenn Wegbefehl ausgewählt
+  if (fvExpandedLine === lineIdx) fvGoToLine(lineIdx);
+}
+
+function fvGoToLine(lineIdx) {
+  if (typeof parsedData === 'undefined' || !parsedData || !parsedData.positions) return;
+  // Wegpunkt mit dieser Zeilennummer suchen
+  var pos = null, posIdx = -1;
+  for (var i = 0; i < parsedData.positions.length; i++) {
+    if (parsedData.positions[i].lineNum === lineIdx) { pos = parsedData.positions[i]; posIdx = i; break; }
+  }
+  if (!pos) return;
+  // IK-Tabelle verwenden wenn vorhanden
+  if (typeof ikTable !== 'undefined' && ikTable[posIdx] && ikTable[posIdx].ok) {
+    if (typeof applyAngles === 'function') applyAngles(ikTable[posIdx].angles);
+    return;
+  }
+  // Fallback: IK direkt lösen
+  if (typeof solveIK === 'function' && typeof jointAngles !== 'undefined') {
+    var res = solveIK(pos.X, pos.Y, pos.Z, pos.A, pos.B, pos.C, jointAngles);
+    if (res && res.ok && typeof applyAngles === 'function') applyAngles(res.angles);
+  }
 }
 
 function fvPTPToggle(lineIdx, subtype) {
