@@ -556,3 +556,45 @@ body.bg-white .sp-jog-inp, body.bg-minimal .sp-jog-inp, body.bg-win11 .sp-jog-in
   { background: var(--bg2) !important; color: var(--txt) !important; border-color: var(--bdr) !important; }
 body.bg-white .sp-tcp-val, body.bg-minimal .sp-tcp-val, body.bg-win11 .sp-tcp-val
   { background: var(--bg2) !important; color: var(--txt) !important; }
+
+/* ══════════════════════════════════════════════════════
+   THEME 5 — Deep Dark (Tiefschwarz, maximaler Kontrast)
+   ══════════════════════════════════════════════════════ */
+body.bg-deep {
+  --bg0:#000408; --bg1:#040810; --bg2:#080e18; --bg3:#0c1420; --bg4:#101a28;
+  --bdr:#1a2a3a; --txt:#e8f4ff; --txt2:#b0c8e0; --txt3:#6090b0;
+  --acc:#ff6600; --ok:#00cc44; --err:#ff2244; --warn:#ffaa00;
+}
+body.bg-deep header { background: #000408; border-bottom-color: #ff6600; }
+body.bg-deep .fv-card { background: rgba(255,255,255,.03); border-color: rgba(255,102,0,.25); }
+body.bg-deep .fv-card:hover { background: rgba(255,255,255,.05); }
+body.bg-deep .fv-card.fv-open { background: rgba(255,102,0,.08); }
+body.bg-deep .ep { background: #000408; border-right-color: #ff6600; }
+body.bg-deep .info-panel { background: #000408; }
+body.bg-deep .sbtn { background: #080e18; border-color: #1a2a3a; }
+body.bg-deep #code-input { background: #000408 !important; }
+body.bg-deep .fv-form { background: rgba(0,0,0,.4); }
+
+/* ══════════════════════════════════════════════════════
+   THEME 6 — Vivid (Bunt, lila/pink/cyan Akzente)
+   ══════════════════════════════════════════════════════ */
+body.bg-vivid {
+  --bg0:#0d0518; --bg1:#130820; --bg2:#1a0e2e; --bg3:#22123a; --bg4:#2a1646;
+  --bdr:#4a2080; --txt:#f0e8ff; --txt2:#c8a8f0; --txt3:#9060c0;
+  --acc:#cc44ff; --ok:#00ffaa; --err:#ff4466; --warn:#ffcc00;
+}
+body.bg-vivid header { background: #0d0518; border-bottom: 2px solid #cc44ff; }
+body.bg-vivid .fv-card { border-left-color: #cc44ff; border-color: rgba(204,68,255,.25); background: rgba(204,68,255,.04); }
+body.bg-vivid .fv-card:hover { background: rgba(204,68,255,.08); }
+body.bg-vivid .fv-card.fv-open { border-color: #cc44ff; background: rgba(204,68,255,.12); }
+body.bg-vivid .fv-badge-lin  { background: #cc44ff; color: #fff; }
+body.bg-vivid .fv-badge-ptp  { background: #ff44aa; color: #fff; }
+body.bg-vivid .fv-badge-slin { background: #00ccff; color: #000; }
+body.bg-vivid .fv-section-lbl, body.bg-vivid .fv-pv-lbl, body.bg-vivid .fv-coord-lbl { color: #cc44ff; }
+body.bg-vivid .fv-group-hdr { background: rgba(0,255,170,.08); border-left-color: #00ffaa; }
+body.bg-vivid .fv-group-name { color: #00ffaa; }
+body.bg-vivid .fv-group-arrow { color: #00ffaa; }
+body.bg-vivid .sbtn.on { background: #cc44ff !important; border-color: #aa22dd !important; }
+body.bg-vivid .fv-pos-btn { background: rgba(0,255,170,.15); border-color: rgba(0,255,170,.4); color: #00ffaa; }
+body.bg-vivid .fv-apply { background: rgba(204,68,255,.15); color: #cc44ff; border-color: rgba(204,68,255,.4); }
+body.bg-vivid .fv-apply:hover { background: rgba(204,68,255,.3); }
