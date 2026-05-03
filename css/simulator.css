@@ -459,3 +459,4 @@ input[type=number] {
   background: rgba(30,80,40,.1);
 }
 .fv-group-end:hover { background: rgba(60,160,80,.1); color: #44bb66; }
+.fv-group-inp { background:rgba(0,0,0,.4); border:1px solid #44bb66; color:#88ffaa; font-weight:bold; font-size:.9em; letter-spacing:1px; border-radius:2px; padding:0 6px; font-family:inherit; flex:1; outline:none; }

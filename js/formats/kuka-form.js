@@ -225,9 +225,9 @@ function fvBuild(expandLine) {
     if (grpData && grpData.type === 'group') {
       skipUntil = -1; // Reset
       var collapsed = !!fvGroupCollapsed[i];
-      html += '<div class="fv-group-hdr" data-line="'+i+'" onclick="fvGroupToggle('+i+')">';
-      html += '<span class="fv-group-arrow">'+(collapsed?'▶':'▼')+'</span>';
-      html += '<span class="fv-group-name">'+fvEsc(grpData.name)+'</span>';
+      html += '<div class="fv-group-hdr" data-line="'+i+'">';
+      html += '<span class="fv-group-arrow" onclick="fvGroupToggle('+i+')">'+(collapsed?'▶':'▼')+'</span>';
+      html += '<span class="fv-group-name" ondblclick="fvGroupRename('+i+',this)" onclick="fvGroupToggle('+i+')">'+fvEsc(grpData.name)+'</span>';
       html += '</div>';
       if (collapsed) {
         // Alle Zeilen bis ENDGROUP überspringen — Zähler merken
@@ -770,6 +770,30 @@ FormatRegistry.register._origKukaForm = FormatRegistry.register._origKukaForm;
 function fvGroupToggle(lineIdx) {
   fvGroupCollapsed[lineIdx] = !fvGroupCollapsed[lineIdx];
   fvBuild(fvExpandedLine);
+}
+
+function fvGroupRename(lineIdx, el) {
+  // Inline-Input einblenden
+  var current = el.textContent;
+  var inp = document.createElement('input');
+  inp.className = 'fv-group-inp';
+  inp.value = current;
+  el.replaceWith(inp);
+  inp.focus(); inp.select();
+
+  function save() {
+    var newName = inp.value.trim() || current;
+    var ta = document.getElementById('code-input');
+    var lines = ta.value.split(/\r?\n/);
+    lines[lineIdx] = '; #GROUP ' + newName;
+    ta.value = lines.join('\n');
+    fvBuild(fvExpandedLine);
+  }
+  inp.addEventListener('blur', save);
+  inp.addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') { e.preventDefault(); inp.blur(); }
+    if (e.key === 'Escape') { inp.value = current; inp.blur(); }
+  });
 }
 
 function fvSetCursor(lineIdx) {
