@@ -82,36 +82,39 @@ var FV_SYSVARS = [
   { rx: /^WAIT\s+SEC\s+([\d.]+)/i,             id:'wait',    label:'Warten',            unit:'s',    color:'#00aa88', min:0, max:60,  step:0.1,  toKRL:function(v){ return 'WAIT SEC '+parseFloat(v).toFixed(1); } },
   { rx: /^HALT$/i,                              id:'halt',    label:'Programm anhalten', unit:'',     color:'#cc4444', min:null, max:null, step:null, toKRL:function(v){ return 'HALT'; }, noValue:true },
   // Digitale I/O
-  { rx: /^\$OUT\[(\d+)\]\s*=\s*(TRUE|FALSE|ON|OFF|1|0)/i, id:'dout', label:'Digitaler Ausgang', unit:'', color:'#cc8800', min:1, max:100, step:1,
-    parse2: function(t){ var m=t.match(/^\$OUT\[(\d+)\]\s*=\s*(TRUE|FALSE|ON|OFF|1|0)/i); return m?{n:m[1],v:m[2]}:null; },
-    toKRL: function(v){ return v; } },
-  { rx: /^\$IN\[(\d+)\]/i,                     id:'din',     label:'Digitaler Eingang', unit:'',     color:'#8888cc', min:1, max:100, step:1,
-    parse2: function(t){ var m=t.match(/^\$IN\[(\d+)\]/i); return m?{n:m[1]}:null; },
-    toKRL: function(v){ return v; }, readOnly:true },
+  { rx: /^\$OUT\[(\d+)\]\s*=\s*(TRUE|FALSE|ON|OFF|1|0)/i, id:'dout', label:'Digitaler Ausgang', color:'#cc8800',
+    getVal: function(t){ var m=t.match(/^\$OUT\[(\d+)\]\s*=\s*(TRUE|FALSE|ON|OFF|1|0)/i); return m?{n:parseInt(m[1]),v:m[2].toUpperCase()}:{n:1,v:'TRUE'}; },
+    toKRL: function(n,v){ return '$OUT['+n+']='+v; },
+    ioType:'dout' },
+  { rx: /^\$IN\[(\d+)\]/i, id:'din', label:'Digitaler Eingang', color:'#8888cc',
+    getVal: function(t){ var m=t.match(/^\$IN\[(\d+)\]/i); return m?{n:parseInt(m[1])}:{n:1}; },
+    toKRL: function(n){ return '$IN['+n+']'; },
+    ioType:'din' },
   // Analoge I/O
-  { rx: /^\$ANOUT\[(\d+)\]\s*=\s*([\d.\-+]+)/i, id:'aout',  label:'Analoger Ausgang',  unit:'V',    color:'#cc8800', min:1, max:100, step:1,
-    parse2: function(t){ var m=t.match(/^\$ANOUT\[(\d+)\]\s*=\s*([\d.\-+]+)/i); return m?{n:m[1],v:m[2]}:null; },
-    toKRL: function(v){ return v; } },
-  { rx: /^\$ANIN\[(\d+)\]/i,                   id:'ain',     label:'Analoger Eingang',  unit:'V',    color:'#8888cc', min:1, max:100, step:1,
-    parse2: function(t){ var m=t.match(/^\$ANIN\[(\d+)\]/i); return m?{n:m[1]}:null; },
-    toKRL: function(v){ return v; }, readOnly:true },
+  { rx: /^\$ANOUT\[(\d+)\]\s*=\s*([\d.\-+]+)/i, id:'aout', label:'Analoger Ausgang', unit:'V', color:'#cc8800',
+    getVal: function(t){ var m=t.match(/^\$ANOUT\[(\d+)\]\s*=\s*([\d.\-+]+)/i); return m?{n:parseInt(m[1]),v:parseFloat(m[2])}:{n:1,v:0}; },
+    toKRL: function(n,v){ return '$ANOUT['+n+']='+parseFloat(v).toFixed(2); },
+    ioType:'aout' },
+  { rx: /^\$ANIN\[(\d+)\]/i, id:'ain', label:'Analoger Eingang', unit:'V', color:'#8888cc',
+    getVal: function(t){ var m=t.match(/^\$ANIN\[(\d+)\]/i); return m?{n:parseInt(m[1])}:{n:1}; },
+    toKRL: function(n){ return '$ANIN['+n+']'; },
+    ioType:'ain' },
   // Variablen
-  { rx: /^(INT|REAL|BOOL|CHAR)\s+(\w+)\s*(?:=\s*(.+))?/i, id:'var', label:'Variable', unit:'', color:'#8844cc',
-    parse2: function(t){ var m=t.match(/^(INT|REAL|BOOL|CHAR)\s+(\w+)\s*(?:=\s*(.+))?/i); return m?{type:m[1],name:m[2],val:m[3]||''}:null; },
-    toKRL: function(v){ return v; } },
+  { rx: /^(INT|REAL|BOOL|CHAR)\s+(\w+)\s*(?:=\s*(.+))?/i, id:'var', label:'Variable', color:'#8844cc',
+    getVal: function(t){ var m=t.match(/^(INT|REAL|BOOL|CHAR)\s+(\w+)\s*(?:=\s*(.+))?/i); return m?{type:m[1],name:m[2],val:m[3]||''}:{type:'INT',name:'myVar',val:'0'}; },
+    toKRL: function(type,name,val){ return val?type+' '+name+'='+val:type+' '+name; },
+    ioType:'var' },
 ];
 
 function fvParseSysVar(raw) {
   var t = raw.trim();
   for (var i = 0; i < FV_SYSVARS.length; i++) {
     var sv = FV_SYSVARS[i];
+    if (!t.match(sv.rx)) continue;
     var m = t.match(sv.rx);
-    if (m) {
-      // Einfache Sysvars: 1 Capture-Gruppe = Wert
-      if (sv.noValue) return { sysvar: sv, value: '', raw: t };
-      if (sv.parse2) return { sysvar: sv, value: t, raw: t };
-      return { sysvar: sv, value: m[1], raw: t };
-    }
+    if (sv.noValue)  return { sysvar: sv, value: '', raw: t };
+    if (sv.ioType)   return { sysvar: sv, value: t, raw: t, io: sv.getVal(t) };
+    return { sysvar: sv, value: m[1], raw: t };
   }
   return null;
 }
@@ -124,14 +127,50 @@ function fvSVFormHTML(sv, value, i) {
         + '<div class="fv-section-line" style="background:'+sv.sysvar.color+'40"></div></div>';
 
   if (sv.sysvar.noValue) {
-    // HALT: kein Input
+    // HALT: Info-Text, kein Input — trotzdem fv-sv-{i} als Hidden damit fvApplySV funktioniert
     html += '<div class="fv-ctrl-row"><span class="fv-coord-unit">Stoppt das Programm — kein Parameter</span></div>';
-  } else if (sv.sysvar.parse2) {
-    // Komplexe Sysvars (I/O, Variablen): Freitext
+    html += '<input type="hidden" id="fv-sv-'+i+'" value="HALT">';
+  } else if (sv.sysvar.ioType) {
+    // I/O und Variablen: strukturiertes Formular
+    var io = sv.io || (sv.sysvar.getVal ? sv.sysvar.getVal(value) : {});
+    var ioT = sv.sysvar.ioType;
     html += '<div class="fv-ctrl-row">';
-    html += '<span class="fv-coord-lbl" style="min-width:auto">Code</span>';
-    html += '<input class="fv-inp" id="fv-sv-'+i+'" type="text" value="'+fvEsc(value)+'">';
+    if (ioT === 'dout' || ioT === 'din' || ioT === 'aout' || ioT === 'ain') {
+      html += '<span class="fv-coord-lbl" style="min-width:auto">Nr.</span>';
+      html += '<input class="fv-inp" id="fv-sv-n-'+i+'" type="number" min="1" max="100" step="1" value="'+(io.n||1)+'" style="max-width:70px">';
+    }
+    if (ioT === 'dout') {
+      html += '<span class="fv-coord-lbl" style="min-width:auto;margin-left:10px">Wert</span>';
+      html += '<select class="fv-sel" id="fv-sv-v-'+i+'">'
+            + '<option value="TRUE"'+(io.v==='TRUE'?' selected':'')+'>TRUE</option>'
+            + '<option value="FALSE"'+(io.v==='FALSE'?' selected':'')+'>FALSE</option>'
+            + '</select>';
+    }
+    if (ioT === 'aout') {
+      html += '<span class="fv-coord-lbl" style="min-width:auto;margin-left:10px">Volt</span>';
+      html += '<input class="fv-inp" id="fv-sv-v-'+i+'" type="number" min="-10" max="10" step="0.1" value="'+(io.v||0)+'" style="max-width:90px">';
+      html += '<span class="fv-coord-unit">V</span>';
+    }
+    if (ioT === 'din' || ioT === 'ain') {
+      html += '<span class="fv-coord-unit" style="margin-left:8px">nur Lesen</span>';
+    }
+    html += '<input type="hidden" id="fv-sv-'+i+'" value="'+fvEsc(value)+'">';
     html += '</div>';
+    if (ioT === 'var') {
+      var io2 = sv.sysvar.getVal(value);
+      html += '<div class="fv-ctrl-row">';
+      html += '<span class="fv-coord-lbl" style="min-width:auto">Typ</span>';
+      html += '<select class="fv-sel" id="fv-sv-type-'+i+'">';
+      ['INT','REAL','BOOL','CHAR'].forEach(function(tp){
+        html += '<option'+(io2.type&&io2.type.toUpperCase()===tp?' selected':'')+'>'+tp+'</option>';
+      });
+      html += '</select>';
+      html += '<span class="fv-coord-lbl" style="margin-left:8px">Name</span>';
+      html += '<input class="fv-inp" id="fv-sv-name-'+i+'" type="text" value="'+fvEsc(io2.name||'')+'" style="max-width:120px">';
+      html += '<span class="fv-coord-lbl" style="margin-left:8px">= </span>';
+      html += '<input class="fv-inp" id="fv-sv-val-'+i+'" type="text" value="'+fvEsc(io2.val||'')+'" style="max-width:90px">';
+      html += '</div>';
+    }
   } else if (sv.sysvar.min !== null) {
     // Slider + Nummer
     var numVal = parseFloat(value) || sv.sysvar.min;
@@ -303,7 +342,15 @@ function fvBuild(expandLine) {
         html += '<span class="fv-num">'+(i+1)+'</span>';
         html += '<span class="fv-badge fv-badge-sv" style="background:'+svColor+'40;color:'+svColor+'">'+sv.sysvar.id.toUpperCase()+'</span>';
         html += '<span class="fv-sv-label" style="color:#ccc">'+sv.sysvar.label+'</span>';
-        if (!sv.sysvar.noValue) html += '<span class="fv-sv-val">'+fvEsc(sv.value)+'</span>';
+        if (!sv.sysvar.noValue) {
+          var dispVal = sv.value;
+          if (sv.sysvar.ioType && sv.io) {
+            var io = sv.io;
+            if (io.n !== undefined) dispVal = '['+io.n+']';
+            if (io.v !== undefined) dispVal += ' = '+io.v;
+          }
+          html += '<span class="fv-sv-val">'+fvEsc(dispVal)+'</span>';
+        }
         if (sv.sysvar.unit) html += '<span class="fv-verl-tag">'+sv.sysvar.unit+'</span>';
         html += '<span class="fv-chevron">'+(isExpSv?'▲':'▼')+'</span>';
         html += '<div class="fv-row-acts" onclick="event.stopPropagation()">'
@@ -590,9 +637,32 @@ function fvApplySV(lineIdx) {
   var lines = ta.value.split(/\r?\n/);
   var sv    = fvParseSysVar(lines[lineIdx]);
   if (!sv) return;
-  var inp = document.getElementById('fv-sv-'+lineIdx);
-  if (!inp) return;
-  lines[lineIdx] = sv.sysvar.toKRL(inp.value.trim());
+  var newLine;
+  var ioT = sv.sysvar.ioType;
+  if (sv.sysvar.noValue) {
+    newLine = sv.sysvar.toKRL('');
+  } else if (ioT === 'dout') {
+    var n = document.getElementById('fv-sv-n-'+lineIdx);
+    var v = document.getElementById('fv-sv-v-'+lineIdx);
+    newLine = sv.sysvar.toKRL(n?n.value:1, v?v.value:'TRUE');
+  } else if (ioT === 'aout') {
+    var n = document.getElementById('fv-sv-n-'+lineIdx);
+    var v = document.getElementById('fv-sv-v-'+lineIdx);
+    newLine = sv.sysvar.toKRL(n?n.value:1, v?v.value:0);
+  } else if (ioT === 'din' || ioT === 'ain') {
+    var n = document.getElementById('fv-sv-n-'+lineIdx);
+    newLine = sv.sysvar.toKRL(n?n.value:1);
+  } else if (ioT === 'var') {
+    var type = document.getElementById('fv-sv-type-'+lineIdx);
+    var name = document.getElementById('fv-sv-name-'+lineIdx);
+    var val  = document.getElementById('fv-sv-val-'+lineIdx);
+    newLine = sv.sysvar.toKRL(type?type.value:'INT', name?name.value:'myVar', val?val.value:'');
+  } else {
+    var inp = document.getElementById('fv-sv-'+lineIdx);
+    if (!inp) return;
+    newLine = sv.sysvar.toKRL(inp.value.trim());
+  }
+  lines[lineIdx] = newLine;
   ta.value = lines.join('\n');
   fvExpandedLine = -1;
   fvBuild(-1);
