@@ -13,8 +13,6 @@ FormatRegistry.register({
     document.getElementById('gutter').style.display     = 'none';
     var wrap = document.getElementById('fv-form-wrap');
     if (wrap) wrap.style.display = 'flex';
-    var tb = document.getElementById('fv-toolbar');
-    if (tb && !tb.innerHTML.trim()) fvToolbarInit();
     var fv = document.getElementById('krl-form-view');
     if (fv) fv.style.display = 'flex';
     fvBuild(fvExpandedLine);
@@ -263,8 +261,8 @@ function fvBuild(expandLine) {
       }
     }
 
-    html += '<div class="fv-insert-bar" onclick="fvInsertNew('+i+')">'
-          + '<span class="fv-insert-btn">+ Neu</span></div>';
+    html += '<div class="fv-insert-bar" onclick="fvInsertMenu('+i+',event)">'
+          + '<span class="fv-insert-btn">+</span></div>';
   }
 
   fv.innerHTML = html;
@@ -348,6 +346,100 @@ function fvCartInputs(p, prefix, i) {
 }
 
 // ── Event-Handler ────────────────────────────────────
+// ── Insert-Menü ──────────────────────────────────────
+var fvInsertMenuLine = -1;
+
+function fvInsertMenu(afterLine, e) {
+  e.stopPropagation();
+  fvInsertMenuLine = afterLine;
+
+  // Bestehendes Popup entfernen
+  var old = document.getElementById('fv-insert-popup');
+  if (old) { old.remove(); if (parseInt(old.dataset.line) === afterLine) return; }
+
+  var bar = e.currentTarget;
+  var rect = bar.getBoundingClientRect();
+  var fv   = document.getElementById('krl-form-view');
+  var fvR  = fv.getBoundingClientRect();
+
+  var popup = document.createElement('div');
+  popup.id = 'fv-insert-popup';
+  popup.dataset.line = afterLine;
+  popup.className = 'fv-insert-popup';
+
+  var groups = [
+    { label:'Bewegung', color:'#f05500', items:[
+      { badge:'PTP',  bc:'rgba(255,170,0,.9)', bcolor:'#000', key:'move_0' },
+      { badge:'LIN',  bc:'#f05500',            bcolor:'#fff', key:'move_1' },
+      { badge:'SLIN', bc:'rgba(0,170,255,.8)', bcolor:'#fff', key:'move_2' },
+      { badge:'CIRC', bc:'rgba(170,68,255,.8)',bcolor:'#fff', key:'move_3' },
+    ]},
+    { label:'Ablauf',   color:'#00aa88', items:[
+      { badge:'HALT', bc:'#cc4444', bcolor:'#fff', key:'flow_0' },
+      { badge:'WAIT', bc:'#00aa88', bcolor:'#fff', key:'flow_1' },
+    ]},
+    { label:'Prozess',  color:'#f05500', items:[
+      { badge:'VEL',  bc:'#f05500', bcolor:'#fff', key:'process_0' },
+      { badge:'VPTP', bc:'rgba(240,85,0,.6)', bcolor:'#fff', key:'process_1' },
+      { badge:'ACC',  bc:'rgba(240,85,0,.4)', bcolor:'#fff', key:'process_2' },
+    ]},
+    { label:'Digital',  color:'#8888ee', items:[
+      { badge:'DIN',  bc:'#8888cc', bcolor:'#fff', key:'digital_0' },
+      { badge:'DOUT', bc:'#cc8800', bcolor:'#fff', key:'digital_1' },
+    ]},
+    { label:'Analog',   color:'#cc8800', items:[
+      { badge:'AIN',  bc:'#8888cc', bcolor:'#fff', key:'analog_0' },
+      { badge:'AOUT', bc:'#cc8800', bcolor:'#fff', key:'analog_1' },
+    ]},
+    { label:'Daten',    color:'#8844cc', items:[
+      { badge:'TOOL', bc:'#4488cc', bcolor:'#fff', key:'data_0' },
+      { badge:'BASE', bc:'#4488cc', bcolor:'#fff', key:'data_1' },
+      { badge:'INT',  bc:'#8844cc', bcolor:'#fff', key:'data_2' },
+      { badge:'REAL', bc:'#8844cc', bcolor:'#fff', key:'data_3' },
+      { badge:'BOOL', bc:'#8844cc', bcolor:'#fff', key:'data_4' },
+    ]},
+  ];
+
+  var html = '';
+  groups.forEach(function(g) {
+    html += '<div class="fvip-section"><span class="fvip-lbl" style="color:'+g.color+'">'+g.label+'</span><div class="fvip-items">';
+    g.items.forEach(function(item) {
+      html += '<div class="fvip-item" onclick="fvTbInsertAt(\'' + item.key + '\', ' + afterLine + ')">'
+            + '<span class="fvtb-item-badge" style="background:'+item.bc+';color:'+item.bcolor+'">'+item.badge+'</span>'
+            + '</div>';
+    });
+    html += '</div></div>';
+  });
+  popup.innerHTML = html;
+
+  // Positionierung: unterhalb der Insert-Bar
+  popup.style.position = 'fixed';
+  popup.style.top  = (rect.bottom + 2) + 'px';
+  popup.style.left = Math.max(4, rect.left) + 'px';
+  document.body.appendChild(popup);
+
+  // Klick außerhalb schließt
+  setTimeout(function() {
+    document.addEventListener('click', function close(ev) {
+      if (!popup.contains(ev.target)) { popup.remove(); document.removeEventListener('click', close); }
+    });
+  }, 0);
+}
+
+function fvTbInsertAt(key, afterLine) {
+  var old = document.getElementById('fv-insert-popup');
+  if (old) old.remove();
+  var krl = fvTbTemplates[key];
+  if (!krl) return;
+  var ta = document.getElementById('code-input');
+  var lines = ta.value.split(/\r?\n/);
+  var after = afterLine;
+  lines.splice(after + 1, 0, krl);
+  ta.value = lines.join('\n');
+  fvExpandedLine = after + 1;
+  fvBuild(fvExpandedLine);
+}
+
 function fvMoveRow(lineIdx, dir) {
   var ta = document.getElementById('code-input');
   var lines = ta.value.split(/\r?\n/);
