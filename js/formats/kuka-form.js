@@ -13,11 +13,15 @@ FormatRegistry.register({
     document.getElementById('gutter').style.display     = 'none';
     var fv = document.getElementById('krl-form-view');
     if (fv) fv.style.display = 'flex';
+    var tb = document.getElementById('fv-toolbar');
+    if (tb) { tb.style.display = 'flex'; if (!tb.innerHTML.trim()) fvToolbarInit(); }
     fvBuild(fvExpandedLine);
   },
   deactivate: function () {
     var fv = document.getElementById('krl-form-view');
     if (fv) fv.style.display = 'none';
+    var tb = document.getElementById('fv-toolbar');
+    if (tb) tb.style.display = 'none';
     document.getElementById('code-input').style.display = '';
     document.getElementById('gutter').style.display     = '';
   }
@@ -201,7 +205,7 @@ function fvBuild(expandLine) {
 
       html += '<div class="fv-card'+(isExp?' fv-open':'')+'" data-line="'+i+'">';
       // Kopfzeile
-      html += '<div class="fv-head" onclick="fvToggle('+i+')">';
+      html += '<div class="fv-head" onclick="fvSetCursor('+i+');fvToggle('+i+')">';
       html += '<span class="fv-num">'+moveIdx+'</span>';
       html += '<span class="fv-badge fv-badge-'+mv.moveType.toLowerCase()+'">'+mv.moveType+'</span>';
       html += fvPreviewHTML(mv);
@@ -226,7 +230,7 @@ function fvBuild(expandLine) {
         var isExpSv = (expandLine === i);
         var svColor = sv.sysvar.color || '#4488cc';
         html += '<div class="fv-card fv-sv-card'+(isExpSv?' fv-open':'')+'" data-line="'+i+'" style="border-left-color:'+svColor+'">';
-        html += '<div class="fv-head" onclick="fvToggle('+i+')">';
+        html += '<div class="fv-head" onclick="fvSetCursor('+i+');fvToggle('+i+')">';
         html += '<span class="fv-num">'+(i+1)+'</span>';
         html += '<span class="fv-badge fv-badge-sv" style="background:'+svColor+'40;color:'+svColor+'">'+sv.sysvar.id.toUpperCase()+'</span>';
         html += '<span class="fv-sv-label" style="color:#ccc">'+sv.sysvar.label+'</span>';
@@ -435,4 +439,140 @@ function fvInsertNew(afterLineIdx) {
 
 function fvEsc(s) {
   return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ══════════════════════════════════════════════════════
+// TOOLBAR
+// ══════════════════════════════════════════════════════
+var fvToolbarInsertAfter = -1; // Zeile nach der eingefügt wird (-1 = ans Ende)
+
+function fvToolbarInit() {
+  var tb = document.getElementById('fv-toolbar');
+  if (!tb) return;
+
+  // SVG Icons als Inline-Helper
+  function ico(paths, color) {
+    return '<svg width="22" height="22" viewBox="0 0 22 22" fill="none" xmlns="http://www.w3.org/2000/svg">'
+      + paths.map(function(p){ return '<path d="'+p.d+'" stroke="'+(p.c||color||'#f05500')+'" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"'+(p.fill?' fill="'+p.fill+'"':'')+'/>' }).join('')
+      + '</svg>';
+  }
+
+  var ICONS = {
+    move:    ico([{d:'M4 11h14'},{d:'M15 7l4 4-4 4'},{d:'M4 7v8'}]),
+    flow:    ico([{d:'M11 4v14'},{d:'M7 8l4-4 4 4'},{d:'M5 16h12'}], '#00aa88'),
+    process: ico([{d:'M4 11h14'},{d:'M11 4v14'},{d:'M6 6l10 10'},{d:'M16 6L6 16'}], '#f05500'),
+    digital: ico([{d:'M4 7h3v8H4z',fill:'rgba(80,80,200,.3)'},{d:'M9 7h3v8H9z',fill:'rgba(80,80,200,.15)'},{d:'M15 11h3'},{d:'M15 8v6'}], '#8888ee'),
+    analog:  ico([{d:'M4 14 Q7 4 11 11 Q15 18 18 8'}], '#cc8800'),
+    data:    ico([{d:'M5 6h12v3H5z',fill:'rgba(100,60,200,.3)'},{d:'M5 11h12v3H5z',fill:'rgba(100,60,200,.15)'},{d:'M8 17h6'}], '#8844cc'),
+  };
+
+  var groups = [
+    { id:'move',    icon: ICONS.move,    label:'Bewegung', color:'#f05500',
+      items: [
+        { label:'PTP',  badge:'PTP',  bc:'rgba(255,170,0,.9)', bcolor:'#000', insert: 'PTP {A1 0.000, A2 -90.000, A3 90.000, A4 0.000, A5 0.000, A6 0.000}' },
+        { label:'LIN',  badge:'LIN',  bc:'#f05500',            bcolor:'#fff', insert: 'LIN {X 0.000, Y 0.000, Z 0.000, A 0.000, B 0.000, C 0.000} C_DIS' },
+        { label:'SLIN', badge:'SLIN', bc:'rgba(0,170,255,.8)', bcolor:'#fff', insert: 'SLIN {X 0.000, Y 0.000, Z 0.000, A 0.000, B 0.000, C 0.000} C_DIS' },
+        { label:'CIRC', badge:'CIRC', bc:'rgba(170,68,255,.8)',bcolor:'#fff', insert: 'CIRC {X 0.000, Y 0.000, Z 0.000, A 0.000, B 0.000, C 0.000}, {X 100.000, Y 0.000, Z 0.000, A 0.000, B 0.000, C 0.000} C_DIS' },
+      ]
+    },
+    { id:'flow', icon: ICONS.flow, label:'Ablauf', color:'#00aa88',
+      items: [
+        { label:'HALT', badge:'HALT', bc:'#cc4444', bcolor:'#fff', insert: 'HALT' },
+        { label:'WAIT', badge:'WAIT', bc:'#00aa88', bcolor:'#fff', insert: 'WAIT SEC 1.0' },
+      ]
+    },
+    { id:'process', icon: ICONS.process, label:'Prozess', color:'#f05500',
+      items: [
+        { label:'VEL.CP',  badge:'VEL',  bc:'#f05500', bcolor:'#fff', insert: '$VEL.CP=0.167' },
+        { label:'VEL.PTP', badge:'VPTP', bc:'#f05500', bcolor:'#fff', insert: '$VEL.PTP=100' },
+        { label:'ACC.CP',  badge:'ACC',  bc:'rgba(240,85,0,.6)', bcolor:'#fff', insert: '$ACC.CP=1.0' },
+      ]
+    },
+    { id:'digital', icon: ICONS.digital, label:'Digital', color:'#8888ee',
+      items: [
+        { label:'Eingang', badge:'DIN',  bc:'#8888cc', bcolor:'#fff', insert: '; $IN[1]  ; lesen: IF $IN[1] THEN ...' },
+        { label:'Ausgang', badge:'DOUT', bc:'#cc8800', bcolor:'#fff', insert: '$OUT[1]=TRUE' },
+      ]
+    },
+    { id:'analog', icon: ICONS.analog, label:'Analog', color:'#cc8800',
+      items: [
+        { label:'Eingang', badge:'AIN',  bc:'#8888cc', bcolor:'#fff', insert: '; $ANIN[1]  ; lesen in Variable' },
+        { label:'Ausgang', badge:'AOUT', bc:'#cc8800', bcolor:'#fff', insert: '$ANOUT[1]=0.0' },
+      ]
+    },
+    { id:'data', icon: ICONS.data, label:'Daten', color:'#8844cc',
+      items: [
+        { label:'TOOL',  badge:'TOOL', bc:'#4488cc', bcolor:'#fff', insert: '$TOOL=TOOL_DATA[24]' },
+        { label:'BASE',  badge:'BASE', bc:'#4488cc', bcolor:'#fff', insert: '$BASE = BASE_DATA[1]' },
+        { label:'INT',   badge:'INT',  bc:'#8844cc', bcolor:'#fff', insert: 'INT myVar=0' },
+        { label:'REAL',  badge:'REAL', bc:'#8844cc', bcolor:'#fff', insert: 'REAL myVal=0.0' },
+        { label:'BOOL',  badge:'BOOL', bc:'#8844cc', bcolor:'#fff', insert: 'BOOL myFlag=FALSE' },
+      ]
+    },
+  ];
+
+  var html = '';
+  groups.forEach(function(g, gi) {
+    if (gi > 0) html += '<div class="fvtb-sep"></div>';
+    html += '<div class="fvtb-btn" id="fvtb-'+g.id+'" onclick="fvTbToggle(\''+g.id+'\')">';
+    html += g.icon;
+    html += '<span>'+g.label+'</span>';
+    html += '<div class="fvtb-menu" id="fvtb-menu-'+g.id+'">';
+    g.items.forEach(function(item) {
+      var krl = JSON.stringify(item.insert);
+      html += '<div class="fvtb-item" onclick="fvTbInsert('+krl+',event)">'
+            + '<span class="fvtb-item-badge" style="background:'+item.bc+';color:'+item.bcolor+'">'+item.badge+'</span>'
+            + item.label + '</div>';
+    });
+    html += '</div></div>';
+  });
+
+  tb.innerHTML = html;
+
+  // Klick außerhalb schließt Submenüs
+  document.addEventListener('click', function(e) {
+    if (!e.target.closest('#fv-toolbar')) {
+      document.querySelectorAll('.fvtb-btn.open').forEach(function(b){ b.classList.remove('open'); });
+    }
+  });
+}
+
+function fvTbToggle(id) {
+  var btn = document.getElementById('fvtb-'+id);
+  if (!btn) return;
+  var wasOpen = btn.classList.contains('open');
+  document.querySelectorAll('.fvtb-btn.open').forEach(function(b){ b.classList.remove('open'); });
+  if (!wasOpen) btn.classList.add('open');
+}
+
+function fvTbInsert(krl, e) {
+  if (e) e.stopPropagation();
+  document.querySelectorAll('.fvtb-btn.open').forEach(function(b){ b.classList.remove('open'); });
+  var ta = document.getElementById('code-input');
+  var lines = ta.value.split(/\r?\n/);
+  // Einfügen nach markierter Zeile oder am Ende
+  var after = fvToolbarInsertAfter >= 0 ? fvToolbarInsertAfter : lines.length - 1;
+  // "END" überspringen
+  if (lines[after] && lines[after].trim().toUpperCase() === 'END') after = after - 1;
+  lines.splice(after + 1, 0, krl);
+  ta.value = lines.join('\n');
+  fvExpandedLine = after + 1;
+  fvBuild(fvExpandedLine);
+}
+
+// Toolbar ein/ausblenden mit Formular
+FormatRegistry.register._origKukaForm = FormatRegistry.register._origKukaForm;
+(function patchActivate() {
+  var fmts = FormatRegistry._formats || [];
+  // Suche kuka-form Format direkt
+})();
+
+function fvSetCursor(lineIdx) {
+  fvToolbarInsertAfter = lineIdx;
+  // Visuell markieren welche Zeile als Einfügeposition gilt
+  document.querySelectorAll('#krl-form-view [data-line]').forEach(function(el){
+    el.classList.remove('fv-cursor-line');
+  });
+  var el = document.querySelector('#krl-form-view [data-line="'+lineIdx+'"]');
+  if (el) el.classList.add('fv-cursor-line');
 }

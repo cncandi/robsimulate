@@ -47,7 +47,7 @@ input[type=range].ss::-webkit-slider-thumb{-webkit-appearance:none;width:12px;he
     display:flex;flex-direction:column;flex-shrink:0}
 .pt{background:var(--bg4);padding:6px 9px;font-size:.8em;color:var(--acc);text-transform:uppercase;
     letter-spacing:1px;border-bottom:1px solid var(--bdr);flex-shrink:0;display:flex;align-items:center;gap:8px}
-.ew{flex:1;display:flex;overflow:hidden}
+.ew{flex:1;display:flex;overflow:hidden;position:relative}
 #gutter{width:var(--gw);background:var(--bg1);overflow:hidden;flex-shrink:0;
   padding-top:var(--pv);user-select:none;border-right:1px solid var(--bdr)}
 .gl{height:var(--lh);display:flex;align-items:center;padding:0 3px 0 2px;gap:2px;cursor:pointer}
@@ -380,3 +380,42 @@ input[type=number] {
 .fv-sim-active .fv-num { color: #00e070; font-weight: bold; }
 .fv-slider { width:100%; height:4px; cursor:pointer; border-radius:2px; background:rgba(240,85,0,.2); }
 .fv-slider::-webkit-slider-thumb { width:16px; height:16px; border-radius:50%; cursor:pointer; }
+
+/* ── Formular Toolbar ── */
+#fv-toolbar {
+  background: rgba(5,12,22,.97);
+  border-top: 1px solid rgba(240,85,0,.3);
+  padding: 6px 8px;
+  display: flex; gap: 4px; align-items: center; flex-wrap: wrap;
+}
+.fvtb-btn {
+  display: flex; flex-direction: column; align-items: center; gap: 2px;
+  background: rgba(240,85,0,.08); border: 1px solid rgba(240,85,0,.2);
+  border-radius: 4px; padding: 5px 8px; cursor: pointer;
+  color: var(--txt2); font-size: .72em; letter-spacing: .5px;
+  min-width: 46px; transition: background .12s, border-color .12s;
+  position: relative; user-select: none;
+}
+.fvtb-btn:hover { background: rgba(240,85,0,.18); border-color: var(--acc); color: #fff; }
+.fvtb-btn svg { display: block; }
+.fvtb-sep { width: 1px; height: 36px; background: rgba(240,85,0,.15); margin: 0 2px; flex-shrink: 0; }
+/* Submenü */
+.fvtb-menu {
+  display: none; position: absolute; bottom: calc(100% + 4px); left: 0;
+  background: rgba(5,12,22,.98); border: 1px solid rgba(240,85,0,.35);
+  border-radius: 4px; min-width: 110px; overflow: hidden; z-index: 100;
+  box-shadow: 0 4px 16px rgba(0,0,0,.7);
+}
+.fvtb-btn.open .fvtb-menu { display: block; }
+.fvtb-item {
+  display: flex; align-items: center; gap: 8px;
+  padding: 6px 10px; cursor: pointer; font-size: .82em;
+  color: var(--txt2); white-space: nowrap;
+  transition: background .1s;
+}
+.fvtb-item:hover { background: rgba(240,85,0,.15); color: #fff; }
+.fvtb-item-badge {
+  font-size: .72em; font-weight: 900; padding: 1px 5px;
+  border-radius: 2px; font-family: 'Consolas','Courier New',monospace; flex-shrink: 0;
+}
+.fv-cursor-line { outline: 1px dashed rgba(240,85,0,.5) !important; }
