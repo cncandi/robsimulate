@@ -461,3 +461,5 @@ input[type=number] {
 }
 .fv-group-end:hover { background: rgba(60,160,80,.1); color: #44bb66; }
 .fv-group-inp { background:rgba(0,0,0,.4); border:1px solid #44bb66; color:#88ffaa; font-weight:bold; font-size:.9em; letter-spacing:1px; border-radius:2px; padding:0 6px; font-family:inherit; flex:1; outline:none; }
+.fv-pos-btn { background:rgba(0,180,80,.15); border:1px solid rgba(0,180,80,.4); color:#00cc60; border-radius:3px; padding:2px 8px; font-family:inherit; font-size:.85em; cursor:pointer; white-space:nowrap; flex-shrink:0; transition:background .2s; }
+.fv-pos-btn:hover { background:rgba(0,180,80,.3); }

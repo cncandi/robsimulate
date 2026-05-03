@@ -423,12 +423,16 @@ function fvFormHTML(mv, i) {
     html += '<div class="fv-coord-grid">'+fvCartInputs(mv.aux,'aux',i)+'</div>';
     html += '<div class="fv-section-hdr" style="margin-top:6px"><div class="fv-section-num">3</div>'
           + '<span class="fv-section-lbl">Endpunkt</span>'
-          + '<div class="fv-section-line"></div></div>';
+          + '<div class="fv-section-line"></div>'
+          + '<button class="fv-pos-btn" onclick="fvTakeRobotPos('end','+i+')">⊕ Aktuelle Position</button>'
+          + '</div>';
     html += '<div class="fv-coord-grid">'+fvCartInputs(mv.end,'end',i)+'</div>';
   } else if (mv.subtype === 'axis') {
     html += '<div class="fv-section-hdr"><div class="fv-section-num">2</div>'
           + '<span class="fv-section-lbl">Achswinkel</span>'
-          + '<div class="fv-section-line"></div></div>';
+          + '<div class="fv-section-line"></div>'
+          + '<button class="fv-pos-btn" onclick="fvTakeRobotPos('axis','+i+')">⊕ Aktuelle Achsen</button>'
+          + '</div>';
     html += '<div class="fv-axis-grid">';
     ['A1','A2','A3','A4','A5','A6'].forEach(function(ax){
       html += '<div class="fv-coord-row"><span class="fv-coord-lbl">'+ax+'</span>'
@@ -439,7 +443,9 @@ function fvFormHTML(mv, i) {
   } else {
     html += '<div class="fv-section-hdr"><div class="fv-section-num">2</div>'
           + '<span class="fv-section-lbl">Position &amp; Orientierung</span>'
-          + '<div class="fv-section-line"></div></div>';
+          + '<div class="fv-section-line"></div>'
+          + '<button class="fv-pos-btn" onclick="fvTakeRobotPos('cart','+i+')">⊕ Aktuelle Position</button>'
+          + '</div>';
     html += '<div class="fv-coord-grid">'+fvCartInputs(mv.pos,'pos',i)+'</div>';
   }
   html += '</div>';
@@ -630,6 +636,49 @@ function fvReadData(lineIdx) {
   } else if (mv.subtype==='circ') { mv.aux=readCart('aux'); mv.end=readCart('end'); }
   else mv.pos=readCart('pos');
   return mv;
+}
+
+// ── Roboterposition übernehmen ───────────────────────
+function fvTakeRobotPos(mode, lineIdx) {
+  // jointAngles und fkAll sind global in simulator.js
+  if (typeof jointAngles === 'undefined') return;
+
+  if (mode === 'axis') {
+    // A1–A6 direkt aus jointAngles
+    ['A1','A2','A3','A4','A5','A6'].forEach(function(ax, idx) {
+      var inp = document.getElementById('fv-'+ax+'-'+lineIdx);
+      if (inp) inp.value = (jointAngles[idx] || 0).toFixed(3);
+    });
+  } else {
+    // Kartesische Position aus FK
+    var fkResult = typeof fkAll === 'function' ? fkAll(jointAngles) : null;
+    if (!fkResult) return;
+    var tcp = fkResult.pts[7];           // [X, Y, Z]
+    var rot = fkResult.tcp_rot;          // Rotationsmatrix
+
+    // Eulerwinkel aus Rotationsmatrix (ZYX = A, B, C)
+    var b = Math.atan2(-rot[2][0], Math.sqrt(rot[0][0]*rot[0][0]+rot[1][0]*rot[1][0]));
+    var cosB = Math.cos(b);
+    var a, cval;
+    if (Math.abs(cosB) > 1e-6) {
+      a = Math.atan2(rot[1][0]/cosB, rot[0][0]/cosB);
+      cval = Math.atan2(rot[2][1]/cosB, rot[2][2]/cosB);
+    } else {
+      a = 0;
+      cval = Math.atan2(-rot[1][2], rot[1][1]);
+    }
+    var toDeg = 180 / Math.PI;
+    var prefix = (mode === 'end') ? 'end' : 'pos';
+    var vals = { X:tcp[0], Y:tcp[1], Z:tcp[2],
+                 A:a*toDeg, B:b*toDeg, C:cval*toDeg };
+    ['X','Y','Z','A','B','C'].forEach(function(f) {
+      var inp = document.getElementById('fv-'+prefix+'-'+f+'-'+lineIdx);
+      if (inp) inp.value = (vals[f]).toFixed(3);
+    });
+  }
+  // Visuelles Feedback
+  var btn = document.querySelector('#krl-form-view [data-line="'+lineIdx+'"] .fv-pos-btn');
+  if (btn) { btn.style.background='rgba(0,200,100,.3)'; setTimeout(function(){ btn.style.background=''; }, 600); }
 }
 
 function fvApplySV(lineIdx) {
