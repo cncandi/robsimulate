@@ -424,14 +424,14 @@ function fvFormHTML(mv, i) {
     html += '<div class="fv-section-hdr" style="margin-top:6px"><div class="fv-section-num">3</div>'
           + '<span class="fv-section-lbl">Endpunkt</span>'
           + '<div class="fv-section-line"></div>'
-          + '<button class="fv-pos-btn" onclick="fvTakeRobotPos('end','+i+')">⊕ Aktuelle Position</button>'
+          + '<button class="fv-pos-btn" onclick="fvTakeRobotPos(\'end\','+i+')">⊕ Aktuelle Position</button>'
           + '</div>';
     html += '<div class="fv-coord-grid">'+fvCartInputs(mv.end,'end',i)+'</div>';
   } else if (mv.subtype === 'axis') {
     html += '<div class="fv-section-hdr"><div class="fv-section-num">2</div>'
           + '<span class="fv-section-lbl">Achswinkel</span>'
           + '<div class="fv-section-line"></div>'
-          + '<button class="fv-pos-btn" onclick="fvTakeRobotPos('axis','+i+')">⊕ Aktuelle Achsen</button>'
+          + '<button class="fv-pos-btn" onclick="fvTakeRobotPos(\'axis\','+i+')">⊕ Aktuelle Achsen</button>'
           + '</div>';
     html += '<div class="fv-axis-grid">';
     ['A1','A2','A3','A4','A5','A6'].forEach(function(ax){
@@ -444,7 +444,7 @@ function fvFormHTML(mv, i) {
     html += '<div class="fv-section-hdr"><div class="fv-section-num">2</div>'
           + '<span class="fv-section-lbl">Position &amp; Orientierung</span>'
           + '<div class="fv-section-line"></div>'
-          + '<button class="fv-pos-btn" onclick="fvTakeRobotPos('cart','+i+')">⊕ Aktuelle Position</button>'
+          + '<button class="fv-pos-btn" onclick="fvTakeRobotPos(\'cart\','+i+')">⊕ Aktuelle Position</button>'
           + '</div>';
     html += '<div class="fv-coord-grid">'+fvCartInputs(mv.pos,'pos',i)+'</div>';
   }
@@ -912,9 +912,8 @@ function fvMoveGroup(lineIdx, dir) {
   if (endLine < 0) { fvMoveRow(lineIdx, dir); return; }
   var block = lines.splice(lineIdx, endLine - lineIdx + 1);
   var target = lineIdx + dir;
-  if (dir < 0 && target < 0) { lines.splice(0, 0, ...block); }
-  else if (dir > 0 && target > lines.length) { lines.push(...block); }
-  else { lines.splice(Math.max(0, Math.min(lines.length, target)), 0, ...block); }
+  var ins = Math.max(0, Math.min(lines.length, dir < 0 ? 0 : target));
+  for (var bi = 0; bi < block.length; bi++) lines.splice(ins + bi, 0, block[bi]);
   ta.value = lines.join('\n');
   // Collapsed-State aktualisieren
   var newStart = dir < 0 ? Math.max(0, target) : target;
