@@ -2823,7 +2823,21 @@ function buildGutter(count){
 function toggleBP(ln,row){if(!posLineNums.has(ln))return;if(breakpoints.has(ln)){breakpoints.delete(ln);row.classList.remove('has-bp');}else{breakpoints.add(ln);row.classList.add('has-bp');}}
 function rebuildGutter(){const lines=document.getElementById('code-input').value.split(/\r?\n/);buildGutter(lines.length);}
 document.getElementById('code-input').addEventListener('scroll',function(){document.getElementById('gutter').scrollTop=this.scrollTop;});
-function updateGutterActive(lineNum){document.querySelectorAll('#gutter .gl').forEach(r=>r.classList.remove('active'));const t=document.querySelector(`#gutter .gl[data-line="${lineNum}"]`);if(!t)return;t.classList.add('active');const ta=document.getElementById('code-input');const lh=20,pv=10;const top=lineNum*lh+pv;if(top<ta.scrollTop||top>ta.scrollTop+ta.clientHeight-lh)ta.scrollTop=Math.max(0,top-ta.clientHeight/2);}
+function updateGutterActive(lineNum){
+  // Formular-Modus: Karte hervorheben
+  var fv = document.getElementById('krl-form-view');
+  if (fv && fv.style.display !== 'none') {
+    fv.querySelectorAll('.fv-card,.fv-sv-card').forEach(function(el){ el.classList.remove('fv-sim-active'); });
+    var card = fv.querySelector('[data-line="'+lineNum+'"]');
+    if (card) { card.classList.add('fv-sim-active'); card.scrollIntoView({block:'nearest',behavior:'smooth'}); }
+    return;
+  }
+  // KUKA KRL Modus: Gutter
+  document.querySelectorAll('#gutter .gl').forEach(r=>r.classList.remove('active'));
+  const t=document.querySelector(`#gutter .gl[data-line="${lineNum}"]`);if(!t)return;t.classList.add('active');
+  const ta=document.getElementById('code-input');const lh=20,pv=10;const top=lineNum*lh+pv;
+  if(top<ta.scrollTop||top>ta.scrollTop+ta.clientHeight-lh)ta.scrollTop=Math.max(0,top-ta.clientHeight/2);
+}
 
 // ═══════════════════════════════════════════════════
 // UI RENDER HELPERS
