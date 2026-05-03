@@ -11,17 +11,19 @@ FormatRegistry.register({
   activate: function () {
     document.getElementById('code-input').style.display = 'none';
     document.getElementById('gutter').style.display     = 'none';
+    var wrap = document.getElementById('fv-form-wrap');
+    if (wrap) wrap.style.display = 'flex';
+    var tb = document.getElementById('fv-toolbar');
+    if (tb && !tb.innerHTML.trim()) fvToolbarInit();
     var fv = document.getElementById('krl-form-view');
     if (fv) fv.style.display = 'flex';
-    var tb = document.getElementById('fv-toolbar');
-    if (tb) { tb.style.display = 'flex'; if (!tb.innerHTML.trim()) fvToolbarInit(); }
     fvBuild(fvExpandedLine);
   },
   deactivate: function () {
+    var wrap = document.getElementById('fv-form-wrap');
+    if (wrap) wrap.style.display = 'none';
     var fv = document.getElementById('krl-form-view');
     if (fv) fv.style.display = 'none';
-    var tb = document.getElementById('fv-toolbar');
-    if (tb) tb.style.display = 'none';
     document.getElementById('code-input').style.display = '';
     document.getElementById('gutter').style.display     = '';
   }
@@ -518,10 +520,11 @@ function fvToolbarInit() {
     html += g.icon;
     html += '<span>'+g.label+'</span>';
     html += '<div class="fvtb-menu" id="fvtb-menu-'+g.id+'">';
-    g.items.forEach(function(item) {
-      var krl = JSON.stringify(item.insert);
-      html += '<div class="fvtb-item" onclick="fvTbInsert('+krl+',event)">'
-            + '<span class="fvtb-item-badge" style="background:'+item.bc+';color:'+item.bcolor+'">'+item.badge+'</span>'
+    g.items.forEach(function(item, ii) {
+      var key = g.id + '_' + ii;
+      fvTbTemplates[key] = item.insert;
+      html += '<div class="fvtb-item" onclick="fvTbInsert(\'' + key + '\',event)">'
+            + '<span class="fvtb-item-badge" style="background:' + item.bc + ';color:' + item.bcolor + '">' + item.badge + '</span>'
             + item.label + '</div>';
     });
     html += '</div></div>';
@@ -545,15 +548,18 @@ function fvTbToggle(id) {
   if (!wasOpen) btn.classList.add('open');
 }
 
-function fvTbInsert(krl, e) {
-  if (e) e.stopPropagation();
+var fvTbTemplates = {};
+
+function fvTbInsert(key, e) {
+  if (e) { e.stopPropagation(); e.preventDefault(); }
   document.querySelectorAll('.fvtb-btn.open').forEach(function(b){ b.classList.remove('open'); });
+  var krl = fvTbTemplates[key];
+  if (!krl) return;
   var ta = document.getElementById('code-input');
   var lines = ta.value.split(/\r?\n/);
-  // Einfügen nach markierter Zeile oder am Ende
   var after = fvToolbarInsertAfter >= 0 ? fvToolbarInsertAfter : lines.length - 1;
-  // "END" überspringen
-  if (lines[after] && lines[after].trim().toUpperCase() === 'END') after = after - 1;
+  // Vor END einfügen
+  while (after >= 0 && lines[after] && lines[after].trim().toUpperCase() === 'END') after--;
   lines.splice(after + 1, 0, krl);
   ta.value = lines.join('\n');
   fvExpandedLine = after + 1;

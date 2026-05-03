@@ -69,8 +69,10 @@
     <div class="ew">
       <div id="gutter"></div>
       <textarea id="code-input" spellcheck="false" wrap="off"></textarea>
-      <div id="krl-form-view" style="display:none;flex-direction:column;flex:1;overflow-y:auto;background:var(--bg1)"></div>
-      <div id="fv-toolbar" style="display:none;position:absolute;bottom:0;left:0;right:0;z-index:20"></div>
+      <div id="fv-form-wrap" class="ew-form-wrap" style="display:none">
+        <div id="fv-toolbar" style="flex-shrink:0;z-index:20"></div>
+        <div id="krl-form-view" style="flex-direction:column;flex:1;overflow-y:auto;background:var(--bg1)"></div>
+      </div>
     </div>
     <div style="display:flex;gap:4px;padding:4px 5px 0;flex-shrink:0">
       <button class="sbtn" onclick="saveProgram()" style="flex:1">💾</button>
