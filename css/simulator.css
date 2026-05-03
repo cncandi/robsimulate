@@ -307,14 +307,14 @@ input[type=number] {
 #aplot-hdr:active { cursor: grabbing; }
 
 /* ── KRL Form View — Infografik-Stil ── */
-#krl-form-view { font-size: var(--fsz); padding: 6px 8px; gap: 4px; background: var(--bg1); }
+#krl-form-view { font-size: var(--fsz); padding: 6px 8px; gap: 3px; background: var(--bg1); flex-direction: column; }
 
-.fv-plain, .fv-empty, .fv-comment { padding: 2px 4px; display: flex; align-items: center; gap: 8px; }
+.fv-plain, .fv-empty, .fv-comment { width: 100%; box-sizing: border-box; padding: 2px 4px; display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
 .fv-lineno { font-size: .7em; color: var(--txt3); min-width: 22px; text-align: right; flex-shrink: 0; opacity: .5; }
 .fv-plaintext { color: var(--txt3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .fv-comment .fv-plaintext { color: #3a7060; }
 
-.fv-card { border: 1px solid rgba(240,85,0,.18); border-left: 3px solid var(--acc); border-radius: 3px; background: rgba(240,85,0,.04); overflow: hidden; margin-bottom: 2px; }
+.fv-card { width: 100%; box-sizing: border-box; border: 1px solid rgba(240,85,0,.18); border-left: 3px solid var(--acc); border-radius: 3px; background: rgba(240,85,0,.04); overflow: hidden; flex-shrink: 0; }
 .fv-card:hover { border-color: rgba(240,85,0,.35); }
 .fv-card.fv-open { border-color: var(--acc); background: rgba(240,85,0,.07); }
 
@@ -365,7 +365,7 @@ input[type=number] {
 .fv-del   { background: rgba(140,20,20,.15); color: #c04040; border: 1px solid rgba(140,20,20,.3); flex: 0 0 auto; padding: 4px 12px; }
 .fv-del:hover { background: rgba(140,20,20,.3); }
 
-.fv-insert-bar { height: 6px; display: flex; align-items: center; justify-content: center; cursor: pointer; opacity: 0; transition: opacity .12s; margin: 0 4px; }
+.fv-insert-bar { width: 100%; box-sizing: border-box; height: 6px; display: flex; align-items: center; justify-content: center; cursor: pointer; opacity: 0; transition: opacity .12s; flex-shrink: 0; }
 .fv-insert-bar:hover { opacity: 1; }
 .fv-insert-btn { font-size: .68em; color: var(--acc); border: 1px dashed rgba(240,85,0,.5); border-radius: 2px; padding: 0 8px; pointer-events: none; background: rgba(240,85,0,.05); }
 
