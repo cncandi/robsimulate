@@ -378,3 +378,5 @@ input[type=number] {
 .fv-sv-val   { font-family: 'Consolas','Courier New',monospace; color: #9ecfea; margin-right: 8px; }
 .fv-sim-active { border-color: #00e070 !important; background: rgba(0,200,100,.08) !important; }
 .fv-sim-active .fv-num { color: #00e070; font-weight: bold; }
+.fv-slider { width:100%; height:4px; cursor:pointer; border-radius:2px; background:rgba(240,85,0,.2); }
+.fv-slider::-webkit-slider-thumb { width:16px; height:16px; border-radius:50%; cursor:pointer; }

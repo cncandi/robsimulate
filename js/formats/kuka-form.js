@@ -55,23 +55,106 @@ function fvToKRL(data) {
 function fvFmtPos(p) { return '{X '+fvN(p.X)+', Y '+fvN(p.Y)+', Z '+fvN(p.Z)+', A '+fvN(p.A)+', B '+fvN(p.B)+', C '+fvN(p.C)+'}'; }
 function fvN(n) { return parseFloat(n||0).toFixed(3); }
 
-// ── Systemvariablen ───────────────────────────────────
+// ── Systemvariablen + Sonderbefehle ──────────────────
 var FV_SYSVARS = [
-  { rx: /^\$BASE\s*=\s*BASE_DATA\[(\d+)\]/i,  id:'base',    label:'Koordinatensystem', unit:'BASE_DATA[N]', toKRL:function(v){ return '$BASE = BASE_DATA['+v+']'; } },
-  { rx: /^\$TOOL\s*=\s*TOOL_DATA\[(\d+)\]/i,  id:'tool',    label:'TCP / Werkzeug',    unit:'TOOL_DATA[N]', toKRL:function(v){ return '$TOOL=TOOL_DATA['+v+']'; } },
-  { rx: /^\$advance\s*=\s*([\d.]+)/i,          id:'advance', label:'Vorlauf',           unit:'Punkte',       toKRL:function(v){ return '$advance='+v; } },
-  { rx: /^\$VEL\.CP\s*=\s*([\d.]+)/i,          id:'velcp',   label:'Geschwindigkeit',   unit:'m/s',          toKRL:function(v){ return '$VEL.CP='+v; } },
-  { rx: /^\$VEL\.PTP\s*=\s*([\d.]+)/i,         id:'velptp',  label:'PTP-Geschw.',       unit:'%',            toKRL:function(v){ return '$VEL.PTP='+v; } },
-  { rx: /^\$ACC\.CP\s*=\s*([\d.]+)/i,          id:'acccp',   label:'Beschleunigung',    unit:'m/s²',         toKRL:function(v){ return '$ACC.CP='+v; } },
+  // Konfiguration
+  { rx: /^\$BASE\s*=\s*BASE_DATA\[(\d+)\]/i,  id:'base',    label:'Koordinatensystem', unit:'#',    color:'#4488cc', min:1, max:30,  step:1,    toKRL:function(v){ return '$BASE = BASE_DATA['+Math.round(v)+']'; } },
+  { rx: /^\$TOOL\s*=\s*TOOL_DATA\[(\d+)\]/i,  id:'tool',    label:'TCP / Werkzeug',    unit:'#',    color:'#4488cc', min:1, max:30,  step:1,    toKRL:function(v){ return '$TOOL=TOOL_DATA['+Math.round(v)+']'; } },
+  { rx: /^\$advance\s*=\s*([\d.]+)/i,          id:'advance', label:'Vorlauf',           unit:'Pkt',  color:'#4488cc', min:0, max:5,   step:1,    toKRL:function(v){ return '$advance='+Math.round(v); } },
+  // Geschwindigkeit
+  { rx: /^\$VEL\.CP\s*=\s*([\d.]+)/i,          id:'velcp',   label:'Geschwindigkeit',   unit:'m/s',  color:'#f05500', min:0.001, max:0.167, step:0.001, toKRL:function(v){ return '$VEL.CP='+parseFloat(v).toFixed(3); } },
+  { rx: /^\$VEL\.PTP\s*=\s*([\d.]+)/i,         id:'velptp',  label:'PTP-Geschwindigkeit', unit:'%',  color:'#f05500', min:1, max:100, step:1,    toKRL:function(v){ return '$VEL.PTP='+Math.round(v); } },
+  { rx: /^\$ACC\.CP\s*=\s*([\d.]+)/i,          id:'acccp',   label:'Beschleunigung',    unit:'m/s²', color:'#f05500', min:0.1, max:10, step:0.1,  toKRL:function(v){ return '$ACC.CP='+parseFloat(v).toFixed(1); } },
+  // Warten / Stopp
+  { rx: /^WAIT\s+SEC\s+([\d.]+)/i,             id:'wait',    label:'Warten',            unit:'s',    color:'#00aa88', min:0, max:60,  step:0.1,  toKRL:function(v){ return 'WAIT SEC '+parseFloat(v).toFixed(1); } },
+  { rx: /^HALT$/i,                              id:'halt',    label:'Programm anhalten', unit:'',     color:'#cc4444', min:null, max:null, step:null, toKRL:function(v){ return 'HALT'; }, noValue:true },
+  // Digitale I/O
+  { rx: /^\$OUT\[(\d+)\]\s*=\s*(TRUE|FALSE|ON|OFF|1|0)/i, id:'dout', label:'Digitaler Ausgang', unit:'', color:'#cc8800', min:1, max:100, step:1,
+    parse2: function(t){ var m=t.match(/^\$OUT\[(\d+)\]\s*=\s*(TRUE|FALSE|ON|OFF|1|0)/i); return m?{n:m[1],v:m[2]}:null; },
+    toKRL: function(v){ return v; } },
+  { rx: /^\$IN\[(\d+)\]/i,                     id:'din',     label:'Digitaler Eingang', unit:'',     color:'#8888cc', min:1, max:100, step:1,
+    parse2: function(t){ var m=t.match(/^\$IN\[(\d+)\]/i); return m?{n:m[1]}:null; },
+    toKRL: function(v){ return v; }, readOnly:true },
+  // Analoge I/O
+  { rx: /^\$ANOUT\[(\d+)\]\s*=\s*([\d.\-+]+)/i, id:'aout',  label:'Analoger Ausgang',  unit:'V',    color:'#cc8800', min:1, max:100, step:1,
+    parse2: function(t){ var m=t.match(/^\$ANOUT\[(\d+)\]\s*=\s*([\d.\-+]+)/i); return m?{n:m[1],v:m[2]}:null; },
+    toKRL: function(v){ return v; } },
+  { rx: /^\$ANIN\[(\d+)\]/i,                   id:'ain',     label:'Analoger Eingang',  unit:'V',    color:'#8888cc', min:1, max:100, step:1,
+    parse2: function(t){ var m=t.match(/^\$ANIN\[(\d+)\]/i); return m?{n:m[1]}:null; },
+    toKRL: function(v){ return v; }, readOnly:true },
+  // Variablen
+  { rx: /^(INT|REAL|BOOL|CHAR)\s+(\w+)\s*(?:=\s*(.+))?/i, id:'var', label:'Variable', unit:'', color:'#8844cc',
+    parse2: function(t){ var m=t.match(/^(INT|REAL|BOOL|CHAR)\s+(\w+)\s*(?:=\s*(.+))?/i); return m?{type:m[1],name:m[2],val:m[3]||''}:null; },
+    toKRL: function(v){ return v; } },
 ];
+
 function fvParseSysVar(raw) {
   var t = raw.trim();
   for (var i = 0; i < FV_SYSVARS.length; i++) {
-    var m = t.match(FV_SYSVARS[i].rx);
-    if (m) return { sysvar: FV_SYSVARS[i], value: m[1] };
+    var sv = FV_SYSVARS[i];
+    var m = t.match(sv.rx);
+    if (m) {
+      // Einfache Sysvars: 1 Capture-Gruppe = Wert
+      if (sv.noValue) return { sysvar: sv, value: '', raw: t };
+      if (sv.parse2) return { sysvar: sv, value: t, raw: t };
+      return { sysvar: sv, value: m[1], raw: t };
+    }
   }
   return null;
 }
+
+// ── Sysvar Formular rendern ──────────────────────────
+function fvSVFormHTML(sv, value, i) {
+  var html = '<div class="fv-form">';
+  html += '<div class="fv-section-hdr"><div class="fv-section-num" style="background:'+sv.sysvar.color+'">1</div>'
+        + '<span class="fv-section-lbl" style="color:'+sv.sysvar.color+'">'+sv.sysvar.label.toUpperCase()+'</span>'
+        + '<div class="fv-section-line" style="background:'+sv.sysvar.color+'40"></div></div>';
+
+  if (sv.sysvar.noValue) {
+    // HALT: kein Input
+    html += '<div class="fv-ctrl-row"><span class="fv-coord-unit">Stoppt das Programm — kein Parameter</span></div>';
+  } else if (sv.sysvar.parse2) {
+    // Komplexe Sysvars (I/O, Variablen): Freitext
+    html += '<div class="fv-ctrl-row">';
+    html += '<span class="fv-coord-lbl" style="min-width:auto">Code</span>';
+    html += '<input class="fv-inp" id="fv-sv-'+i+'" type="text" value="'+fvEsc(value)+'">';
+    html += '</div>';
+  } else if (sv.sysvar.min !== null) {
+    // Slider + Nummer
+    var numVal = parseFloat(value) || sv.sysvar.min;
+    html += '<div class="fv-ctrl-row" style="flex-direction:column;align-items:stretch;gap:6px">';
+    html += '<div style="display:flex;align-items:center;gap:8px">';
+    html += '<input class="fv-slider" id="fv-sv-sl-'+i+'" type="range"'
+          + ' min="'+sv.sysvar.min+'" max="'+sv.sysvar.max+'" step="'+sv.sysvar.step+'"'
+          + ' value="'+numVal+'"'
+          + ' oninput="document.getElementById(\'fv-sv-'+i+'\').value=parseFloat(this.value).toFixed('+fvSliderDecimals(sv.sysvar.step)+')"'
+          + ' style="flex:1;accent-color:'+sv.sysvar.color+'">';
+    html += '<input class="fv-inp" id="fv-sv-'+i+'" type="number"'
+          + ' min="'+sv.sysvar.min+'" max="'+sv.sysvar.max+'" step="'+sv.sysvar.step+'"'
+          + ' value="'+numVal+'"'
+          + ' oninput="document.getElementById(\'fv-sv-sl-'+i+'\').value=this.value"'
+          + ' style="max-width:90px">';
+    html += '<span class="fv-coord-unit">'+sv.sysvar.unit+'</span>';
+    html += '</div>';
+    html += '<div style="display:flex;justify-content:space-between;font-size:.8em;color:var(--txt3)">'
+          + '<span>'+sv.sysvar.min+'</span><span>'+sv.sysvar.max+'</span></div>';
+    html += '</div>';
+  }
+
+  html += '<div class="fv-acts">'
+        + '<button class="fv-btn fv-apply" onclick="fvApplySV('+i+')">✓ Übernehmen</button>'
+        + '<button class="fv-btn fv-del" onclick="fvDelete('+i+')">✕ Löschen</button>'
+        + '</div>';
+  html += '</div>';
+  return html;
+}
+
+function fvSliderDecimals(step) {
+  var s = String(step);
+  var dot = s.indexOf('.');
+  return dot < 0 ? 0 : s.length - dot - 1;
+}
+
 
 // ── Koordinaten-Vorschau für Kopfzeile ───────────────
 function fvPreviewHTML(mv) {
@@ -141,31 +224,17 @@ function fvBuild(expandLine) {
       var sv = fvParseSysVar(raw);
       if (sv) {
         var isExpSv = (expandLine === i);
-        html += '<div class="fv-card fv-sv-card'+(isExpSv?' fv-open':'')+'" data-line="'+i+'">';
+        var svColor = sv.sysvar.color || '#4488cc';
+        html += '<div class="fv-card fv-sv-card'+(isExpSv?' fv-open':'')+'" data-line="'+i+'" style="border-left-color:'+svColor+'">';
         html += '<div class="fv-head" onclick="fvToggle('+i+')">';
         html += '<span class="fv-num">'+(i+1)+'</span>';
-        html += '<span class="fv-badge fv-badge-sv">'+sv.sysvar.id.toUpperCase()+'</span>';
-        html += '<span class="fv-sv-label">'+sv.sysvar.label+'</span>';
-        html += '<span class="fv-sv-val">'+fvEsc(sv.value)+'</span>';
-        html += '<span class="fv-verl-tag">'+sv.sysvar.unit+'</span>';
+        html += '<span class="fv-badge fv-badge-sv" style="background:'+svColor+'40;color:'+svColor+'">'+sv.sysvar.id.toUpperCase()+'</span>';
+        html += '<span class="fv-sv-label" style="color:#ccc">'+sv.sysvar.label+'</span>';
+        if (!sv.sysvar.noValue) html += '<span class="fv-sv-val">'+fvEsc(sv.value)+'</span>';
+        if (sv.sysvar.unit) html += '<span class="fv-verl-tag">'+sv.sysvar.unit+'</span>';
         html += '<span class="fv-chevron">'+(isExpSv?'▲':'▼')+'</span>';
         html += '</div>';
-        if (isExpSv) {
-          html += '<div class="fv-form">';
-          html += '<div class="fv-section-hdr"><div class="fv-section-num">1</div>'
-                + '<span class="fv-section-lbl">'+sv.sysvar.label+'</span>'
-                + '<div class="fv-section-line"></div></div>';
-          html += '<div class="fv-ctrl-row">';
-          html += '<span class="fv-coord-lbl" style="min-width:auto">Wert</span>';
-          html += '<input class="fv-inp" id="fv-sv-'+i+'" type="text" value="'+fvEsc(sv.value)+'" style="max-width:160px">';
-          html += '<span class="fv-coord-unit">'+sv.sysvar.unit+'</span>';
-          html += '</div>';
-          html += '<div class="fv-acts">'
-                + '<button class="fv-btn fv-apply" onclick="fvApplySV('+i+')">✓ Übernehmen</button>'
-                + '<button class="fv-btn fv-del" onclick="fvDelete('+i+')">✕ Löschen</button>'
-                + '</div>';
-          html += '</div>';
-        }
+        if (isExpSv) html += fvSVFormHTML(sv, sv.value, i);
         html += '</div>';
       } else {
         var cls = raw.trim().startsWith(';') ? 'fv-comment' :
