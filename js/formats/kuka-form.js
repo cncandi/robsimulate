@@ -227,7 +227,7 @@ function fvBuild(expandLine) {
       var collapsed = !!fvGroupCollapsed[i];
       html += '<div class="fv-group-hdr" data-line="'+i+'">';
       html += '<span class="fv-group-arrow" onclick="fvGroupToggle('+i+')">'+(collapsed?'▶':'▼')+'</span>';
-      html += '<span class="fv-group-name" ondblclick="fvGroupRename('+i+',this)" onclick="fvGroupToggle('+i+')">'+fvEsc(grpData.name)+'</span>';
+      html += '<span class="fv-group-name" ondblclick="event.stopPropagation();fvGroupRename('+i+',this)" onclick="fvGroupToggle('+i+')">'+fvEsc(grpData.name)+'</span>';
       html += '<div class="fv-row-acts" onclick="event.stopPropagation()">'
             + '<button class="fv-row-btn" title="Nach oben" onclick="fvMoveGroup('+i+',-1)">↑</button>'
             + '<button class="fv-row-btn" title="Nach unten" onclick="fvMoveGroup('+i+',1)">↓</button>'
@@ -245,6 +245,7 @@ function fvBuild(expandLine) {
       continue;
     }
     if (grpData && grpData.type === 'endgroup') {
+      if (skipUntil >= i) { skipUntil = -1; html += '<div class="fv-insert-bar" onclick="fvInsertMenu('+i+',event)"><span class="fv-insert-btn">+</span></div>'; continue; }
       skipUntil = -1;
       html += '<div class="fv-group-end" data-line="'+i+'">'
             + '<span onclick="fvInsertMenu('+i+',event)" style="flex:1">▪ ENDGROUP</span>'
@@ -828,15 +829,22 @@ function fvGroupToggle(lineIdx) {
 }
 
 function fvGroupRename(lineIdx, el) {
-  // Inline-Input einblenden
-  var current = el.textContent;
+  fvGroupCollapsed[lineIdx] = false;
+  var current = el.textContent.trim();
+
+  // Direkt im DOM Input einsetzen ohne fvBuild
+  var nameSpan = document.querySelector('#krl-form-view [data-line="'+lineIdx+'"] .fv-group-name');
+  if (!nameSpan) return;
+
   var inp = document.createElement('input');
   inp.className = 'fv-group-inp';
   inp.value = current;
-  el.replaceWith(inp);
+  nameSpan.replaceWith(inp);
   inp.focus(); inp.select();
 
+  var saved = false;
   function save() {
+    if (saved) return; saved = true;
     var newName = inp.value.trim() || current;
     var ta = document.getElementById('code-input');
     var lines = ta.value.split(/\r?\n/);
@@ -846,8 +854,8 @@ function fvGroupRename(lineIdx, el) {
   }
   inp.addEventListener('blur', save);
   inp.addEventListener('keydown', function(e) {
-    if (e.key === 'Enter') { e.preventDefault(); inp.blur(); }
-    if (e.key === 'Escape') { inp.value = current; inp.blur(); }
+    if (e.key === 'Enter') { e.preventDefault(); save(); }
+    if (e.key === 'Escape') { saved = true; fvBuild(fvExpandedLine); }
   });
 }
 
