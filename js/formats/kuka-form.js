@@ -337,7 +337,7 @@ function fvBuild(expandLine) {
         html += '<div class="fv-head" onclick="fvSetCursor('+i+');fvToggle('+i+')">';
         html += '<span class="fv-num">'+(i+1)+'</span>';
         html += '<span class="fv-badge fv-badge-sv" style="background:'+svColor+'40;color:'+svColor+'">'+sv.sysvar.id.toUpperCase()+'</span>';
-        html += '<span class="fv-sv-label" style="color:#ccc">'+sv.sysvar.label+'</span>';
+        html += '<span class="fv-sv-label">'+sv.sysvar.label+'</span>';
         if (!sv.sysvar.noValue) {
           var dispVal = sv.value;
           if (sv.sysvar.ioType && sv.io) {

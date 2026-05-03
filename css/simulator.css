@@ -374,8 +374,8 @@ input[type=number] {
 .fv-sub-on { background: var(--acc) !important; color: #fff !important; border-color: var(--acc) !important; }
 .fv-sv-card { border-left-color: #4488cc; }
 .fv-sv-card .fv-head:hover { background: rgba(68,136,204,.04); }
-.fv-badge-sv { background: rgba(68,136,204,.3); color: #88bbee; font-size: .75em !important; }
-.fv-sv-label { flex: 1; color: var(--txt); font-size: .9em; padding-left: 4px; }
+.fv-badge-sv { background: rgba(68,136,204,.3); color: var(--txt); font-size: .75em !important; }
+.fv-sv-label { flex: 1; color: var(--txt2); font-size: .9em; padding-left: 4px; }
 .fv-sv-val   { color: var(--txt); font-family: 'Consolas','Courier New',monospace; margin-right: 8px; }
 .fv-sim-active { border-color: #00e070 !important; background: rgba(0,200,100,.08) !important; }
 .fv-sim-active .fv-num { color: #00e070; font-weight: bold; }
