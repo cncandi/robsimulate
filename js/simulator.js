@@ -4369,6 +4369,7 @@ function aPlotApply() {
 splashProgress(80, 'Programm wird geparst…');
 parseAndLoad();
 
+
 // STL nach vollständigem Laden der Seite (inkl. Three.js CDN)
 // STL wird manuell per '↺ STL' Button geladen
 // Settings nach vollständigem DOM-Load anwenden
@@ -4403,11 +4404,13 @@ window.addEventListener('load', function() {
   });
   document.title = 'RobSimul ' + APP_VERSION + ' · cnc-technik.de';
 
-  // Format-Dropdown initialisieren
+  // Format-Dropdown + Formular als Default aktivieren
   var _fmtSel = document.getElementById('format-select');
   if (_fmtSel) {
     FormatRegistry.buildDropdown(_fmtSel);
     FormatRegistry.setActive('kuka-form');
+    // Sicherstellen dass fvBuild aufgerufen wird
+    if (typeof fvBuild === 'function') fvBuild(-1);
   }
 });
 
