@@ -120,13 +120,44 @@ function fvBuild(expandLine) {
       html += '</div>';
 
     } else {
-      var cls = raw.trim().startsWith(';') ? 'fv-comment' :
-                raw.trim() === '' ? 'fv-empty' : 'fv-plain';
-      html += '<div class="fv-row '+cls+'" data-line="'+i+'">';
-      html += '<span class="fv-lineno">'+(i+1)+'</span>';
-      if (cls !== 'fv-empty')
-        html += '<span class="fv-plaintext">'+fvEsc(raw.trim())+'</span>';
-      html += '</div>';
+      var sv = fvParseSysVar(raw);
+      if (sv) {
+        var isExpSv = (expandLine === i);
+        html += '<div class="fv-card fv-sv-card'+(isExpSv?' fv-open':'')+'" data-line="'+i+'">';
+        html += '<div class="fv-head" onclick="fvToggle('+i+')">';
+        html += '<span class="fv-num">'+(i+1)+'</span>';
+        html += '<span class="fv-badge fv-badge-sv">'+sv.sysvar.id.toUpperCase()+'</span>';
+        html += '<span class="fv-sv-label">'+sv.sysvar.label+'</span>';
+        html += '<span class="fv-sv-val">'+fvEsc(sv.value)+'</span>';
+        html += '<span class="fv-verl-tag">'+sv.sysvar.unit+'</span>';
+        html += '<span class="fv-chevron">'+(isExpSv?'▲':'▼')+'</span>';
+        html += '</div>';
+        if (isExpSv) {
+          html += '<div class="fv-form">';
+          html += '<div class="fv-section-hdr"><div class="fv-section-num">1</div>'
+                + '<span class="fv-section-lbl">'+sv.sysvar.label+'</span>'
+                + '<div class="fv-section-line"></div></div>';
+          html += '<div class="fv-ctrl-row">';
+          html += '<span class="fv-coord-lbl" style="min-width:auto">Wert</span>';
+          html += '<input class="fv-inp" id="fv-sv-'+i+'" type="text" value="'+fvEsc(sv.value)+'" style="max-width:160px">';
+          html += '<span class="fv-coord-unit">'+sv.sysvar.unit+'</span>';
+          html += '</div>';
+          html += '<div class="fv-acts">'
+                + '<button class="fv-btn fv-apply" onclick="fvApplySV('+i+')">✓ Übernehmen</button>'
+                + '<button class="fv-btn fv-del" onclick="fvDelete('+i+')">✕ Löschen</button>'
+                + '</div>';
+          html += '</div>';
+        }
+        html += '</div>';
+      } else {
+        var cls = raw.trim().startsWith(';') ? 'fv-comment' :
+                  raw.trim() === '' ? 'fv-empty' : 'fv-plain';
+        html += '<div class="fv-row '+cls+'" data-line="'+i+'">';
+        html += '<span class="fv-lineno">'+(i+1)+'</span>';
+        if (cls !== 'fv-empty')
+          html += '<span class="fv-plaintext">'+fvEsc(raw.trim())+'</span>';
+        html += '</div>';
+      }
     }
 
     html += '<div class="fv-insert-bar" onclick="fvInsertNew('+i+')">'
@@ -274,6 +305,19 @@ function fvReadData(lineIdx) {
   } else if (mv.subtype==='circ') { mv.aux=readCart('aux'); mv.end=readCart('end'); }
   else mv.pos=readCart('pos');
   return mv;
+}
+
+function fvApplySV(lineIdx) {
+  var ta    = document.getElementById('code-input');
+  var lines = ta.value.split(/\r?\n/);
+  var sv    = fvParseSysVar(lines[lineIdx]);
+  if (!sv) return;
+  var inp = document.getElementById('fv-sv-'+lineIdx);
+  if (!inp) return;
+  lines[lineIdx] = sv.sysvar.toKRL(inp.value.trim());
+  ta.value = lines.join('\n');
+  fvExpandedLine = -1;
+  fvBuild(-1);
 }
 
 function fvApply(lineIdx) {

@@ -4419,7 +4419,7 @@ window.addEventListener('load', function() {
   var _fmtSel = document.getElementById('format-select');
   if (_fmtSel) {
     FormatRegistry.buildDropdown(_fmtSel);
-    FormatRegistry.setActive('kuka');
+    FormatRegistry.setActive('kuka-form');
   }
 });
 
