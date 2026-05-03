@@ -228,6 +228,11 @@ function fvBuild(expandLine) {
       html += '<div class="fv-group-hdr" data-line="'+i+'">';
       html += '<span class="fv-group-arrow" onclick="fvGroupToggle('+i+')">'+(collapsed?'▶':'▼')+'</span>';
       html += '<span class="fv-group-name" ondblclick="fvGroupRename('+i+',this)" onclick="fvGroupToggle('+i+')">'+fvEsc(grpData.name)+'</span>';
+      html += '<div class="fv-row-acts" onclick="event.stopPropagation()">'
+            + '<button class="fv-row-btn" title="Nach oben" onclick="fvMoveGroup('+i+',-1)">↑</button>'
+            + '<button class="fv-row-btn" title="Nach unten" onclick="fvMoveGroup('+i+',1)">↓</button>'
+            + '<button class="fv-row-btn fv-row-del" title="Gruppe löschen" onclick="fvDeleteGroup('+i+')">✕</button>'
+            + '</div>';
       html += '</div>';
       if (collapsed) {
         // Alle Zeilen bis ENDGROUP überspringen — Zähler merken
@@ -241,7 +246,13 @@ function fvBuild(expandLine) {
     }
     if (grpData && grpData.type === 'endgroup') {
       skipUntil = -1;
-      html += '<div class="fv-group-end" data-line="'+i+'" onclick="fvInsertMenu('+i+',event)">▪ ENDGROUP</div>';
+      html += '<div class="fv-group-end" data-line="'+i+'">'
+            + '<span onclick="fvInsertMenu('+i+',event)" style="flex:1">▪ ENDGROUP</span>'
+            + '<div class="fv-row-acts" onclick="event.stopPropagation()">'
+            + '<button class="fv-row-btn" onclick="fvMoveRow('+i+',-1)">↑</button>'
+            + '<button class="fv-row-btn" onclick="fvMoveRow('+i+',1)">↓</button>'
+            + '</div>'
+            + '</div>';
       html += '<div class="fv-insert-bar" onclick="fvInsertMenu('+i+',event)"><span class="fv-insert-btn">+</span></div>';
       continue;
     }
@@ -766,6 +777,50 @@ FormatRegistry.register._origKukaForm = FormatRegistry.register._origKukaForm;
   var fmts = FormatRegistry._formats || [];
   // Suche kuka-form Format direkt
 })();
+
+function fvMoveGroup(lineIdx, dir) {
+  // Findet den zugehörigen ENDGROUP und verschiebt den ganzen Block
+  var ta = document.getElementById('code-input');
+  var lines = ta.value.split(/\r?\n/);
+  // Ende der Gruppe finden
+  var depth = 0, endLine = -1;
+  for (var j = lineIdx; j < lines.length; j++) {
+    var gp = fvParseGroup(lines[j]);
+    if (gp && gp.type === 'group') depth++;
+    if (gp && gp.type === 'endgroup') { depth--; if (depth === 0) { endLine = j; break; } }
+  }
+  if (endLine < 0) { fvMoveRow(lineIdx, dir); return; }
+  var block = lines.splice(lineIdx, endLine - lineIdx + 1);
+  var target = lineIdx + dir;
+  if (dir < 0 && target < 0) { lines.splice(0, 0, ...block); }
+  else if (dir > 0 && target > lines.length) { lines.push(...block); }
+  else { lines.splice(Math.max(0, Math.min(lines.length, target)), 0, ...block); }
+  ta.value = lines.join('\n');
+  // Collapsed-State aktualisieren
+  var newStart = dir < 0 ? Math.max(0, target) : target;
+  if (fvGroupCollapsed[lineIdx] !== undefined) {
+    fvGroupCollapsed[newStart] = fvGroupCollapsed[lineIdx];
+    delete fvGroupCollapsed[lineIdx];
+  }
+  fvBuild(fvExpandedLine);
+}
+
+function fvDeleteGroup(lineIdx) {
+  // Löscht GROUP bis ENDGROUP inklusive
+  var ta = document.getElementById('code-input');
+  var lines = ta.value.split(/\r?\n/);
+  var depth = 0, endLine = lineIdx;
+  for (var j = lineIdx; j < lines.length; j++) {
+    var gp = fvParseGroup(lines[j]);
+    if (gp && gp.type === 'group') depth++;
+    if (gp && gp.type === 'endgroup') { depth--; if (depth === 0) { endLine = j; break; } }
+  }
+  lines.splice(lineIdx, endLine - lineIdx + 1);
+  ta.value = lines.join('\n');
+  delete fvGroupCollapsed[lineIdx];
+  fvExpandedLine = -1;
+  fvBuild(-1);
+}
 
 function fvGroupToggle(lineIdx) {
   fvGroupCollapsed[lineIdx] = !fvGroupCollapsed[lineIdx];

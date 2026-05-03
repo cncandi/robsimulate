@@ -453,7 +453,8 @@ input[type=number] {
 .fv-group-arrow { color: #44bb66; font-size: .8em; flex-shrink: 0; }
 .fv-group-name  { color: #88ffaa; font-weight: bold; letter-spacing: 1px; font-size: .9em; flex: 1; }
 .fv-group-end {
-  padding: 3px 10px 3px 16px; cursor: pointer;
+  display: flex; align-items: center;
+  padding: 3px 4px 3px 16px; cursor: pointer;
   color: #338855; font-size: .8em;
   border-left: 3px solid #226633;
   background: rgba(30,80,40,.1);
