@@ -308,7 +308,7 @@ input[type=number] {
 #aplot-hdr:active { cursor: grabbing; }
 
 /* ── KRL Form View — Infografik-Stil ── */
-#krl-form-view { font-size: var(--fsz); padding: 6px 8px; gap: 3px; background: var(--bg0); flex-direction: column; }
+#krl-form-view { font-size: var(--fsz); padding: 4px 6px; gap: 2px; background: var(--bg0); flex-direction: column; }
 
 .fv-plain, .fv-empty, .fv-comment { width: 100%; box-sizing: border-box; padding: 2px 4px; display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
 .fv-lineno { font-size: .8em; color: var(--txt3); min-width: 22px; text-align: right; flex-shrink: 0; opacity: .5; }
@@ -322,7 +322,7 @@ input[type=number] {
 .fv-head { display: flex; align-items: center; gap: 0; cursor: pointer; user-select: none; min-height: 28px; }
 .fv-head:hover { background: rgba(255,255,255,.02); }
 
-.fv-num { font-size: .85em; color: var(--txt2); min-width: 32px; text-align: center; padding: 0 4px; flex-shrink: 0; border-right: 1px solid rgba(240,85,0,.15); align-self: stretch; display: flex; align-items: center; justify-content: center; }
+.fv-num { font-size: .85em; color: var(--txt); min-width: 32px; text-align: center; padding: 0 4px; flex-shrink: 0; border-right: 1px solid rgba(240,85,0,.15); align-self: stretch; display: flex; align-items: center; justify-content: center; }
 .fv-badge { font-size: inherit; font-weight: 900; letter-spacing: 1px; padding: 2px 7px; margin: 0 8px 0 6px; border-radius: 2px; flex-shrink: 0; font-family: 'Consolas','Courier New',monospace; }
 .fv-badge-lin  { background: var(--acc); color: #fff; }
 .fv-badge-ptp  { background: rgba(255,170,0,.9); color: #000; }

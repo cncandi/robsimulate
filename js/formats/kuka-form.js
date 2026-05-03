@@ -238,8 +238,6 @@ function fvBuild(expandLine) {
   if (!fv || fv.style.display === 'none') return;
   var lines = document.getElementById('code-input').value.split(/\r?\n/);
   var html  = '';
-  var moveIdx = 0;
-
   // Gruppen-Struktur vorberechnen: welche Zeilen gehören zu welcher Gruppe
   var lineGroupStart = {};  // lineIdx → startLine der Gruppe
   var groupStack = [];
@@ -304,12 +302,10 @@ function fvBuild(expandLine) {
         mv.subtype = fvPTPSubtypeOverride[i];
 
       var isExp = (expandLine === i);
-      moveIdx++;
-
       html += '<div class="fv-card'+(isExp?' fv-open':'')+'" data-line="'+i+'">';
       // Kopfzeile
       html += '<div class="fv-head" onclick="fvSetCursor('+i+');fvToggle('+i+')">';
-      html += '<span class="fv-num">'+moveIdx+'</span>';
+      html += '<span class="fv-num">'+(i+1)+'</span>';
       html += '<span class="fv-badge fv-badge-'+mv.moveType.toLowerCase()+'">'+mv.moveType+'</span>';
       html += fvPreviewHTML(mv);
       if (mv.verl) html += '<span class="fv-verl-tag">'+mv.verl+'</span>';
