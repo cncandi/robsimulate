@@ -366,9 +366,9 @@ input[type=number] {
 .fv-del   { background: rgba(140,20,20,.15); color: #c04040; border: 1px solid rgba(140,20,20,.3); flex: 0 0 auto; padding: 4px 12px; }
 .fv-del:hover { background: rgba(140,20,20,.3); }
 
-.fv-insert-bar { width: 100%; box-sizing: border-box; height: 6px; display: flex; align-items: center; justify-content: center; cursor: pointer; opacity: 0; transition: opacity .12s; flex-shrink: 0; }
-.fv-insert-bar:hover { opacity: 1; }
-.fv-insert-btn { font-size: .8em; color: var(--acc); border: 1px dashed rgba(240,85,0,.5); border-radius: 2px; padding: 0 8px; pointer-events: none; background: rgba(240,85,0,.05); }
+.fv-insert-bar { width: 100%; box-sizing: border-box; height: 16px; display: flex; align-items: center; justify-content: center; cursor: pointer; opacity: 0; transition: opacity .15s; flex-shrink: 0; }
+.fv-insert-bar:hover { opacity: 1; background: rgba(240,85,0,.07); }
+.fv-insert-btn { font-size: inherit; font-weight: bold; color: var(--acc); border: 1px dashed rgba(240,85,0,.5); border-radius: 3px; padding: 0 14px; pointer-events: none; background: rgba(240,85,0,.08); line-height: 1.5; }
 
 .fv-circ-lbl { font-size: .85em; color: var(--acc); font-weight: bold; text-transform: uppercase; letter-spacing: 2px; margin: 6px 0 3px; }
 .fv-sub-on { background: var(--acc) !important; color: #fff !important; border-color: var(--acc) !important; }

@@ -665,7 +665,26 @@ function fvTbToggle(id) {
   if (!wasOpen) btn.classList.add('open');
 }
 
-var fvTbTemplates = {};
+var fvTbTemplates = {
+  move_0:    'PTP {A1 0.000, A2 -90.000, A3 90.000, A4 0.000, A5 0.000, A6 0.000}',
+  move_1:    'LIN {X 0.000, Y 0.000, Z 0.000, A 0.000, B 0.000, C 0.000} C_DIS',
+  move_2:    'SLIN {X 0.000, Y 0.000, Z 0.000, A 0.000, B 0.000, C 0.000} C_DIS',
+  move_3:    'CIRC {X 0.000, Y 0.000, Z 0.000, A 0.000, B 0.000, C 0.000}, {X 100.000, Y 0.000, Z 0.000, A 0.000, B 0.000, C 0.000} C_DIS',
+  flow_0:    'HALT',
+  flow_1:    'WAIT SEC 1.0',
+  process_0: '$VEL.CP=0.167',
+  process_1: '$VEL.PTP=100',
+  process_2: '$ACC.CP=1.0',
+  digital_0: '; $IN[1]',
+  digital_1: '$OUT[1]=TRUE',
+  analog_0:  '; $ANIN[1]',
+  analog_1:  '$ANOUT[1]=0.0',
+  data_0:    '$TOOL=TOOL_DATA[24]',
+  data_1:    '$BASE = BASE_DATA[1]',
+  data_2:    'INT myVar=0',
+  data_3:    'REAL myVal=0.0',
+  data_4:    'BOOL myFlag=FALSE',
+};
 
 function fvTbInsert(key, e) {
   if (e) { e.stopPropagation(); e.preventDefault(); }
