@@ -89,7 +89,7 @@ input[type=range].ss::-webkit-slider-thumb{-webkit-appearance:none;width:12px;he
 #edit-panel h3{color:var(--acc);margin-bottom:8px;font-size:.9em}
 .ep-grid{display:grid;grid-template-columns:42px 1fr 28px;gap:3px 4px;align-items:center;margin-bottom:8px}
 .ep-lbl{color:var(--txt3);text-align:right;font-size:.85em}
-.ep-inp{background:var(--bg1);color:#9ecfea;border:1px solid var(--bdr);border-radius:3px;
+.ep-inp{background:var(--bg1);color:var(--txt);border:1px solid var(--bdr);border-radius:3px;
   padding:3px 5px;font-family:inherit;font-size:.9em;width:100%;outline:none}
 .ep-inp:focus{border-color:var(--acc)}
 .ep-unit{color:var(--txt3);font-size:.85em}
@@ -243,7 +243,7 @@ input[type=range].ss::-webkit-slider-thumb{-webkit-appearance:none;width:12px;he
 .stl-name .del:hover{color:var(--acc)}
 .stl-grid{display:grid;grid-template-columns:34px 1fr 28px;gap:2px 4px;align-items:center}
 .stl-lbl{color:var(--txt3);text-align:right;font-size:.9em}
-.stl-inp{background:var(--bg1);color:#9ecfea;border:1px solid var(--bdr);border-radius:3px;
+.stl-inp{background:var(--bg1);color:var(--txt);border:1px solid var(--bdr);border-radius:3px;
   padding:2px 4px;font-family:inherit;font-size:.85em;width:100%;outline:none}
 .stl-inp:focus{border-color:var(--acc)}
 .stl-unit{color:var(--txt3);font-size:.8em}
@@ -258,7 +258,7 @@ input[type=range].ss::-webkit-slider-thumb{-webkit-appearance:none;width:12px;he
 .joint-cfg{display:grid;grid-template-columns:28px 1fr 1fr 1fr 1fr;gap:3px;align-items:center;padding:4px 5px;font-size:.82em;border-bottom:1px solid var(--bdr)}
 .joint-cfg:last-child{border-bottom:none}
 .joint-cfg .jl{color:var(--acc);font-weight:bold}
-.joint-cfg input{background:var(--bg1);color:#9ecfea;border:1px solid var(--bdr);border-radius:2px;padding:1px 3px;font-family:inherit;font-size:.9em;width:100%;outline:none;text-align:right}
+.joint-cfg input{background:var(--bg1);color:var(--txt);border:1px solid var(--bdr);border-radius:2px;padding:1px 3px;font-family:inherit;font-size:.9em;width:100%;outline:none;text-align:right}
 .joint-cfg input:focus{border-color:var(--acc)}
 .empty{color:var(--txt3);font-size:.72em;padding:7px;text-align:center}
 /* Resize handles */
