@@ -55,6 +55,24 @@ function fvToKRL(data) {
 function fvFmtPos(p) { return '{X '+fvN(p.X)+', Y '+fvN(p.Y)+', Z '+fvN(p.Z)+', A '+fvN(p.A)+', B '+fvN(p.B)+', C '+fvN(p.C)+'}'; }
 function fvN(n) { return parseFloat(n||0).toFixed(3); }
 
+// ── Systemvariablen ───────────────────────────────────
+var FV_SYSVARS = [
+  { rx: /^\$BASE\s*=\s*BASE_DATA\[(\d+)\]/i,  id:'base',    label:'Koordinatensystem', unit:'BASE_DATA[N]', toKRL:function(v){ return '$BASE = BASE_DATA['+v+']'; } },
+  { rx: /^\$TOOL\s*=\s*TOOL_DATA\[(\d+)\]/i,  id:'tool',    label:'TCP / Werkzeug',    unit:'TOOL_DATA[N]', toKRL:function(v){ return '$TOOL=TOOL_DATA['+v+']'; } },
+  { rx: /^\$advance\s*=\s*([\d.]+)/i,          id:'advance', label:'Vorlauf',           unit:'Punkte',       toKRL:function(v){ return '$advance='+v; } },
+  { rx: /^\$VEL\.CP\s*=\s*([\d.]+)/i,          id:'velcp',   label:'Geschwindigkeit',   unit:'m/s',          toKRL:function(v){ return '$VEL.CP='+v; } },
+  { rx: /^\$VEL\.PTP\s*=\s*([\d.]+)/i,         id:'velptp',  label:'PTP-Geschw.',       unit:'%',            toKRL:function(v){ return '$VEL.PTP='+v; } },
+  { rx: /^\$ACC\.CP\s*=\s*([\d.]+)/i,          id:'acccp',   label:'Beschleunigung',    unit:'m/s²',         toKRL:function(v){ return '$ACC.CP='+v; } },
+];
+function fvParseSysVar(raw) {
+  var t = raw.trim();
+  for (var i = 0; i < FV_SYSVARS.length; i++) {
+    var m = t.match(FV_SYSVARS[i].rx);
+    if (m) return { sysvar: FV_SYSVARS[i], value: m[1] };
+  }
+  return null;
+}
+
 // ── Koordinaten-Vorschau für Kopfzeile ───────────────
 function fvPreviewHTML(mv) {
   var html = '<div class="fv-preview">';
