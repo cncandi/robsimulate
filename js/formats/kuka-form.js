@@ -4,6 +4,7 @@
 
 var fvExpandedLine      = -1;
 var fvPTPSubtypeOverride = {};
+var fvGroupCollapsed     = {};  // {startLine: bool}
 
 FormatRegistry.register({
   id:    'kuka-form',
@@ -28,6 +29,14 @@ FormatRegistry.register({
 });
 
 // ── Parser ──────────────────────────────────────────
+function fvParseGroup(raw) {
+  var t = raw.trim();
+  var mg = t.match(/^;\s*#GROUP\s*(.*)/i);
+  if (mg) return { type:'group', name: mg[1].trim() || 'Gruppe' };
+  if (/^;\s*#ENDGROUP/i.test(t)) return { type:'endgroup' };
+  return null;
+}
+
 function fvParseLine(raw) {
   var t = raw.trim();
   var mC = t.match(/^CIRC\s+\{([^}]+)\}\s*,\s*\{([^}]+)\}\s*(C_DIS|C_PTP|C_VEL|C_ORI)?\s*$/i);
@@ -192,9 +201,52 @@ function fvBuild(expandLine) {
   var html  = '';
   var moveIdx = 0;
 
+  // Gruppen-Struktur vorberechnen: welche Zeilen gehören zu welcher Gruppe
+  var lineGroupStart = {};  // lineIdx → startLine der Gruppe
+  var groupStack = [];
+  for (var gi = 0; gi < lines.length; gi++) {
+    var gp = fvParseGroup(lines[gi]);
+    if (gp && gp.type === 'group') { groupStack.push(gi); }
+    else if (gp && gp.type === 'endgroup' && groupStack.length) {
+      var gs = groupStack.pop();
+      for (var gj = gs+1; gj < gi; gj++) lineGroupStart[gj] = gs;
+      lineGroupStart[gi] = gs; // ENDGROUP gehört auch zur Gruppe
+    }
+  }
+
+  var skipUntil = -1; // Zeilen überspringen wenn Gruppe collapsed
+
   for (var i = 0; i < lines.length; i++) {
     var raw = lines[i];
     var mv  = fvParseLine(raw);
+
+    // Gruppe: Header rendern
+    var grpData = fvParseGroup(raw);
+    if (grpData && grpData.type === 'group') {
+      skipUntil = -1; // Reset
+      var collapsed = !!fvGroupCollapsed[i];
+      html += '<div class="fv-group-hdr" data-line="'+i+'" onclick="fvGroupToggle('+i+')">';
+      html += '<span class="fv-group-arrow">'+(collapsed?'▶':'▼')+'</span>';
+      html += '<span class="fv-group-name">'+fvEsc(grpData.name)+'</span>';
+      html += '</div>';
+      if (collapsed) {
+        // Alle Zeilen bis ENDGROUP überspringen — Zähler merken
+        for (var si = i+1; si < lines.length; si++) {
+          var sg = fvParseGroup(lines[si]);
+          if (sg && sg.type === 'endgroup') { skipUntil = si; break; }
+        }
+      }
+      html += '<div class="fv-insert-bar" onclick="fvInsertMenu('+i+',event)"><span class="fv-insert-btn">+</span></div>';
+      continue;
+    }
+    if (grpData && grpData.type === 'endgroup') {
+      skipUntil = -1;
+      html += '<div class="fv-group-end" data-line="'+i+'" onclick="fvInsertMenu('+i+',event)">▪ ENDGROUP</div>';
+      html += '<div class="fv-insert-bar" onclick="fvInsertMenu('+i+',event)"><span class="fv-insert-btn">+</span></div>';
+      continue;
+    }
+    // Überspringen wenn in collapsed Gruppe
+    if (skipUntil >= 0 && i <= skipUntil) continue;
 
     if (mv) {
       if (mv.moveType==='PTP' && fvPTPSubtypeOverride[i]!==undefined)
@@ -397,6 +449,10 @@ function fvInsertMenu(afterLine, e) {
       { badge:'INT',  bc:'#8844cc', bcolor:'#fff', key:'data_2' },
       { badge:'REAL', bc:'#8844cc', bcolor:'#fff', key:'data_3' },
       { badge:'BOOL', bc:'#8844cc', bcolor:'#fff', key:'data_4' },
+    ]},
+    { label:'Gruppe',   color:'#449966', items:[
+      { badge:'GRP',  bc:'#336644', bcolor:'#aaffcc', key:'group_0' },
+      { badge:'END',  bc:'#224433', bcolor:'#aaffcc', key:'group_1' },
     ]},
   ];
 
@@ -684,6 +740,8 @@ var fvTbTemplates = {
   data_2:    'INT myVar=0',
   data_3:    'REAL myVal=0.0',
   data_4:    'BOOL myFlag=FALSE',
+  group_0:   '; #GROUP Gruppenname',
+  group_1:   '; #ENDGROUP',
 };
 
 function fvTbInsert(key, e) {
@@ -708,6 +766,11 @@ FormatRegistry.register._origKukaForm = FormatRegistry.register._origKukaForm;
   var fmts = FormatRegistry._formats || [];
   // Suche kuka-form Format direkt
 })();
+
+function fvGroupToggle(lineIdx) {
+  fvGroupCollapsed[lineIdx] = !fvGroupCollapsed[lineIdx];
+  fvBuild(fvExpandedLine);
+}
 
 function fvSetCursor(lineIdx) {
   fvToolbarInsertAfter = lineIdx;

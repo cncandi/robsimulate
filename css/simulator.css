@@ -439,3 +439,23 @@ input[type=number] {
 .fvip-item { cursor: pointer; border-radius: 3px; padding: 1px; }
 .fvip-item:hover .fvtb-item-badge { opacity: .7; transform: scale(1.05); }
 .fvip-item .fvtb-item-badge { font-size: .8em; padding: 3px 7px; display: block; transition: .1s; }
+
+/* ── Gruppen ── */
+.fv-group-hdr {
+  display: flex; align-items: center; gap: 8px;
+  padding: 5px 10px; cursor: pointer;
+  background: rgba(60,160,80,.12);
+  border-left: 3px solid #44bb66;
+  border-bottom: 1px solid rgba(60,160,80,.25);
+  user-select: none;
+}
+.fv-group-hdr:hover { background: rgba(60,160,80,.2); }
+.fv-group-arrow { color: #44bb66; font-size: .8em; flex-shrink: 0; }
+.fv-group-name  { color: #88ffaa; font-weight: bold; letter-spacing: 1px; font-size: .9em; flex: 1; }
+.fv-group-end {
+  padding: 3px 10px 3px 16px; cursor: pointer;
+  color: #338855; font-size: .8em;
+  border-left: 3px solid #226633;
+  background: rgba(30,80,40,.1);
+}
+.fv-group-end:hover { background: rgba(60,160,80,.1); color: #44bb66; }
