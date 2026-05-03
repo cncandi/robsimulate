@@ -743,7 +743,11 @@ function fvApply(lineIdx) {
   lines[lineIdx]=fvToKRL(data);
   ta.value=lines.join('\n');
   delete fvPTPSubtypeOverride[lineIdx];
-  fvExpandedLine=-1; fvBuild(-1);
+  // Neu parsen damit IK-Tabelle aktuell ist
+  if (typeof parseAndLoad === 'function') parseAndLoad();
+  // Roboter sofort zur neuen Position fahren
+  fvGoToLine(lineIdx);
+  fvExpandedLine=lineIdx; fvBuild(lineIdx);
 }
 
 function fvDelete(lineIdx) {
