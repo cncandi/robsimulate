@@ -420,3 +420,7 @@ input[type=number] {
   border-radius: 2px; font-family: 'Consolas','Courier New',monospace; flex-shrink: 0;
 }
 .fv-cursor-line { outline: 1px dashed rgba(240,85,0,.5) !important; }
+.fv-row-acts { display:flex; gap:2px; flex-shrink:0; padding:0 4px; }
+.fv-row-btn { background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.1); color:var(--txt3); border-radius:3px; padding:1px 6px; cursor:pointer; font-size:.85em; line-height:1.4; font-family:inherit; }
+.fv-row-btn:hover { background:rgba(240,85,0,.2); border-color:var(--acc); color:var(--acc); }
+.fv-row-del:hover { background:rgba(160,20,20,.25); border-color:#c04040; color:#c04040; }

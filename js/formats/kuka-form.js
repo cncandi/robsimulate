@@ -213,6 +213,11 @@ function fvBuild(expandLine) {
       html += fvPreviewHTML(mv);
       if (mv.verl) html += '<span class="fv-verl-tag">'+mv.verl+'</span>';
       html += '<span class="fv-chevron">'+(isExp?'▲':'▼')+'</span>';
+      html += '<div class="fv-row-acts" onclick="event.stopPropagation()">'
+            + '<button class="fv-row-btn" title="Nach oben" onclick="fvMoveRow('+i+',-1)">↑</button>'
+            + '<button class="fv-row-btn" title="Nach unten" onclick="fvMoveRow('+i+',1)">↓</button>'
+            + '<button class="fv-row-btn fv-row-del" title="Löschen" onclick="fvDelete('+i+')">✕</button>'
+            + '</div>';
       html += '</div>';
 
       if (isExp) {
@@ -239,6 +244,11 @@ function fvBuild(expandLine) {
         if (!sv.sysvar.noValue) html += '<span class="fv-sv-val">'+fvEsc(sv.value)+'</span>';
         if (sv.sysvar.unit) html += '<span class="fv-verl-tag">'+sv.sysvar.unit+'</span>';
         html += '<span class="fv-chevron">'+(isExpSv?'▲':'▼')+'</span>';
+        html += '<div class="fv-row-acts" onclick="event.stopPropagation()">'
+              + '<button class="fv-row-btn" title="Nach oben" onclick="fvMoveRow('+i+',-1)">↑</button>'
+              + '<button class="fv-row-btn" title="Nach unten" onclick="fvMoveRow('+i+',1)">↓</button>'
+              + '<button class="fv-row-btn fv-row-del" title="Löschen" onclick="fvDelete('+i+')">✕</button>'
+              + '</div>';
         html += '</div>';
         if (isExpSv) html += fvSVFormHTML(sv, sv.value, i);
         html += '</div>';
@@ -338,6 +348,21 @@ function fvCartInputs(p, prefix, i) {
 }
 
 // ── Event-Handler ────────────────────────────────────
+function fvMoveRow(lineIdx, dir) {
+  var ta = document.getElementById('code-input');
+  var lines = ta.value.split(/\r?\n/);
+  var target = lineIdx + dir;
+  if (target < 0 || target >= lines.length) return;
+  var tmp = lines[lineIdx];
+  lines[lineIdx] = lines[target];
+  lines[target] = tmp;
+  ta.value = lines.join('\n');
+  // Expanded line mitbewegen
+  if (fvExpandedLine === lineIdx) fvExpandedLine = target;
+  else if (fvExpandedLine === target) fvExpandedLine = lineIdx;
+  fvBuild(fvExpandedLine);
+}
+
 function fvToggle(lineIdx) {
   fvExpandedLine = (fvExpandedLine===lineIdx) ? -1 : lineIdx;
   fvBuild(fvExpandedLine);
