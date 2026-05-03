@@ -1458,6 +1458,15 @@ function appendToProgram(krlLine, vel){
   lines.splice(endIdx,0,...insLines);
   ta.value=lines.join('\n');
   rebuildGutter();
+  // Wenn Formular aktiv: fvBuild aufrufen + eingefügte Zeile öffnen
+  if (typeof FormatRegistry !== 'undefined' && FormatRegistry.getActiveId() === 'kuka-form') {
+    if (typeof fvBuild === 'function') {
+      // Zeige die neu eingefügte Zeile (erste insLines-Zeile)
+      var newLineIdx = endIdx + insLines.length - 1;
+      if (typeof fvExpandedLine !== 'undefined') fvExpandedLine = newLineIdx;
+      fvBuild(newLineIdx);
+    }
+  }
 }
 
 // Drag steuerungspanel
