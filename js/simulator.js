@@ -2744,7 +2744,7 @@ function frame(ts){
     // Geschwindigkeit: Echtzeit oder prozentual
     var speed;
     var pos = parsedData.positions;
-    var curPosIdx = Math.min(Math.round(sim.t), pos.length-1);
+    var curPosIdx = Math.min(Math.floor(sim.t), pos.length-1);
     var curVelCP = (pos[curPosIdx] && pos[curPosIdx].velCP) ? pos[curPosIdx].velCP : 0.167; // m/s
     if (_realtimeMode) {
       // Echtzeit: speed = velMmS / segmentDist (sim.t-Einheiten/Sekunde)
@@ -2775,7 +2775,7 @@ function frame(ts){
       if(bp!==null){newT=bp;pauseSim();applySimT(newT);setStatus('bp','● BREAKPOINT');renderer.render(scene,activeCam);return;}
       if(newT>=N-1){newT=N-1;pauseSim();setStatus('end','END ✓');}
       else if(newT<=0){newT=0;pauseSim();setStatus('paused','START');}
-      else { setStatus('playing', (sim.dir>0?'▶':'◀') + '  ' + Math.round(curVelCP*60000) + ' mm/min  |  VEL:' + curVelCP.toFixed(4)); }
+      else { setStatus('playing', (sim.dir>0?'▶':'◀') + '  ' + Math.round(curVelCP*60000) + ' mm/min'); }
     }
     applySimT(newT);
   }
