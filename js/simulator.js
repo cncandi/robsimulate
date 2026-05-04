@@ -2740,7 +2740,8 @@ function frame(ts){
   const dt=lastTs!==null?Math.min((ts-lastTs)/1000,.1):0;lastTs=ts;
   updateTween(dt);
   const N=parsedData.positions.length;
-  if(N>0&&(sim.playing||sim.stepTarget!==null)){
+  // Sim nicht vorrücken während Tween läuft
+  if(N>0&&(sim.playing||sim.stepTarget!==null)&&!_tween){
     // Geschwindigkeit: Echtzeit oder prozentual
     var speed;
     var pos = parsedData.positions;
