@@ -2254,6 +2254,8 @@ function autoLoadSTLFiles() {
   fetch(base + 'podest.stl')
     .then(function(r) { if(!r.ok) throw new Error(); return r.arrayBuffer(); })
     .then(function(buf) {
+      window._pedestalSTLBuffer = buf;
+      sceneSTLOffsets.pedestal.name = 'podest';
       var geo = stlLoader.parse(buf); geo.computeVertexNormals();
       if (pedestalMesh) { scene.remove(pedestalMesh); pedestalMesh.geometry.dispose(); }
       pedestalMesh = new THREE.Mesh(geo, new THREE.MeshPhongMaterial({color:0x446688,shininess:60}));
@@ -2267,6 +2269,8 @@ function autoLoadSTLFiles() {
   fetch(base + 'tool1_tcp.stl')
     .then(function(r) { if(!r.ok) throw new Error(); return r.arrayBuffer(); })
     .then(function(buf) {
+      window._toolSTLBuffer = buf;
+      sceneSTLOffsets.tool.name = 'tool1_tcp';
       var geo = stlLoader.parse(buf); geo.computeVertexNormals();
       if (toolMesh) { scene.remove(toolMesh); toolMesh.geometry.dispose(); }
       toolMesh = new THREE.Mesh(geo, new THREE.MeshPhongMaterial({color:0x334455,shininess:40,transparent:true,opacity:0.8}));
