@@ -7,7 +7,7 @@ var I18N = {
     // Toolbar
     play:'▶ Play', rev:'◀ Rev', stop:'⏸ Stop', step_f:'Step ▶', step_r:'◀ Step',
     robot3d:'Roboter 3D', tcptrace:'TCP Trace', bg:'◑ Hintergrund',
-    settings:'⚙ Einst.', stlload:'↺ STL', clrtrace:'✕ Trace', reset:'⟳ Reset',
+    settings:'⚙ Einst.', stlload:'↺ Anlage', clrtrace:'✕ Trace', reset:'⟳ Reset',
     axmap:'Achsenkarte', status_btn:'Status', grid_btn:'Grid',
     persp:'⊡ Perspektiv', ortho:'⊞ Ortho',
     // Panels
@@ -73,7 +73,7 @@ var I18N = {
     // Toolbar
     play:'▶ Play', rev:'◀ Rev', stop:'⏸ Stop', step_f:'Step ▶', step_r:'◀ Step',
     robot3d:'Robot 3D', tcptrace:'TCP Trace', bg:'◑ Background',
-    settings:'⚙ Settings', stlload:'↺ STL', clrtrace:'✕ Trace', reset:'⟳ Reset',
+    settings:'⚙ Settings', stlload:'↺ Anlage', clrtrace:'✕ Trace', reset:'⟳ Reset',
     axmap:'Axis Map', status_btn:'Status', grid_btn:'Grid',
     persp:'⊡ Perspective', ortho:'⊞ Ortho',
     // Panels

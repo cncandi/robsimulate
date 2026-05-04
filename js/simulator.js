@@ -4439,8 +4439,8 @@ window.addEventListener('load', function() {
   splashProgress(100, 'Bereit.');
   setTimeout(function() {
     splashHide();
-    // STL-Dateien automatisch laden wenn vorhanden
-    autoLoadSTLFiles();
+    // STL-Dateien werden nur auf Klick geladen (Anlage laden)
+    // autoLoadSTLFiles();
   }, 400);
 
   // Map button — direkte Bindung nach DOM-Load
