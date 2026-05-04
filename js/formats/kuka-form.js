@@ -733,6 +733,8 @@ function fvApplySV(lineIdx) {
   lines[lineIdx] = newLine;
   ta.value = lines.join('\n');
   fvExpandedLine = -1;
+  // Neu parsen damit velCP und andere Systemvariablen sofort wirken
+  if (typeof parseAndLoad === 'function') parseAndLoad();
   fvBuild(-1);
 }
 
