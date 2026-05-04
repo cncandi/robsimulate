@@ -2308,6 +2308,7 @@ function lerpAngles(a, b, f) {
 // Each entry: {pos:{X,Y,Z,A,B,C}, angles:[6], segIdx:int}
 // segIdx = index in parsedData.positions of destination point
 let trajectory = [];   // built once on parseAndLoad
+var _realtimeMode = false;  // Standard: aus
 
 // ── DPSolver initialisieren ───────────────────────────────────
 (function() {
@@ -2686,6 +2687,12 @@ function applyStep(idx){
   }else{document.getElementById('marker-info').style.display='none';if(N>0)document.getElementById('pos-v').textContent=`— / ${N}`;}
   const typeLabel={move:'MOVE',signal:'SIGNAL',var:'VARIABLE',other:'STATEMENT'};
   setStatus('paused',`L.${step.lineNum+1}  ${typeLabel[step.type]||''}`);
+}
+
+function toggleRealtime() {
+  _realtimeMode = !_realtimeMode;
+  var btn = document.getElementById('btn-realtime');
+  if (btn) btn.classList.toggle('on', _realtimeMode);
 }
 
 function pauseSim(){sim.playing=false;sim.stepTarget=null;document.getElementById('b-playfwd').classList.remove('on');document.getElementById('b-playrev').classList.remove('on');}
