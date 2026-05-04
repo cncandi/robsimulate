@@ -2739,14 +2739,22 @@ function frame(ts){
     var curPosIdx = Math.min(Math.round(sim.t), pos.length-1);
     var curVelCP = (pos[curPosIdx] && pos[curPosIdx].velCP) ? pos[curPosIdx].velCP : 0.167; // m/s
     if (_realtimeMode) {
-      // Echtzeit: 1 Segment = reale Distanz / reale Geschwindigkeit
-      // speed in Positionen/Sekunde
-      var nextIdx = Math.min(curPosIdx+1, pos.length-1);
-      var p0 = pos[curPosIdx], p1 = pos[nextIdx];
-      var dist = p0 && p1 ? Math.sqrt(Math.pow(p1.X-p0.X,2)+Math.pow(p1.Y-p0.Y,2)+Math.pow(p1.Z-p0.Z,2)) : 100;
+      // Echtzeit: Geschwindigkeit aus VEL.CP, Distanz aus Trajektorie
       var velMmS = curVelCP * 1000; // m/s → mm/s
-      speed = dist > 1 ? velMmS / dist : simSpeed(); // Positionen/s
-      speed = Math.max(0.1, Math.min(speed, 20)); // Clamp
+      // Distanz pro sim.t-Einheit: aus Trajektorie interpolieren
+      var trajFrac = N > 1 ? sim.t / (N-1) : 0;
+      var trajIdx = Math.floor(trajFrac * Math.max(1, trajectory.length-1));
+      var trajIdxNext = Math.min(trajIdx+1, trajectory.length-1);
+      var distPerTrajStep = 1;
+      if (trajectory[trajIdx] && trajectory[trajIdxNext]) {
+        var tp0 = trajectory[trajIdx].pos, tp1 = trajectory[trajIdxNext].pos;
+        distPerTrajStep = Math.sqrt(Math.pow(tp1.X-tp0.X,2)+Math.pow(tp1.Y-tp0.Y,2)+Math.pow(tp1.Z-tp0.Z,2));
+      }
+      // Trajektorie-Schritte pro Sekunde = velMmS / distPerTrajStep
+      var trajStepsPerSec = distPerTrajStep > 0.1 ? velMmS / distPerTrajStep : 10;
+      // sim.t-Einheiten pro Sekunde = trajStepsPerSec * (N-1) / trajectory.length
+      speed = trajStepsPerSec * (N-1) / Math.max(1, trajectory.length);
+      speed = Math.max(0.01, Math.min(speed, 50));
     } else {
       speed = simSpeed();
     }
