@@ -3167,9 +3167,9 @@ function buildKinConfig(){
   JOINTS_DEF.map((j,i)=>`
     <div class="joint-cfg">
       <span class="jl">A${i+1}</span>
-      <input id="jox${i}" type="number" value="${j.off[0]}" step="1" style="width:100%">
+      <input id="jox${i}" type="number" value="${j.off[2]}" step="1" style="width:100%">
       <input id="joy${i}" type="number" value="${j.off[1]}" step="1" style="width:100%">
-      <input id="joz${i}" type="number" value="${j.off[2]}" step="1" style="width:100%">
+      <input id="joz${i}" type="number" value="${j.off[0]}" step="1" style="width:100%">
       <span style="color:var(--txt3);font-size:.75em">${j.axis}</span>
     </div>`).join('');
 }
@@ -3181,9 +3181,9 @@ function applyKinematicConfig(){
     const ox=parseFloat((document.getElementById('jox'+i)&&document.getElementById('jox'+i).value));
     const oy=parseFloat((document.getElementById('joy'+i)&&document.getElementById('joy'+i).value));
     const oz=parseFloat((document.getElementById('joz'+i)&&document.getElementById('joz'+i).value));
-    if(!isNaN(ox))j.off[0]=ox;
+    if(!isNaN(ox))j.off[2]=ox;  // X-Feld → off[2]
     if(!isNaN(oy))j.off[1]=oy;
-    if(!isNaN(oz))j.off[2]=oz;
+    if(!isNaN(oz))j.off[0]=oz;  // Z-Feld → off[0]
   });
   buildPivotChain();
   buildRobotModel(jointAngles);
