@@ -598,3 +598,30 @@ body.bg-vivid .sbtn.on { background: #cc44ff !important; border-color: #aa22dd !
 body.bg-vivid .fv-pos-btn { background: rgba(0,255,170,.15); border-color: rgba(0,255,170,.4); color: #00ffaa; }
 body.bg-vivid .fv-apply { background: rgba(204,68,255,.15); color: #cc44ff; border-color: rgba(204,68,255,.4); }
 body.bg-vivid .fv-apply:hover { background: rgba(204,68,255,.3); }
+
+/* ══════════════════════════════════════════════════════
+   THEME 7 — Matrix (Schwarz + Grün statt Orange)
+   ══════════════════════════════════════════════════════ */
+body.bg-matrix {
+  --bg0:#000800; --bg1:#010d01; --bg2:#021202; --bg3:#031803; --bg4:#041e04;
+  --bdr:#0a3a0a; --txt:#a0ffa0; --txt2:#60cc60; --txt3:#308030;
+  --acc:#00cc44; --ok:#00ff88; --err:#ff4444; --warn:#cccc00;
+}
+body.bg-matrix header { background: #000800; border-bottom: 2px solid #00cc44; }
+body.bg-matrix .fv-badge-lin  { background: #00cc44; color: #000; }
+body.bg-matrix .fv-badge-ptp  { background: #00aa33; color: #000; }
+body.bg-matrix .fv-badge-slin { background: #008822; color: #a0ffa0; }
+body.bg-matrix .fv-badge-circ { background: #006611; color: #a0ffa0; }
+body.bg-matrix .fv-card { border-left-color: #00cc44; border-color: rgba(0,204,68,.25); background: rgba(0,204,68,.04); }
+body.bg-matrix .fv-card:hover { background: rgba(0,204,68,.08); }
+body.bg-matrix .fv-card.fv-open { border-color: #00cc44; background: rgba(0,204,68,.1); }
+body.bg-matrix .fv-section-lbl, body.bg-matrix .fv-pv-lbl, body.bg-matrix .fv-coord-lbl { color: #00cc44; }
+body.bg-matrix .fv-section-num { background: #00cc44; color: #000; }
+body.bg-matrix .fv-group-hdr { background: rgba(0,204,68,.08); border-left-color: #00cc44; }
+body.bg-matrix .fv-group-name { color: #00ff88; }
+body.bg-matrix .fv-apply { background: rgba(0,204,68,.15); color: #00cc44; border-color: rgba(0,204,68,.4); }
+body.bg-matrix .fv-apply:hover { background: rgba(0,204,68,.3); }
+body.bg-matrix .fv-pos-btn { background: rgba(0,204,68,.15); border-color: rgba(0,204,68,.4); color: #00cc44; }
+body.bg-matrix .sbtn.on { background: #00cc44 !important; color: #000 !important; border-color: #009933 !important; }
+body.bg-matrix .fv-num { color: #00cc44; }
+body.bg-matrix #code-input { color: #a0ffa0 !important; }

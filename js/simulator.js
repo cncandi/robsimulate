@@ -1486,9 +1486,9 @@ function toggleGrid(){
 }
 
 var _themeIndex = 0;
-var _themes = ['dark','bg-white','bg-minimal','bg-win11','bg-deep','bg-vivid'];
-var _themeBg  = [0x070d1a, 0xf0f0eb, 0xf4f4f4, 0xf3f6fc, 0x000408, 0x1a0a2e];
-var _themeGrid= [0x0e1e30, 0xbbbbaa, 0xcccccc, 0xc8d8e8, 0x0a1020, 0x2a1040];
+var _themes = ['dark','bg-white','bg-minimal','bg-win11','bg-deep','bg-vivid','bg-matrix'];
+var _themeBg  = [0x070d1a, 0xf0f0eb, 0xf4f4f4, 0xf3f6fc, 0x000408, 0x1a0a2e, 0x000800];
+var _themeGrid= [0x0e1e30, 0xbbbbaa, 0xcccccc, 0xc8d8e8, 0x0a1020, 0x2a1040, 0x001400];
 document.getElementById('btn-bg').addEventListener('click', function(){
   // Alle Theme-Klassen entfernen
   _themes.forEach(function(t){ document.body.classList.remove(t); });
