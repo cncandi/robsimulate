@@ -1027,6 +1027,20 @@ function saveKinematic() {
     zip.file(tName, new Uint8Array(window._toolSTLBuffer));
   }
 
+  // Szenen-STLs (manuell geladen)
+  if (typeof stlObjects !== 'undefined') {
+    var sceneAdded = 0;
+    for (var si = 0; si < stlObjects.length; si++) {
+      var so = stlObjects[si];
+      if (!so || !so.buf) continue;
+      var sName = so.name || ('scene_'+si+'.stl');
+      if (sName.toLowerCase().indexOf('.stl') === -1) sName += '.stl';
+      zip.file('scene/' + sName, new Uint8Array(so.buf));
+      sceneAdded++;
+    }
+    if (sceneAdded) console.log('ZIP: ' + sceneAdded + ' Szenen-STLs hinzugefügt');
+  }
+
   zip.generateAsync({type:'blob', compression:'DEFLATE', compressionOptions:{level:6}})
     .then(function(blob) {
       var url = URL.createObjectURL(blob);
@@ -2173,7 +2187,7 @@ function loadSTL(file){
     geo.computeBoundingBox();const ctr=new THREE.Vector3();geo.boundingBox.getCenter(ctr);geo.translate(-ctr.x,-ctr.y,-ctr.z);
     const mat=new THREE.MeshPhongMaterial({color:0x7799bb,transparent:true,opacity:.55,side:THREE.DoubleSide,specular:0x444444});
     const mesh=new THREE.Mesh(geo,mat);stlGrp.add(mesh);
-    const idx=stlObjects.length;stlObjects.push({mesh,name:file.name});renderSTLEntry(idx);
+    const idx=stlObjects.length;stlObjects.push({mesh,name:file.name,buf:e.target.result});renderSTLEntry(idx);
   };
   reader.readAsArrayBuffer(file);
 }
