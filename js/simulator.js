@@ -1183,6 +1183,9 @@ function applyKinematicData(data, stlBuffers) {
       var keyLower = key.toLowerCase(); // 'a1','a2'...
       var buf = stlBuffers[fname] || stlBuffers[keyLower] || stlBuffers['axis'+keyLower];
       if (buf) {
+        // Cache for loadDefaultSTLs fallback
+        if (!window._zipSTLCache) window._zipSTLCache = {};
+        window._zipSTLCache[keyLower] = buf;
         var dispName = (fname && fname !== '—' && fname !== '-') ? fname : keyLower;
         loadAxisSTLFromBase64(idx, null, dispName+'.stl', buf);
       } else if (val.data) {
@@ -1199,6 +1202,8 @@ function applyKinematicData(data, stlBuffers) {
       if (stlBuffers[pname]) {
         var buf = stlBuffers[pname];
         window._pedestalSTLBuffer = buf;
+        if (!window._zipSTLCache) window._zipSTLCache = {};
+        window._zipSTLCache['podest'] = buf; window._zipSTLCache['pedestal'] = buf;
         var geo = stlLoader.parse(buf); geo.computeVertexNormals();
         if (pedestalMesh) { scene.remove(pedestalMesh); pedestalMesh.geometry.dispose(); }
         pedestalMesh = new THREE.Mesh(geo, new THREE.MeshPhongMaterial({color:0x334455,shininess:40}));
@@ -2782,8 +2787,8 @@ requestAnimationFrame(frame);
 document.getElementById('b-start').onclick=()=>{pauseSim();applySimT(0);if((parsedData.steps&&parsedData.steps.length))applyStep(0);else setStatus('stopped','STOPPED');};
 document.getElementById('b-end').onclick=()=>{pauseSim();applySimT(Math.max(0,parsedData.positions.length-1));const last=((parsedData.steps&&parsedData.steps.length)||1)-1;if((parsedData.steps&&parsedData.steps.length))applyStep(last);else setStatus('stopped','STOPPED');};
 document.getElementById('b-stop').onclick=()=>{pauseSim();setStatus('paused','PAUSED');};
-document.getElementById('b-playfwd').onclick=()=>{if(sim.playing&&sim.dir===1){pauseSim();setStatus('paused','PAUSED');}else{if(!parsedData.positions.length)parseAndLoad();if(!parsedData.positions.length)return;if(sim.t>=parsedData.positions.length-1)applySimT(0);sim.playing=true;sim.dir=1;sim.stepTarget=null;document.getElementById('b-playfwd').classList.add('on');document.getElementById('b-playrev').classList.remove('on');setStatus('playing','▶ FORWARD');}};
-document.getElementById('b-playrev').onclick=()=>{if(sim.playing&&sim.dir===-1){pauseSim();setStatus('paused','PAUSED');}else{if(!parsedData.positions.length)parseAndLoad();if(!parsedData.positions.length)return;if(sim.t<=0)applySimT(parsedData.positions.length-1);sim.playing=true;sim.dir=-1;sim.stepTarget=null;document.getElementById('b-playrev').classList.add('on');document.getElementById('b-playfwd').classList.remove('on');setStatus('playing','◀ BACKWARD');}};
+document.getElementById('b-playfwd').onclick=()=>{if(sim.playing&&sim.dir===1){pauseSim();setStatus('paused','PAUSED');}else{parseAndLoad();if(!parsedData.positions.length)return;if(sim.t>=parsedData.positions.length-1)applySimT(0);sim.playing=true;sim.dir=1;sim.stepTarget=null;document.getElementById('b-playfwd').classList.add('on');document.getElementById('b-playrev').classList.remove('on');setStatus('playing','▶ FORWARD');}};
+document.getElementById('b-playrev').onclick=()=>{if(sim.playing&&sim.dir===-1){pauseSim();setStatus('paused','PAUSED');}else{parseAndLoad();if(!parsedData.positions.length)return;if(sim.t<=0)applySimT(parsedData.positions.length-1);sim.playing=true;sim.dir=-1;sim.stepTarget=null;document.getElementById('b-playrev').classList.add('on');document.getElementById('b-playfwd').classList.remove('on');setStatus('playing','◀ BACKWARD');}};
 document.getElementById('b-stepfwd').onclick=()=>{if(!(parsedData.steps&&parsedData.steps.length))return;pauseSim();applyStep(sim.stepIdx+1);};
 document.getElementById('b-steprev').onclick=()=>{if(!(parsedData.steps&&parsedData.steps.length))return;pauseSim();applyStep(sim.stepIdx-1);};
 document.getElementById('spd-s').addEventListener('input',function(){document.getElementById('spd-v').textContent=this.value+'%';});
@@ -3335,6 +3340,27 @@ function loadDefaultSTLs() {
     var ax = axes[i++];
     var idx = parseInt(ax.replace('A','')) - 1;
     if (mi) mi.textContent = 'Lade ' + ax + '...';
+    // ZIP-Cache zuerst prüfen
+    var _cachedBuf = window._zipSTLCache && window._zipSTLCache[ax.toLowerCase()];
+    if (_cachedBuf) {
+      (function(buf, axName, axIdx) {
+        try {
+          var geo = stlLoader.parse(buf); geo.computeVertexNormals();
+          if (axisSTLMeshes[axIdx]) { scene.remove(axisSTLMeshes[axIdx]); axisSTLMeshes[axIdx].geometry.dispose(); }
+          axisSTLMeshes[axIdx] = new THREE.Mesh(geo, new THREE.MeshPhongMaterial({color:0xe8a020,shininess:80}));
+          scene.add(axisSTLMeshes[axIdx]);
+          if (!axisSTLMode[axIdx]) axisSTLMode[axIdx] = 'solid';
+          setAxisSTLMode(axIdx, axisSTLMode[axIdx]);
+          var nameEl = document.getElementById('asl-name'+axIdx);
+          if (nameEl) nameEl.textContent = axName.toLowerCase();
+          var delEl = document.getElementById('asl-del'+axIdx);
+          if (delEl) delEl.style.display = '';
+          loaded++; buildRobotModel(jointAngles);
+        } catch(e) { console.error('STL parse (cache):', axName, e); }
+        next();
+      })(_cachedBuf, ax, idx);
+      return;
+    }
     xhrSTL('./stl/' + ax.toLowerCase() + '.stl',
       function(buf) {
         try {
