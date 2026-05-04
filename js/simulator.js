@@ -397,6 +397,7 @@ function parseVal(s){
 }
 function parseKRL(code){
   const lines=code.split(/\r?\n/);const steps=[],positions=[],vars={},din={},dout={},anout={};
+  let _velCP = 0.167; // m/s aktuelle Geschwindigkeit
   function snap(){return{variables:{...vars},digitalIn:{...din},digitalOut:{...dout},analogOut:{...anout}};}
   function pushStep(ln,type,extra){steps.push({lineNum:ln,type,...extra,snapshot:snap()});}
   for(let ln=0;ln<lines.length;ln++){
@@ -427,7 +428,7 @@ function parseKRL(code){
         aMatch.forEach(function(s){const m2=s.match(/A([1-6])\s*([-\d.]+)/i);if(m2)ptpQ[+m2[1]-1]=parseFloat(m2[2]);});
         pushStep(ln,'ptpAxis',{angles:ptpQ.slice()});continue;
       }
-      positions.push({type:moveType,...parsedMove,lineNum:ln,snapshot:snap()});
+      positions.push({type:moveType,...parsedMove,lineNum:ln,velCP:_velCP,snapshot:snap()});
       pushStep(ln,'move',{posIdx:pi,label:moveType});continue;}
     let m;
     if((m=line.match(/^\$IN\s*\[(\d+)\]\s*=\s*(.+)/i))){din[+m[1]]=parseVal(m[2]);pushStep(ln,'signal',{});continue;}
@@ -435,6 +436,9 @@ function parseKRL(code){
     if((m=line.match(/^\$ANOUT\s*\[(\d+)\]\s*=\s*(.+)/i))){const v=parseFloat(m[2]);anout[+m[1]]=isNaN(v)?0:Math.max(-10,Math.min(10,v));pushStep(ln,'signal',{});continue;}
     if((m=line.match(/^DECL\s+\S+\s+([A-Za-z_]\w*)\s*=\s*(.+)/i))){vars[m[1]]=parseVal(m[2]);pushStep(ln,'var',{});continue;}
     if((m=line.match(/^([A-Za-z_]\w*)\s*=\s*(.+)/))){if(!KW.has(m[1].toUpperCase())){vars[m[1]]=parseVal(m[2]);pushStep(ln,'var',{});continue;}}
+    // VEL.CP tracken
+    const velM = line.match(/^\$VEL\.CP\s*=\s*([\d.]+)/i);
+    if (velM) { _velCP = parseFloat(velM[1]) || 0.167; }
     pushStep(ln,'other',{});
   }
   return{steps,positions,finalState:{variables:{...vars},digitalIn:{...din},digitalOut:{...dout},analogOut:{...anout}}};
@@ -2722,7 +2726,30 @@ function frame(ts){
   updateTween(dt);
   const N=parsedData.positions.length;
   if(N>0&&(sim.playing||sim.stepTarget!==null)){
-    const speed=simSpeed(),prevT=sim.t;let newT;
+    // Geschwindigkeit: Echtzeit oder prozentual
+    var speed;
+    var pos = parsedData.positions;
+    var curPosIdx = Math.min(Math.round(sim.t), pos.length-1);
+    var curVelCP = (pos[curPosIdx] && pos[curPosIdx].velCP) ? pos[curPosIdx].velCP : 0.167; // m/s
+    if (_realtimeMode) {
+      // Echtzeit: 1 Segment = reale Distanz / reale Geschwindigkeit
+      // speed in Positionen/Sekunde
+      var nextIdx = Math.min(curPosIdx+1, pos.length-1);
+      var p0 = pos[curPosIdx], p1 = pos[nextIdx];
+      var dist = p0 && p1 ? Math.sqrt(Math.pow(p1.X-p0.X,2)+Math.pow(p1.Y-p0.Y,2)+Math.pow(p1.Z-p0.Z,2)) : 100;
+      var velMmS = curVelCP * 1000; // m/s → mm/s
+      speed = dist > 1 ? velMmS / dist : simSpeed(); // Positionen/s
+      speed = Math.max(0.1, Math.min(speed, 20)); // Clamp
+    } else {
+      speed = simSpeed();
+    }
+    // TCP-Geschwindigkeit anzeigen
+    var velEl = document.getElementById('tcp-vel-v');
+    if (velEl && _realtimeMode) {
+      var velMmS2 = curVelCP * 1000;
+      velEl.textContent = velMmS2.toFixed(0) + ' mm/s';
+    }
+    const prevT=sim.t;let newT;
     if(sim.stepTarget!==null){
       const sd=sim.stepTarget>sim.t?1:-1;newT=sim.t+sd*speed*dt;
       if((sd>0&&newT>=sim.stepTarget)||(sd<0&&newT<=sim.stepTarget)){newT=sim.stepTarget;sim.stepTarget=null;applySimT(newT);setStatus('paused','PAUSED');renderer.render(scene,activeCam);return;}
