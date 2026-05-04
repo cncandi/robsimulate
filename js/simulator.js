@@ -1178,10 +1178,13 @@ function applyKinematicData(data, stlBuffers) {
           rx: val.posrx||0, ry: val.posry||0, rz: val.posrz||0
         };
       }
-      // Try ZIP buffer first, then embedded base64
-      var fname = (val.name || key.toLowerCase()).replace(/\.stl$/i,'').toLowerCase();
-      if (stlBuffers[fname]) {
-        loadAxisSTLFromBase64(idx, null, (val.name||key)+'.stl', stlBuffers[fname]);
+      // Try ZIP buffer: use name, then key (a1,a2...), then axis name
+      var fname = (val.name || '').replace(/\.stl$/i,'').toLowerCase();
+      var keyLower = key.toLowerCase(); // 'a1','a2'...
+      var buf = stlBuffers[fname] || stlBuffers[keyLower] || stlBuffers['axis'+keyLower];
+      if (buf) {
+        var dispName = (fname && fname !== '—' && fname !== '-') ? fname : keyLower;
+        loadAxisSTLFromBase64(idx, null, dispName+'.stl', buf);
       } else if (val.data) {
         loadAxisSTLFromBase64(idx, val.data, val.name || key+'.stl');
       }
