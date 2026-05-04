@@ -2630,7 +2630,7 @@ function applySimT(t){ _tween = null;
   const pos=parsedData.positions,N=pos.length;if(!N)return;
   sim.t=Math.max(0,Math.min(N-1,t));
   document.getElementById('pos-s').value=sim.t;
-  const idx=Math.min(Math.round(sim.t),N-1);
+  const idx=Math.min(Math.floor(sim.t),N-1);
   // Show trajectory sample count
   const trajSamples = trajectory.length;
   document.getElementById('pos-v').textContent=`${idx+1} / ${N}` + (trajSamples>N?` (${trajSamples} Schritte)`:'');
