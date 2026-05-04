@@ -431,14 +431,14 @@ function parseKRL(code){
       positions.push({type:moveType,...parsedMove,lineNum:ln,velCP:_velCP,snapshot:snap()});
       pushStep(ln,'move',{posIdx:pi,label:moveType});continue;}
     let m;
+    // VEL.CP tracken — VOR move-Verarbeitung damit es sofort greift
+    const velM = line.match(/^\$VEL\.CP\s*=\s*([\d.]+)/i);
+    if (velM) { _velCP = parseFloat(velM[1]) || 0.167; pushStep(ln,'other',{}); continue; }
     if((m=line.match(/^\$IN\s*\[(\d+)\]\s*=\s*(.+)/i))){din[+m[1]]=parseVal(m[2]);pushStep(ln,'signal',{});continue;}
     if((m=line.match(/^\$OUT\s*\[(\d+)\]\s*=\s*(.+)/i))){dout[+m[1]]=parseVal(m[2]);pushStep(ln,'signal',{});continue;}
     if((m=line.match(/^\$ANOUT\s*\[(\d+)\]\s*=\s*(.+)/i))){const v=parseFloat(m[2]);anout[+m[1]]=isNaN(v)?0:Math.max(-10,Math.min(10,v));pushStep(ln,'signal',{});continue;}
     if((m=line.match(/^DECL\s+\S+\s+([A-Za-z_]\w*)\s*=\s*(.+)/i))){vars[m[1]]=parseVal(m[2]);pushStep(ln,'var',{});continue;}
     if((m=line.match(/^([A-Za-z_]\w*)\s*=\s*(.+)/))){if(!KW.has(m[1].toUpperCase())){vars[m[1]]=parseVal(m[2]);pushStep(ln,'var',{});continue;}}
-    // VEL.CP tracken
-    const velM = line.match(/^\$VEL\.CP\s*=\s*([\d.]+)/i);
-    if (velM) { _velCP = parseFloat(velM[1]) || 0.167; }
     pushStep(ln,'other',{});
   }
   return{steps,positions,finalState:{variables:{...vars},digitalIn:{...din},digitalOut:{...dout},analogOut:{...anout}}};
@@ -2755,10 +2755,11 @@ function frame(ts){
     } else {
       speed = simSpeed();
     }
-    // Aktuelle Geschwindigkeit immer im Status anzeigen
-    var velMmMin = curVelCP * 60000; // m/s → mm/min
+    // Aktuelle Geschwindigkeit anzeigen
+    // velCP ist in m/s → * 60000 = mm/min
+    var velMmMin = Math.round(curVelCP * 60000);
     var velEl = document.getElementById('tcp-vel-v');
-    if (velEl) velEl.textContent = Math.round(velMmMin) + ' mm/min';
+    if (velEl) velEl.textContent = velMmMin + ' mm/min';
     const prevT=sim.t;let newT;
     if(sim.stepTarget!==null){
       const sd=sim.stepTarget>sim.t?1:-1;newT=sim.t+sd*speed*dt;
@@ -2769,7 +2770,7 @@ function frame(ts){
       if(bp!==null){newT=bp;pauseSim();applySimT(newT);setStatus('bp','● BREAKPOINT');renderer.render(scene,activeCam);return;}
       if(newT>=N-1){newT=N-1;pauseSim();setStatus('end','END ✓');}
       else if(newT<=0){newT=0;pauseSim();setStatus('paused','START');}
-      else { setStatus('playing', (sim.dir>0?'▶':'◀') + '  ' + Math.round(curVelCP*60000) + ' mm/min'); }
+      else { setStatus('playing', (sim.dir>0?'▶':'◀') + '  ' + Math.round(curVelCP*60000) + ' mm/min  |  VEL:' + curVelCP.toFixed(4)); }
     }
     applySimT(newT);
   }
