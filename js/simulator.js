@@ -2745,12 +2745,11 @@ function frame(ts){
     var speed;
     var pos = parsedData.positions;
     var curPosIdx = Math.min(Math.floor(sim.t), pos.length-1);
-    var curVelCP = (pos[curPosIdx] && pos[curPosIdx].velCP) ? pos[curPosIdx].velCP : 0.167; // m/s
+    var nextPosIdx = Math.min(curPosIdx + 1, pos.length - 1);
+    // Geschwindigkeit des ZIELPUNKTS (VEL.CP gilt für die Bewegung zum Zielpunkt)
+    var curVelCP = (pos[nextPosIdx] && pos[nextPosIdx].velCP) ? pos[nextPosIdx].velCP : 0.167;
     if (_realtimeMode) {
-      // Echtzeit: speed = velMmS / segmentDist (sim.t-Einheiten/Sekunde)
-      // 1 sim.t-Einheit = 1 Segment. Zeit = dist/vel → speed = vel/dist
       var velMmS = curVelCP * 1000; // m/s → mm/s
-      var nextPosIdx = Math.min(curPosIdx + 1, pos.length - 1);
       var p0 = pos[curPosIdx], p1 = pos[nextPosIdx];
       var segDist = (p0 && p1 && nextPosIdx !== curPosIdx)
         ? Math.sqrt(Math.pow(p1.X-p0.X,2)+Math.pow(p1.Y-p0.Y,2)+Math.pow(p1.Z-p0.Z,2))
