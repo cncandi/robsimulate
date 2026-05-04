@@ -2746,8 +2746,8 @@ function frame(ts){
     var pos = parsedData.positions;
     var curPosIdx = Math.min(Math.floor(sim.t), pos.length-1);
     var nextPosIdx = Math.min(curPosIdx + 1, pos.length - 1);
-    // Geschwindigkeit des ZIELPUNKTS (VEL.CP gilt für die Bewegung zum Zielpunkt)
-    var curVelCP = (pos[nextPosIdx] && pos[nextPosIdx].velCP) ? pos[nextPosIdx].velCP : 0.167;
+    // VEL.CP gilt für den jeweiligen Satz = pos[curPosIdx].velCP
+    var curVelCP = (pos[curPosIdx] && pos[curPosIdx].velCP) ? pos[curPosIdx].velCP : 0.167;
     if (_realtimeMode) {
       var velMmS = curVelCP * 1000; // m/s → mm/s
       var p0 = pos[curPosIdx], p1 = pos[nextPosIdx];
