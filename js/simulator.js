@@ -2750,12 +2750,10 @@ function frame(ts){
     } else {
       speed = simSpeed();
     }
-    // TCP-Geschwindigkeit anzeigen
+    // Aktuelle Geschwindigkeit immer im Status anzeigen
+    var velMmMin = curVelCP * 60000; // m/s → mm/min
     var velEl = document.getElementById('tcp-vel-v');
-    if (velEl && _realtimeMode) {
-      var velMmS2 = curVelCP * 1000;
-      velEl.textContent = velMmS2.toFixed(0) + ' mm/s';
-    }
+    if (velEl) velEl.textContent = Math.round(velMmMin) + ' mm/min';
     const prevT=sim.t;let newT;
     if(sim.stepTarget!==null){
       const sd=sim.stepTarget>sim.t?1:-1;newT=sim.t+sd*speed*dt;
@@ -2766,6 +2764,7 @@ function frame(ts){
       if(bp!==null){newT=bp;pauseSim();applySimT(newT);setStatus('bp','● BREAKPOINT');renderer.render(scene,activeCam);return;}
       if(newT>=N-1){newT=N-1;pauseSim();setStatus('end','END ✓');}
       else if(newT<=0){newT=0;pauseSim();setStatus('paused','START');}
+      else { setStatus('playing', (sim.dir>0?'▶':'◀') + '  ' + Math.round(curVelCP*60000) + ' mm/min'); }
     }
     applySimT(newT);
   }
