@@ -29,68 +29,120 @@
   // Iteriert direkt über parsedData.positions.
   // Jede Position trägt: type ('LIN'|'PTP'|'SLIN'|'CIRC'|'CIRC_AUX'), velCP, X..C
   // Tool/Base/Vars werden aus dem KRL-Code (code-input) extrahiert.
+  // Hauptgenerator für DIRECT_STREAM Formate
+  // Iteriert parsedData.steps (inkl. I/O, Wait etc.) und nutzt applyTpl
   function generate(parsedData, cfg) {
     if (!parsedData) return '';
     var positions = parsedData.positions || [];
+    var steps     = parsedData.steps     || [];
+    var fmtId     = cfg._formatId || '';
+    var lines = [];
+    var push  = function(l) { if (l != null && l !== '') lines.push(l); };
 
-    // Tool/Base aus KRL-Code lesen
+    // Kopf: Tool/Base/Vars aus steps sammeln
     var toolN = 1, baseN = 1, vars = [];
-    var code = (typeof document !== 'undefined' && document.getElementById('code-input'))
-      ? document.getElementById('code-input').value : '';
-    code.split(/\r?\n/).forEach(function (line) {
-      var t = line.trim();
-      var tm = t.match(/^\$TOOL\s*=\s*TOOL_DATA\[(\d+)\]/i);
-      if (tm) toolN = parseInt(tm[1]);
-      var bm = t.match(/^\$BASE\s*=\s*BASE_DATA\[(\d+)\]/i);
-      if (bm) baseN = parseInt(bm[1]);
-      var vm = t.match(/^DECL\s+(INT|REAL|BOOL)\s+(\w+)(?:\s*=\s*(.+))?/i);
-      if (vm) vars.push({ varType: vm[1].toUpperCase(), name: vm[2], val: (vm[3] || '').trim() });
+    steps.forEach(function(s) {
+      if (s.type === 'tool') toolN = s.n;
+      if (s.type === 'base') baseN = s.n;
+      if (s.type === 'var')  vars.push(s);
     });
 
-    var lines = [];
-    var push = function (l) { if (l != null && l !== '') lines.push(l); };
+    // Programmkopf
+    var hf = (fmtId && typeof fmtHfLoad === 'function') ? fmtHfLoad(fmtId) : null;
+    if (hf && hf.header) hf.header.split('\n').forEach(push);
+    else if (cfg.header) cfg.header(toolN, baseN, vars).forEach(push);
 
-    // Programmkopf: Settings (localStorage) überschreiben Default
-    var hfId = cfg._formatId;
-    var hfStored = (hfId && typeof fmtHfLoad === 'function') ? fmtHfLoad(hfId) : null;
-    var useStoredHeader = hfStored && (hfStored.header !== (FMT_HF_DEFAULTS[hfId] || {}).header || !FMT_HF_DEFAULTS[hfId]);
-    if (useStoredHeader) {
-      hfStored.header.split('\n').forEach(push);
-    } else if (cfg.header) {
-      cfg.header(toolN, baseN, vars).forEach(push);
+    // Template-Helfer
+    var curVel = 0.167, curToolN = toolN, curBaseN = baseN;
+    function t(key, vars2, fallback) {
+      if (fmtId && typeof applyTpl === 'function') {
+        var r = applyTpl(fmtId, key, vars2);
+        if (r !== null) return r;
+      }
+      return fallback ? fallback() : null;
     }
 
-    positions.forEach(function (pos, i) {
-      var vel  = pos.velCP || 0.167;
-      var idx  = i + 1;
-      var p    = fmtP(pos);
-      var typ  = (pos.type || 'LIN').toUpperCase();
+    // Wenn steps vorhanden: steps-basiert (vollständig mit I/O)
+    if (steps.length) {
+      steps.forEach(function(s) {
+        switch(s.type) {
+          case 'comment': if (cfg.comment) push(cfg.comment(s.text||'')); break;
+          case 'velcp':   curVel = s.v || 0.167; if (cfg.velLine) push(cfg.velLine(curVel)); break;
+          case 'tool':
+            curToolN = s.n;
+            push(t('tool',{N:s.n,TOOL:s.n},cfg.tool?function(){return cfg.tool(s.n);}:null)); break;
+          case 'base':
+            curBaseN = s.n;
+            push(t('base',{N:s.n,BASE:s.n},cfg.base?function(){return cfg.base(s.n);}:null)); break;
+          case 'var': {
+            var vt=s.varType||'REAL', vi=s.val!=null?s.val:(vt==='BOOL'?'FALSE':vt==='INT'?'0':'0.0');
+            var vk=vt==='INT'?'varInt':vt==='BOOL'?'varBool':'varReal';
+            push(t(vk,{TYPE:vt,NAME:s.name||'v',INITVAL:vi},
+              cfg.varDecl?function(){return cfg.varDecl(vt,s.name,s.val);}:null)); break;
+          }
+          case 'move': {
+            var pos=positions[s.posIdx]; if(!pos) break;
+            var isLin=s.moveType==='LIN'||s.moveType==='SLIN';
+            var p=fmtP(pos), idx=(s.posIdx||0)+1;
+            var mv={N:idx,X:pos.X.toFixed(3),Y:pos.Y.toFixed(3),Z:pos.Z.toFixed(3),
+              A:pos.A.toFixed(3),B:pos.B.toFixed(3),C:pos.C.toFixed(3),
+              VEL_MMS:velMmS(curVel),VEL_PCT:velPct(curVel),
+              VEL_MS:(curVel||0.167).toFixed(4),TOOL:curToolN,BASE:curBaseN};
+            push(t(isLin?'moveL':'moveJ',mv,isLin
+              ?(cfg.moveL?function(){return cfg.moveL(p,curVel,idx,pos);}:null)
+              :(cfg.moveJ?function(){return cfg.moveJ(p,curVel,idx,pos);}:null))); break;
+          }
+          case 'circ': {
+            var pv=positions[s.viaIdx],pt=positions[s.posIdx]; if(!pv||!pt) break;
+            var cv={N:(s.posIdx||0)+1,VN:(s.viaIdx||0)+1,
+              X:pt.X.toFixed(3),Y:pt.Y.toFixed(3),Z:pt.Z.toFixed(3),
+              A:pt.A.toFixed(3),B:pt.B.toFixed(3),C:pt.C.toFixed(3),
+              VX:pv.X.toFixed(3),VY:pv.Y.toFixed(3),VZ:pv.Z.toFixed(3),
+              VA:pv.A.toFixed(3),VB:pv.B.toFixed(3),VC:pv.C.toFixed(3),
+              VEL_MMS:velMmS(curVel),VEL_PCT:velPct(curVel),TOOL:curToolN,BASE:curBaseN};
+            push(t('moveC',cv,cfg.moveC?function(){return cfg.moveC(fmtP(pv),fmtP(pt),curVel,(s.posIdx||0)+1);}:null)); break;
+          }
+          case 'halt':   push(t('halt',{},cfg.halt?function(){return cfg.halt();}:null)); break;
+          case 'brake':  push(t('halt',{},cfg.brake?function(){return cfg.brake();}:cfg.halt?function(){return cfg.halt();}:null)); break;
+          case 'dout': {
+            var dv=s.v==='TRUE'||s.v==='1'||s.v==='ON';
+            push(t('dout',{CH:s.n,VAL:dv?'TRUE':'FALSE'},cfg.dout?function(){return cfg.dout(s.n,dv);}:null)); break;
+          }
+          case 'din':   push(t('din',{CH:s.n},cfg.dinWait?function(){return cfg.dinWait(s.n);}:null)); break;
+          case 'aout': {
+            var af=parseFloat(s.v||0).toFixed(2);
+            push(t('aout',{CH:s.n,VAL_F:af},cfg.aout?function(){return cfg.aout(s.n,s.v);}:null)); break;
+          }
+          case 'ain':   push(t('ain',{CH:s.n},cfg.ainRead?function(){return cfg.ainRead(s.n);}:null)); break;
+          case 'wait': {
+            var wt=parseFloat(s.t||0).toFixed(1);
+            push(t('wait',{T:wt,T_MS:Math.round(parseFloat(s.t||0)*1000)},
+              cfg.waitSec?function(){return cfg.waitSec(s.t);}:null)); break;
+          }
+          case 'waitFor': push(t('din',{CH:1},cfg.waitFor?function(){return cfg.waitFor(s.cond||'');}:cfg.dinWait?function(){return cfg.dinWait(1);}:null)); break;
+        }
+      });
+    } else {
+      // Fallback: nur Positionen (ältere parsedData ohne steps)
+      positions.forEach(function(pos,i) {
+        var vel=curVel, idx=i+1, p=fmtP(pos);
+        var mv={N:idx,X:pos.X.toFixed(3),Y:pos.Y.toFixed(3),Z:pos.Z.toFixed(3),
+          A:pos.A.toFixed(3),B:pos.B.toFixed(3),C:pos.C.toFixed(3),
+          VEL_MMS:velMmS(vel),VEL_PCT:velPct(vel),VEL_MS:(vel).toFixed(4),TOOL:curToolN,BASE:curBaseN};
+        var line = t('moveL',mv,cfg.moveL?function(){return cfg.moveL(p,vel,idx,pos);}:null);
+        if (line) push(line);
+      });
+    }
 
-      if (typ === 'CIRC_AUX') return; // Wird zusammen mit CIRC ausgegeben
-
-      if (typ === 'CIRC') {
-        var via = (i > 0 && positions[i - 1].type === 'CIRC_AUX') ? positions[i - 1] : null;
-        if (via && cfg.moveC) push(cfg.moveC(fmtP(via), p, vel, idx));
-        else if (cfg.moveL)   push(cfg.moveL(p, vel, idx, pos));
-      } else if (typ === 'LIN' || typ === 'SLIN') {
-        if (cfg.moveL) push(cfg.moveL(p, vel, idx, pos));
-      } else {
-        if (cfg.moveJ) push(cfg.moveJ(p, vel, idx, pos));
-      }
-    });
-
+    // Optionale Punkt-Sektion (FANUC-Style)
     if (cfg.ptpSection && positions.length) {
       var ptpLines = cfg.ptpSection(positions);
       if (ptpLines && ptpLines.length) ptpLines.forEach(push);
     }
 
-    // Programmfuß: Settings (localStorage) überschreiben Default
-    var useStoredFooter = hfStored && (hfStored.footer !== (FMT_HF_DEFAULTS[hfId] || {}).footer || !FMT_HF_DEFAULTS[hfId]);
-    if (useStoredFooter) {
-      hfStored.footer.split('\n').forEach(push);
-    } else if (cfg.footer) {
-      cfg.footer().forEach(push);
-    }
+    // Programmfuß
+    if (hf && hf.footer) hf.footer.split('\n').forEach(push);
+    else if (cfg.footer) cfg.footer().forEach(push);
     return lines.join('\n');
   }
 
@@ -1080,8 +1132,18 @@
 // PROGRAMMKOPF / PROGRAMMFUSS — Settings UI + localStorage
 // ══════════════════════════════════════════════════════════════════════════
 
+// ══════════════════════════════════════════════════════════════════════════
+// EINSTELLUNGEN — Programmkopf/-fuß + Befehlsvorlagen je Format
+// Quelle: CAD/CAM Reitz - Roboter-Befehlsvergleich fuer Postprozessoren (2026-05-05)
+// Platzhalter: {N} Pos-Index, {X}{Y}{Z}{A}{B}{C} Koordinaten,
+//   {VN} Via-Pos-Index, {VX}{VY}{VZ}{VA}{VB}{VC} Via-Koordinaten,
+//   {VEL_MMS} mm/s, {VEL_PCT} %, {VEL_MS} m/s,
+//   {TOOL} {BASE} Nummern, {CH} I/O-Kanal,
+//   {VAL} Digital-Wert, {VAL_F} Analog-Wert, {T} Wartezeit s,
+//   {TYPE} {NAME} {INITVAL} Variable, {PROG} {ARGS} CALL
+// ══════════════════════════════════════════════════════════════════════════
+
 var FMT_HF_DEFAULTS = {
-  // Quellen: CAD/CAM Reitz - Roboter-Befehlsvergleich fuer Postprozessoren (2026-05-05)
   kuka:     { header: 'DEF PP_MAIN()\n ;INIT / BAS optional\n BAS(#INITMOV,0)', footer: 'END' },
   abb:      { header: "MODULE PP_MAIN\n PERS tooldata t1 := [TRUE,[[0,0,0],[1,0,0,0]],[1,[0,0,0.001],[1,0,0,0],0,0,0]];\n PERS wobjdata w1 := [FALSE,TRUE,'',[[0,0,0],[1,0,0,0]],[[0,0,0],[1,0,0,0]]];\n PROC main()", footer: 'ENDPROC\nENDMODULE' },
   fanuc:    { header: '/PROG PP_MAIN\n/ATTR\nOWNER = MNEDITOR;\n/MN', footer: '/END' },
@@ -1104,28 +1166,406 @@ var FMT_HF_DEFAULTS = {
   mabi:     { header: 'PROGRAM PP_MAIN ; nach MABI-Handbuch anpassen', footer: 'END' },
 };
 
+var FMT_CMD_DEFAULTS = {
+  kuka: {
+    moveJ:   'PTP {X {X},Y {Y},Z {Z},A {A},B {B},C {C}}',
+    moveL:   'LIN {X {X},Y {Y},Z {Z},A {A},B {B},C {C}}',
+    moveC:   'CIRC {X {VX},Y {VY},Z {VZ},A {VA},B {VB},C {VC}}, {X {X},Y {Y},Z {Z},A {A},B {B},C {C}}',
+    halt:    'HALT',
+    dout:    '$OUT[{CH}]={VAL}',
+    din:     'WAIT FOR $IN[{CH}]',
+    aout:    '$ANOUT[{CH}]={VAL_F}',
+    ain:     'r = $ANIN[{CH}]',
+    wait:    'WAIT SEC {T}',
+    tool:    '$TOOL=TOOL_DATA[{N}]',
+    base:    '$BASE=BASE_DATA[{N}]',
+    varInt:  'DECL INT {NAME}={INITVAL}',
+    varReal: 'DECL REAL {NAME}={INITVAL}',
+    varBool: 'DECL BOOL {NAME}={INITVAL}',
+    call:    '{PROG}({ARGS})',
+  },
+  abb: {
+    moveJ:   '    MoveJ p{N}, v{VEL_MMS}, z10, tool{TOOL}\\WObj:=wobj{BASE};',
+    moveL:   '    MoveL p{N}, v{VEL_MMS}, fine, tool{TOOL}\\WObj:=wobj{BASE};',
+    moveC:   '    MoveC p{VN}, p{N}, v{VEL_MMS}, fine, tool{TOOL}\\WObj:=wobj{BASE};',
+    halt:    '    Stop;',
+    dout:    '    SetDO do{CH}, {VAL};',
+    din:     '    WaitDI di{CH}, 1;',
+    aout:    '    SetAO ao{CH}, {VAL_F};',
+    ain:     '    r := AInput(ai{CH});',
+    wait:    '    WaitTime {T};',
+    tool:    '    ! Tool: tool{N}',
+    base:    '    ! WObj: wobj{N}',
+    varInt:  '  VAR num {NAME} := {INITVAL};',
+    varReal: '  VAR num {NAME} := {INITVAL};',
+    varBool: '  VAR bool {NAME} := {INITVAL};',
+    call:    '    {PROG} {ARGS};',
+  },
+  fanuc: {
+    moveJ:   ' {LN}:J P[{N}] {VEL_PCT}% FINE ;',
+    moveL:   ' {LN}:L P[{N}] {VEL_MMS}mm/sec FINE ;',
+    moveC:   ' {LN}:C P[{VN}]\n   P[{N}] {VEL_MMS}mm/sec FINE ;',
+    halt:    ' {LN}: PAUSE ;',
+    dout:    ' {LN}: DO[{CH}]={VAL} ;',
+    din:     ' {LN}: WAIT DI[{CH}]=ON ;',
+    aout:    ' {LN}: AO[{CH}]={VAL_F} ;',
+    ain:     ' {LN}: R[1]=AI[{CH}] ;',
+    wait:    ' {LN}: WAIT {T}(sec) ;',
+    tool:    ' {LN}: UTOOL_NUM={N} ;',
+    base:    ' {LN}: UFRAME_NUM={N} ;',
+    varInt:  ' {LN}: R[{N}]={INITVAL} ;',
+    varReal: ' {LN}: R[{N}]={INITVAL} ;',
+    varBool: ' {LN}: F[{N}]=(OFF) ;',
+    call:    ' {LN}: CALL {PROG}({ARGS}) ;',
+  },
+  yaskawa: {
+    moveJ:   'MOVJ {CNAME} VJ={VEL_PCT}.00',
+    moveL:   'MOVL {CNAME} V={VEL_MMS}.0 PL=0',
+    moveC:   'MOVC {VCNAME} V={VEL_MMS}.0\nMOVC {CNAME} V={VEL_MMS}.0',
+    halt:    'PAUSE',
+    dout:    'DOUT OT#({CH}) {VAL}',
+    din:     'WAIT IN#({CH})=ON',
+    aout:    'AOUT AO#({CH}) {VAL_F}',
+    ain:     'AIN AI#({CH}) R000',
+    wait:    'TIMER T={T}',
+    tool:    'TOOL {N}',
+    base:    '\' BASE: {N}',
+    varInt:  'SET I000 {INITVAL}',
+    varReal: 'SET R000 {INITVAL}',
+    varBool: 'SET B000 {INITVAL}',
+    call:    'CALL JOB:{PROG} ARGF"{ARGS}"',
+  },
+  kawasaki: {
+    moveJ:   '  JMOVE p{N}',
+    moveL:   '  LMOVE p{N}',
+    moveC:   '  C1MOVE p{VN}\n  C2MOVE p{N}',
+    halt:    '  HALT',
+    dout:    '  SIGNAL {CH}',
+    din:     '  WAIT SIG({CH})',
+    aout:    '  AOUT {CH}, {VAL_F}',
+    ain:     '  r = AIN({CH})',
+    wait:    '  TWAIT {T}',
+    tool:    '  TOOL tool{N}',
+    base:    '  BASE base{N}',
+    varInt:  '  {NAME} = {INITVAL}',
+    varReal: '  {NAME} = {INITVAL}',
+    varBool: '  {NAME} = {INITVAL}',
+    call:    '  CALL {PROG}({ARGS})',
+  },
+  staubli: {
+    moveJ:   '  movej(p{N}, tTool, mNomSpeed)',
+    moveL:   '  movel(p{N}, tTool, mNomSpeed)',
+    moveC:   '  movec(p{VN}, p{N}, tTool, mNomSpeed)',
+    halt:    '  stopMove()',
+    dout:    '  dout{CH} := {VAL}',
+    din:     '  wait(din{CH} == true)',
+    aout:    '  aout{CH} := {VAL_F}',
+    ain:     '  r := ain{CH}',
+    wait:    '  delay({T})',
+    tool:    '  ! Tool: tTool{N}',
+    base:    '  ! Frame: fBase{N}',
+    varInt:  '  num {NAME} := {INITVAL}',
+    varReal: '  num {NAME} := {INITVAL}',
+    varBool: '  bool {NAME} := {INITVAL}',
+    call:    '  {PROG}({ARGS})',
+  },
+  ur: {
+    moveJ:   '  movej(p[{X},{Y},{Z},0,0,0], a=1.2, v={VEL_MS})',
+    moveL:   '  movel(p[{X},{Y},{Z},0,0,0], a=1.2, v={VEL_MS})',
+    moveC:   '  movec(p[{VX},{VY},{VZ},0,0,0], p[{X},{Y},{Z},0,0,0], a=1.2, v={VEL_MS})',
+    halt:    '  stopl(1.0)',
+    dout:    '  set_standard_digital_out({CH}, {VAL})',
+    din:     '  while not get_standard_digital_in({CH}):\n    sleep(0.01)\n  end',
+    aout:    '  set_standard_analog_out({CH}, {VAL_F})',
+    ain:     '  r = get_standard_analog_in({CH})',
+    wait:    '  sleep({T})',
+    tool:    '  set_tcp(p[0,0,0.120,0,0,0])  # tool{N}',
+    base:    '  # base: {N}',
+    varInt:  '  {NAME} = {INITVAL}',
+    varReal: '  {NAME} = {INITVAL}',
+    varBool: '  {NAME} = {INITVAL}',
+    call:    '  {PROG}({ARGS})',
+  },
+  adept: {
+    moveJ:   '  MOVE p{N}',
+    moveL:   '  MOVES p{N}',
+    moveC:   '  MOVEC p{VN}, p{N}',
+    halt:    '  HALT',
+    dout:    '  SIGNAL {CH}',
+    din:     '  WAIT SIG({CH})',
+    aout:    '  AOUT {CH} = {VAL_F}',
+    ain:     '  r = AIN({CH})',
+    wait:    '  WAIT {T}',
+    tool:    '  TOOL tool{N}',
+    base:    '  BASE base{N}',
+    varInt:  '  LOCAL {NAME}\n  {NAME} = {INITVAL}',
+    varReal: '  LOCAL {NAME}\n  {NAME} = {INITVAL}',
+    varBool: '  LOCAL {NAME}\n  {NAME} = {INITVAL}',
+    call:    '  CALL {PROG}({ARGS})',
+  },
+  omron: {
+    moveJ:   '  JMOVE p{N}',
+    moveL:   '  MOVES p{N}',
+    moveC:   '  MOVEC p{VN}, p{N}',
+    halt:    '  HALT',
+    dout:    '  SIGNAL {CH}',
+    din:     '  WAIT SIG({CH})',
+    aout:    '  AOUT {CH} = {VAL_F}',
+    ain:     '  r = AIN({CH})',
+    wait:    '  TWAIT {T}',
+    tool:    '  TOOL tool{N}',
+    base:    '  BASE base{N}',
+    varInt:  '  LOCAL {NAME}\n  {NAME} = {INITVAL}',
+    varReal: '  LOCAL {NAME}\n  {NAME} = {INITVAL}',
+    varBool: '  LOCAL {NAME}\n  {NAME} = {INITVAL}',
+    call:    '  CALL {PROG}({ARGS})',
+  },
+  epson: {
+    moveJ:   '  Go P{N}',
+    moveL:   '  Move P{N}',
+    moveC:   '  Arc P{VN}, P{N}',
+    halt:    '  Halt',
+    dout:    '  On {CH}',
+    din:     '  Wait Sw({CH})=On',
+    aout:    '  AOut {CH}, {VAL_F}',
+    ain:     '  r = AIn({CH})',
+    wait:    '  Wait {T}',
+    tool:    '  Tool {N}',
+    base:    '  Local {N}',
+    varInt:  '  Integer {NAME}',
+    varReal: '  Real {NAME}',
+    varBool: '  Boolean {NAME}',
+    call:    '  Call {PROG}({ARGS})',
+  },
+  comau: {
+    moveJ:   '  MOVE JOINT TO p{N}',
+    moveL:   '  MOVE LINEAR TO p{N} WITH $SPD_OPT:=SPD_MM_SEC,$SPD_LIN:={VEL_MMS}',
+    moveC:   '  MOVE CIRCULAR TO p{N} VIA p{VN}',
+    halt:    '  PAUSE',
+    dout:    '  $DOUT[{CH}] := {VAL}',
+    din:     '  WAIT FOR $DIN[{CH}] = TRUE',
+    aout:    '  $AOUT[{CH}] := {VAL_F}',
+    ain:     '  r := $AIN[{CH}]',
+    wait:    '  DELAY {T}',
+    tool:    '  $TOOL := tool{N}',
+    base:    '  $BASE := base{N}',
+    varInt:  '  {NAME} : INTEGER',
+    varReal: '  {NAME} : REAL',
+    varBool: '  {NAME} : BOOLEAN',
+    call:    '  CALL {PROG}({ARGS})',
+  },
+  aubo: {
+    moveJ:   'move_joint({{{X},{Y},{Z},0,0,0}}, true)',
+    moveL:   'move_line({{{X},{Y},{Z},0,0,0}}, true)',
+    moveC:   'add_waypoint(p{VN})\nadd_waypoint(p{N})\nmove_track("arc", true)',
+    halt:    'robot_slow_stop()',
+    dout:    'set_robot_io_status("DO",{CH},{VAL})',
+    din:     'while get_robot_io_status("DI",{CH}) == false do\n  sleep(0.01)\nend',
+    aout:    'set_robot_io_status("AO",{CH},{VAL_F})',
+    ain:     'r = get_robot_io_status("AI",{CH})',
+    wait:    'sleep({T})',
+    tool:    'set_tool_kinematics_param(tool{N})',
+    base:    '-- base: {N}',
+    varInt:  'local {NAME} = {INITVAL}',
+    varReal: 'local {NAME} = {INITVAL}',
+    varBool: 'local {NAME} = {INITVAL}',
+    call:    '{PROG}({ARGS})',
+  },
+  dobot: {
+    moveJ:   'MovJ({X},{Y},{Z},{A},{B},{C})',
+    moveL:   'MovL({X},{Y},{Z},{A},{B},{C})',
+    moveC:   'Arc({VX},{VY},{VZ},{VA},{VB},{VC}, {X},{Y},{Z},{A},{B},{C})',
+    halt:    'Stop()',
+    dout:    'DO({CH}, {VAL})',
+    din:     'while DI({CH}) == 0 do\n  Sleep(10)\nend',
+    aout:    'AO({CH}, {VAL_F})',
+    ain:     'r = AI({CH})',
+    wait:    'Wait({T_MS})',
+    tool:    'Tool({N})',
+    base:    'User({N})',
+    varInt:  'local {NAME} = {INITVAL}',
+    varReal: 'local {NAME} = {INITVAL}',
+    varBool: 'local {NAME} = {INITVAL}',
+    call:    '{PROG}({ARGS})',
+  },
+  denso: {
+    moveJ:   '  MOVE P, P{N}',
+    moveL:   '  MOVE L, P{N}',
+    moveC:   '  MOVE C, P{VN}, P{N}',
+    halt:    '  STOP',
+    dout:    '  SET IO[{CH}]',
+    din:     '  WAIT IO[{CH}]',
+    aout:    '  AO[{CH}] = {VAL_F}',
+    ain:     '  r = AI[{CH}]',
+    wait:    '  WAIT {T}',
+    tool:    '  TOOL {N}',
+    base:    '  WORK {N}',
+    varInt:  '  DIM {NAME} AS INTEGER',
+    varReal: '  DIM {NAME} AS SINGLE',
+    varBool: '  DIM {NAME} AS BOOLEAN',
+    call:    '  CALL {PROG}({ARGS})',
+  },
+  nachi: {
+    moveJ:   '  MOVEX A, P{N}, S={VEL_PCT}',
+    moveL:   '  MOVEX L, P{N}, S={VEL_MMS}',
+    moveC:   '  MOVEX C, P{VN}, P{N}, S={VEL_MMS}',
+    halt:    '  STOP',
+    dout:    '  OUT[{CH}]={VAL}',
+    din:     '  WAITI IN[{CH}]=ON',
+    aout:    '  AOUT[{CH}]={VAL_F}',
+    ain:     '  r = AIN[{CH}]',
+    wait:    '  WAIT {T}',
+    tool:    '  TOOL {N}',
+    base:    '  BASE {N}',
+    varInt:  '  INT {NAME}',
+    varReal: '  REAL {NAME}',
+    varBool: '  BOOL {NAME}',
+    call:    '  CALL {PROG}({ARGS})',
+  },
+  hanwha: {
+    moveJ:   'MoveJ(P{N}, speed={VEL_PCT})',
+    moveL:   'MoveL(P{N}, speed={VEL_MMS})',
+    moveC:   'MoveC(P{VN}, P{N}, speed={VEL_MMS})',
+    halt:    'Stop()',
+    dout:    'SetDO({CH}, {VAL})',
+    din:     'WaitDI({CH}, true)',
+    aout:    'SetAO({CH}, {VAL_F})',
+    ain:     'r = GetAI({CH})',
+    wait:    'Wait({T})',
+    tool:    'setTCP({N})',
+    base:    'setUserFrame({N})',
+    varInt:  'int {NAME} = {INITVAL}',
+    varReal: 'double {NAME} = {INITVAL}',
+    varBool: 'bool {NAME} = {INITVAL}',
+    call:    '{PROG}({ARGS})',
+  },
+  igus: {
+    moveJ:   'JointMotion(P{N})',
+    moveL:   'LinearMotion(P{N})',
+    moveC:   '; arc not standard in iRC',
+    halt:    'StopProgram()',
+    dout:    'SetDOUT(DOUT{CH}, {VAL})',
+    din:     'WaitForSignal(DIN{CH}, true)',
+    aout:    'SetAOUT({CH}, {VAL_F})',
+    ain:     'r = ReadAIN({CH})',
+    wait:    'WaitTime({T_MS} ms)',
+    tool:    'SetTool({N})',
+    base:    'SetBase({N})',
+    varInt:  'VAR {NAME} : INT = {INITVAL}',
+    varReal: 'VAR {NAME} : REAL = {INITVAL}',
+    varBool: 'VAR {NAME} : BOOL = {INITVAL}',
+    call:    '<Call program="{PROG}" arg="{ARGS}"/>',
+  },
+  estun: {
+    moveJ:   '  MOVJ P{N}, VJ={VEL_PCT}',
+    moveL:   '  MOVL P{N}, V={VEL_MMS}',
+    moveC:   '  MOVC P{VN}, P{N}, V={VEL_MMS}',
+    halt:    '  PAUSE',
+    dout:    '  DO[{CH}]={VAL}',
+    din:     '  WAIT DI[{CH}]=ON',
+    aout:    '  AO[{CH}]={VAL_F}',
+    ain:     '  r = AI[{CH}]',
+    wait:    '  WAIT {T}',
+    tool:    '  TOOL {N}',
+    base:    '  USER {N}',
+    varInt:  '  INT {NAME}',
+    varReal: '  REAL {NAME}',
+    varBool: '  BOOL {NAME}',
+    call:    '  CALL {PROG}({ARGS})',
+  },
+  neura: {
+    moveJ:   'robot.moveJ({X}, {Y}, {Z}, {A}, {B}, {C});',
+    moveL:   'robot.moveL({X}, {Y}, {Z}, {A}, {B}, {C});',
+    moveC:   'robot.moveC(p{VN}, p{N});',
+    halt:    'robot.stop();',
+    dout:    'robot.setDigitalOutput({CH}, {VAL});',
+    din:     'robot.waitUntil(robot.digitalInput({CH}));',
+    aout:    'robot.setAnalogOutput({CH}, {VAL_F});',
+    ain:     'r = robot.analogInput({CH});',
+    wait:    'robot.sleep({T});',
+    tool:    'robot.setTool("tool{N}");',
+    base:    'robot.setBase("base{N}");',
+    varInt:  'int {NAME} = {INITVAL};',
+    varReal: 'double {NAME} = {INITVAL};',
+    varBool: 'bool {NAME} = {INITVAL};',
+    call:    '{PROG}({ARGS});',
+  },
+  mabi: {
+    moveJ:   'MoveJ(P{N})',
+    moveL:   'MoveL(P{N})',
+    moveC:   'MoveC(P{VN}, P{N})',
+    halt:    'Stop()',
+    dout:    'SetDO({CH}, {VAL})',
+    din:     'WaitDI({CH}, TRUE)',
+    aout:    'SetAO({CH}, {VAL_F})',
+    ain:     'r = ReadAI({CH})',
+    wait:    'Wait({T})',
+    tool:    'SetTool({N})',
+    base:    'SetBase({N})',
+    varInt:  'INT {NAME} = {INITVAL}',
+    varReal: 'REAL {NAME} = {INITVAL}',
+    varBool: 'BOOL {NAME} = {INITVAL}',
+    call:    'CALL {PROG}({ARGS})',
+  },
+};
+
+// ── Template-Substitution ─────────────────────────────────────────────────
+function subTpl(tpl, vars) {
+  return tpl.replace(/\{([A-Z0-9_]+)\}/g, function(_, k) {
+    return (vars[k] !== undefined && vars[k] !== null) ? vars[k] : '{' + k + '}';
+  });
+}
+
+// Vorlage laden: localStorage → FMT_CMD_DEFAULTS → null
+function applyTpl(formatId, key, vars) {
+  var tpl = null;
+  try {
+    var stored = localStorage.getItem('robsimul_cmd_' + formatId);
+    if (stored) { var cmds = JSON.parse(stored); if (cmds[key] !== undefined) tpl = cmds[key]; }
+  } catch(e) {}
+  if (tpl === null) {
+    var def = FMT_CMD_DEFAULTS[formatId];
+    if (def && def[key] !== undefined) tpl = def[key];
+  }
+  return tpl !== null ? subTpl(tpl, vars) : null;
+}
+
+// ── Speicher-Helfer ───────────────────────────────────────────────────────
 var _fmtHfCurrentId = null;
 
 function fmtHfLoad(id) {
-  var key = 'robsimul_hf_' + id;
   try {
-    var stored = localStorage.getItem(key);
+    var stored = localStorage.getItem('robsimul_hf_' + id);
     if (stored) return JSON.parse(stored);
   } catch(e) {}
   return FMT_HF_DEFAULTS[id] || { header: '', footer: '' };
 }
 
-function fmtHfSaveKey(id, header, footer) {
+function fmtCmdLoad(id) {
   try {
-    localStorage.setItem('robsimul_hf_' + id, JSON.stringify({ header: header, footer: footer }));
+    var stored = localStorage.getItem('robsimul_cmd_' + id);
+    if (stored) return JSON.parse(stored);
   } catch(e) {}
+  return FMT_CMD_DEFAULTS[id] || {};
+}
+
+function fmtHfSaveKey(id, header, footer) {
+  try { localStorage.setItem('robsimul_hf_' + id, JSON.stringify({ header: header, footer: footer })); } catch(e) {}
+}
+
+function fmtCmdSaveKey(id, cmds) {
+  try { localStorage.setItem('robsimul_cmd_' + id, JSON.stringify(cmds)); } catch(e) {}
 }
 
 function fmtHfRemoveKey(id) {
   try { localStorage.removeItem('robsimul_hf_' + id); } catch(e) {}
 }
 
-// Drag-Logik wird beim ersten Öffnen initialisiert
+function fmtCmdRemoveKey(id) {
+  try { localStorage.removeItem('robsimul_cmd_' + id); } catch(e) {}
+}
+
+// ── Drag-Logik ────────────────────────────────────────────────────────────
 var _fmtHfDragInit = false;
 function _initFmtHfDrag() {
   if (_fmtHfDragInit) return;
@@ -1151,7 +1591,20 @@ function _initFmtHfDrag() {
   document.addEventListener('mouseup', function() { dragging = false; });
 }
 
-// Popup für aktives Format öffnen
+// ── Tab-Wechsel im Popup ──────────────────────────────────────────────────
+var _fmtHfTab = 'hf';
+function fmtHfSwitchTab(tab) {
+  _fmtHfTab = tab;
+  ['hf','move','io','vars'].forEach(function(t) {
+    var btn = document.getElementById('fmt-tab-' + t);
+    var pane = document.getElementById('fmt-pane-' + t);
+    if (btn)  btn.style.borderBottom  = (t === tab) ? '2px solid var(--acc)' : '2px solid transparent';
+    if (btn)  btn.style.color         = (t === tab) ? 'var(--acc)' : 'var(--txt2)';
+    if (pane) pane.style.display      = (t === tab) ? 'block' : 'none';
+  });
+}
+
+// ── Popup öffnen ──────────────────────────────────────────────────────────
 function fmtHfOpenEditor() {
   var activeId = FormatRegistry.getActiveId ? FormatRegistry.getActiveId() : null;
   if (!activeId || activeId === 'kuka-form') {
@@ -1159,36 +1612,59 @@ function fmtHfOpenEditor() {
     return;
   }
   _fmtHfCurrentId = activeId;
-  var fmt = FormatRegistry._allFormats().find(function(f){ return f.id === activeId; });
+  var fmt = FormatRegistry._allFormats().find(function(f) { return f.id === activeId; });
   var title = document.getElementById('fmt-hf-popup-title');
-  if (title) title.textContent = (fmt ? fmt.label : activeId) + ' — Kopf / Fuß';
+  if (title) title.textContent = (fmt ? fmt.label : activeId) + ' — Einstellungen';
+
+  // Kopf / Fuß
   var hf = fmtHfLoad(activeId);
   var hEl = document.getElementById('fmt-hf-header');
   var fEl = document.getElementById('fmt-hf-footer');
-  if (hEl) hEl.value = hf.header;
-  if (fEl) fEl.value = hf.footer;
-  // Popup neben ✎ Button positionieren
+  if (hEl) hEl.value = hf.header || '';
+  if (fEl) fEl.value = hf.footer || '';
+
+  // Befehlsvorlagen
+  var cmds = fmtCmdLoad(activeId);
+  var KEYS = ['moveJ','moveL','moveC','halt','dout','din','aout','ain','wait','tool','base','varInt','varReal','varBool','call'];
+  KEYS.forEach(function(k) {
+    var el = document.getElementById('fmt-cmd-' + k);
+    if (el) el.value = (cmds[k] !== undefined) ? cmds[k] : ((FMT_CMD_DEFAULTS[activeId] || {})[k] || '');
+  });
+
+  // Ersten Tab aktivieren
+  fmtHfSwitchTab('hf');
+
+  // Popup positionieren
   var popup = document.getElementById('fmt-hf-popup');
   if (!popup) return;
   var btn = document.getElementById('fmt-edit-btn');
   if (btn) {
     var r = btn.getBoundingClientRect();
-    popup.style.top  = (r.bottom + 6) + 'px';
-    popup.style.left = Math.max(8, r.right - 340) + 'px';
+    popup.style.top  = Math.min(r.bottom + 6, window.innerHeight - 520) + 'px';
+    popup.style.left = Math.max(8, r.right - 620) + 'px';
   }
   popup.style.display = 'block';
   _initFmtHfDrag();
 }
 
-// Speichern + Code-Output sofort neu generieren
+// ── Speichern ─────────────────────────────────────────────────────────────
 function fmtHfSave() {
   if (!_fmtHfCurrentId) return;
+  // Kopf / Fuß
   var h = (document.getElementById('fmt-hf-header') || {}).value || '';
   var f = (document.getElementById('fmt-hf-footer') || {}).value || '';
   fmtHfSaveKey(_fmtHfCurrentId, h, f);
+  // Befehlsvorlagen
+  var cmds = {};
+  var KEYS = ['moveJ','moveL','moveC','halt','dout','din','aout','ain','wait','tool','base','varInt','varReal','varBool','call'];
+  KEYS.forEach(function(k) {
+    var el = document.getElementById('fmt-cmd-' + k);
+    if (el) cmds[k] = el.value;
+  });
+  fmtCmdSaveKey(_fmtHfCurrentId, cmds);
   document.getElementById('fmt-hf-popup').style.display = 'none';
-  // Code-Output neu generieren (aktives Format)
-  var fmt = FormatRegistry._allFormats && FormatRegistry._allFormats().find(function(f){ return f.id === _fmtHfCurrentId; });
+  // Output neu generieren
+  var fmt = FormatRegistry._allFormats && FormatRegistry._allFormats().find(function(fmt) { return fmt.id === _fmtHfCurrentId; });
   var ci  = document.getElementById('code-input');
   if (fmt && fmt._generate && ci && typeof parsedData !== 'undefined') {
     ci.value = fmt._generate(parsedData);
@@ -1196,13 +1672,20 @@ function fmtHfSave() {
   }
 }
 
-// Auf Standard zurücksetzen
+// ── Auf Standard zurücksetzen ─────────────────────────────────────────────
 function fmtHfReset() {
   if (!_fmtHfCurrentId) return;
   fmtHfRemoveKey(_fmtHfCurrentId);
+  fmtCmdRemoveKey(_fmtHfCurrentId);
   var def = FMT_HF_DEFAULTS[_fmtHfCurrentId] || { header: '', footer: '' };
   var hEl = document.getElementById('fmt-hf-header');
   var fEl = document.getElementById('fmt-hf-footer');
-  if (hEl) hEl.value = def.header;
-  if (fEl) fEl.value = def.footer;
+  if (hEl) hEl.value = def.header || '';
+  if (fEl) fEl.value = def.footer || '';
+  var KEYS = ['moveJ','moveL','moveC','halt','dout','din','aout','ain','wait','tool','base','varInt','varReal','varBool','call'];
+  var defCmd = FMT_CMD_DEFAULTS[_fmtHfCurrentId] || {};
+  KEYS.forEach(function(k) {
+    var el = document.getElementById('fmt-cmd-' + k);
+    if (el) el.value = defCmd[k] || '';
+  });
 }

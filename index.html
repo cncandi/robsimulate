@@ -76,23 +76,84 @@
           onclick="fmtHfOpenEditor()"
           style="background:var(--bg2);color:var(--txt2);border:1px solid var(--bdr);border-radius:3px;padding:3px 7px;cursor:pointer;font-size:.85em;line-height:1">✎</button>
       </div>
-      <!-- Kopf/Fuß Editor Popup -->
-      <div id="fmt-hf-popup" style="display:none;position:fixed;z-index:200;background:var(--bg2);border:1px solid var(--acc);border-radius:5px;box-shadow:0 4px 24px rgba(0,0,0,.75);width:600px;font-family:monospace;user-select:none">
-        <div id="fmt-hf-drag" style="display:flex;align-items:center;padding:12px 16px;cursor:move;border-bottom:1px solid var(--bdr);background:var(--bg3);border-radius:5px 5px 0 0">
-          <span id="fmt-hf-popup-title" style="flex:1;color:var(--acc);font-size:1.05em;font-weight:700;letter-spacing:.3px">Programmkopf / Programmfuß</span>
-          <button onclick="document.getElementById('fmt-hf-popup').style.display='none'" style="background:none;border:none;color:var(--txt3);cursor:pointer;font-size:1.4em;padding:0 4px;line-height:1">✕</button>
+      <!-- Postprozessor Einstellungen Popup -->
+      <div id="fmt-hf-popup" style="display:none;position:fixed;z-index:200;background:var(--bg2);border:1px solid var(--acc);border-radius:5px;box-shadow:0 4px 24px rgba(0,0,0,.75);width:640px;font-family:monospace;user-select:none">
+        <div id="fmt-hf-drag" style="display:flex;align-items:center;padding:10px 16px;cursor:move;border-bottom:1px solid var(--bdr);background:var(--bg3);border-radius:5px 5px 0 0">
+          <span id="fmt-hf-popup-title" style="flex:1;color:var(--acc);font-size:1em;font-weight:700">Format Einstellungen</span>
+          <button onclick="document.getElementById('fmt-hf-popup').style.display='none'" style="background:none;border:none;color:var(--txt3);cursor:pointer;font-size:1.3em;padding:0 4px;line-height:1">✕</button>
         </div>
-        <div style="padding:18px 20px">
-          <div style="color:var(--txt2);font-size:.95em;margin-bottom:6px;font-weight:600">Programmkopf</div>
-          <textarea id="fmt-hf-header" rows="7" spellcheck="false"
-            style="width:100%;background:#1e1e1e;color:#d4d4d4;border:1px solid #474747;border-radius:3px;padding:9px 12px;font-size:.95em;line-height:1.55;resize:vertical;box-sizing:border-box;font-family:monospace"></textarea>
-          <div style="color:var(--txt2);font-size:.95em;margin:14px 0 6px;font-weight:600">Programmfuß</div>
-          <textarea id="fmt-hf-footer" rows="5" spellcheck="false"
-            style="width:100%;background:#1e1e1e;color:#d4d4d4;border:1px solid #474747;border-radius:3px;padding:9px 12px;font-size:.95em;line-height:1.55;resize:vertical;box-sizing:border-box;font-family:monospace"></textarea>
-          <div style="display:flex;gap:10px;margin-top:16px">
-            <button onclick="fmtHfReset()" style="flex:1;background:var(--bg3);color:var(--txt2);border:1px solid var(--bdr);border-radius:3px;padding:9px;cursor:pointer;font-size:.95em">↺ Standard</button>
-            <button onclick="fmtHfSave()" style="flex:1;background:var(--bg3);color:var(--acc);border:1px solid var(--acc);border-radius:3px;padding:9px;cursor:pointer;font-size:.95em;font-weight:700">✓ Speichern</button>
-          </div>
+        <!-- Tabs -->
+        <div style="display:flex;border-bottom:1px solid var(--bdr);background:var(--bg2)">
+          <button id="fmt-tab-hf"   style="background:none;border:none;border-bottom:2px solid transparent;color:var(--txt2);cursor:pointer;padding:8px 14px;font-family:monospace;font-size:.9em" onclick="fmtHfSwitchTab('hf')">Kopf / Fuß</button>
+          <button id="fmt-tab-move" style="background:none;border:none;border-bottom:2px solid transparent;color:var(--txt2);cursor:pointer;padding:8px 14px;font-family:monospace;font-size:.9em" onclick="fmtHfSwitchTab('move')">Bewegungen</button>
+          <button id="fmt-tab-io"   style="background:none;border:none;border-bottom:2px solid transparent;color:var(--txt2);cursor:pointer;padding:8px 14px;font-family:monospace;font-size:.9em" onclick="fmtHfSwitchTab('io')">I/O &amp; Warten</button>
+          <button id="fmt-tab-vars" style="background:none;border:none;border-bottom:2px solid transparent;color:var(--txt2);cursor:pointer;padding:8px 14px;font-family:monospace;font-size:.9em" onclick="fmtHfSwitchTab('vars')">Tool / Vars / CALL</button>
+        </div>
+        <!-- Pane: Kopf/Fuß -->
+        <div id="fmt-pane-hf" style="max-height:420px;overflow-y:auto;padding:10px 20px 16px">
+          <div style="color:var(--txt2);font-size:.82em;margin:8px 0 3px;font-weight:600">Programmkopf</div>
+          <textarea id="fmt-hf-header" rows="7" spellcheck="false" style="width:100%;background:#1e1e1e;color:#d4d4d4;border:1px solid #474747;border-radius:3px;padding:9px 12px;font-size:.95em;line-height:1.55;resize:vertical;box-sizing:border-box;font-family:monospace"></textarea>
+          <div style="color:var(--txt2);font-size:.82em;margin:8px 0 3px;font-weight:600;margin-top:12px">Programmfuß</div>
+          <textarea id="fmt-hf-footer" rows="4" spellcheck="false" style="width:100%;background:#1e1e1e;color:#d4d4d4;border:1px solid #474747;border-radius:3px;padding:9px 12px;font-size:.95em;line-height:1.55;resize:vertical;box-sizing:border-box;font-family:monospace"></textarea>
+        </div>
+        <!-- Pane: Bewegungen -->
+        <div id="fmt-pane-move" style="max-height:420px;overflow-y:auto;padding:10px 20px 16px;display:none">
+          <div style="color:var(--txt2);font-size:.82em;margin:8px 0 3px;font-weight:600">PTP / Joint</div>
+          <textarea id="fmt-cmd-moveJ" rows="2" spellcheck="false" style="width:100%;background:#1e1e1e;color:#d4d4d4;border:1px solid #474747;border-radius:3px;padding:6px 10px;font-size:.88em;line-height:1.5;resize:vertical;box-sizing:border-box;font-family:monospace"></textarea>
+          <div style="color:var(--txt3);font-size:.72em;margin-top:2px">{N} {X}{Y}{Z}{A}{B}{C} {VEL_MMS} {VEL_PCT} {VEL_MS} {TOOL} {BASE}</div>
+          <div style="color:var(--txt2);font-size:.82em;margin:8px 0 3px;font-weight:600">Linear</div>
+          <textarea id="fmt-cmd-moveL" rows="2" spellcheck="false" style="width:100%;background:#1e1e1e;color:#d4d4d4;border:1px solid #474747;border-radius:3px;padding:6px 10px;font-size:.88em;line-height:1.5;resize:vertical;box-sizing:border-box;font-family:monospace"></textarea>
+          <div style="color:var(--txt3);font-size:.72em;margin-top:2px">{N} {X}{Y}{Z}{A}{B}{C} {VEL_MMS} {VEL_PCT} {VEL_MS} {TOOL} {BASE}</div>
+          <div style="color:var(--txt2);font-size:.82em;margin:8px 0 3px;font-weight:600">Bogen / Kreis</div>
+          <textarea id="fmt-cmd-moveC" rows="3" spellcheck="false" style="width:100%;background:#1e1e1e;color:#d4d4d4;border:1px solid #474747;border-radius:3px;padding:6px 10px;font-size:.88em;line-height:1.5;resize:vertical;box-sizing:border-box;font-family:monospace"></textarea>
+          <div style="color:var(--txt3);font-size:.72em;margin-top:2px">{N} {VN} {X}{Y}{Z} {VX}{VY}{VZ} {VEL_MMS} {TOOL} {BASE}</div>
+          <div style="color:var(--txt2);font-size:.82em;margin:8px 0 3px;font-weight:600">Stop / Halt</div>
+          <textarea id="fmt-cmd-halt" rows="2" spellcheck="false" style="width:100%;background:#1e1e1e;color:#d4d4d4;border:1px solid #474747;border-radius:3px;padding:6px 10px;font-size:.88em;line-height:1.5;resize:vertical;box-sizing:border-box;font-family:monospace"></textarea>
+          <div style="color:var(--txt3);font-size:.72em;margin-top:2px"></div>
+        </div>
+        <!-- Pane: I/O -->
+        <div id="fmt-pane-io" style="max-height:420px;overflow-y:auto;padding:10px 20px 16px;display:none">
+          <div style="color:var(--txt2);font-size:.82em;margin:8px 0 3px;font-weight:600">Digitaler Ausgang</div>
+          <textarea id="fmt-cmd-dout" rows="2" spellcheck="false" style="width:100%;background:#1e1e1e;color:#d4d4d4;border:1px solid #474747;border-radius:3px;padding:6px 10px;font-size:.88em;line-height:1.5;resize:vertical;box-sizing:border-box;font-family:monospace"></textarea>
+          <div style="color:var(--txt3);font-size:.72em;margin-top:2px">{CH} {VAL}  (VAL=TRUE/FALSE)</div>
+          <div style="color:var(--txt2);font-size:.82em;margin:8px 0 3px;font-weight:600">Digitalen Eingang warten</div>
+          <textarea id="fmt-cmd-din" rows="2" spellcheck="false" style="width:100%;background:#1e1e1e;color:#d4d4d4;border:1px solid #474747;border-radius:3px;padding:6px 10px;font-size:.88em;line-height:1.5;resize:vertical;box-sizing:border-box;font-family:monospace"></textarea>
+          <div style="color:var(--txt3);font-size:.72em;margin-top:2px">{CH}</div>
+          <div style="color:var(--txt2);font-size:.82em;margin:8px 0 3px;font-weight:600">Analoger Ausgang</div>
+          <textarea id="fmt-cmd-aout" rows="2" spellcheck="false" style="width:100%;background:#1e1e1e;color:#d4d4d4;border:1px solid #474747;border-radius:3px;padding:6px 10px;font-size:.88em;line-height:1.5;resize:vertical;box-sizing:border-box;font-family:monospace"></textarea>
+          <div style="color:var(--txt3);font-size:.72em;margin-top:2px">{CH} {VAL_F}</div>
+          <div style="color:var(--txt2);font-size:.82em;margin:8px 0 3px;font-weight:600">Analogen Eingang lesen</div>
+          <textarea id="fmt-cmd-ain" rows="2" spellcheck="false" style="width:100%;background:#1e1e1e;color:#d4d4d4;border:1px solid #474747;border-radius:3px;padding:6px 10px;font-size:.88em;line-height:1.5;resize:vertical;box-sizing:border-box;font-family:monospace"></textarea>
+          <div style="color:var(--txt3);font-size:.72em;margin-top:2px">{CH}</div>
+          <div style="color:var(--txt2);font-size:.82em;margin:8px 0 3px;font-weight:600">Warten</div>
+          <textarea id="fmt-cmd-wait" rows="2" spellcheck="false" style="width:100%;background:#1e1e1e;color:#d4d4d4;border:1px solid #474747;border-radius:3px;padding:6px 10px;font-size:.88em;line-height:1.5;resize:vertical;box-sizing:border-box;font-family:monospace"></textarea>
+          <div style="color:var(--txt3);font-size:.72em;margin-top:2px">{T} (Sek.)  {T_MS} (ms)</div>
+        </div>
+        <!-- Pane: Vars/Call -->
+        <div id="fmt-pane-vars" style="max-height:420px;overflow-y:auto;padding:10px 20px 16px;display:none">
+          <div style="color:var(--txt2);font-size:.82em;margin:8px 0 3px;font-weight:600">Tool setzen</div>
+          <textarea id="fmt-cmd-tool" rows="2" spellcheck="false" style="width:100%;background:#1e1e1e;color:#d4d4d4;border:1px solid #474747;border-radius:3px;padding:6px 10px;font-size:.88em;line-height:1.5;resize:vertical;box-sizing:border-box;font-family:monospace"></textarea>
+          <div style="color:var(--txt3);font-size:.72em;margin-top:2px">{N}</div>
+          <div style="color:var(--txt2);font-size:.82em;margin:8px 0 3px;font-weight:600">Base setzen</div>
+          <textarea id="fmt-cmd-base" rows="2" spellcheck="false" style="width:100%;background:#1e1e1e;color:#d4d4d4;border:1px solid #474747;border-radius:3px;padding:6px 10px;font-size:.88em;line-height:1.5;resize:vertical;box-sizing:border-box;font-family:monospace"></textarea>
+          <div style="color:var(--txt3);font-size:.72em;margin-top:2px">{N}</div>
+          <div style="color:var(--txt2);font-size:.82em;margin:8px 0 3px;font-weight:600">INT Variable</div>
+          <textarea id="fmt-cmd-varInt" rows="2" spellcheck="false" style="width:100%;background:#1e1e1e;color:#d4d4d4;border:1px solid #474747;border-radius:3px;padding:6px 10px;font-size:.88em;line-height:1.5;resize:vertical;box-sizing:border-box;font-family:monospace"></textarea>
+          <div style="color:var(--txt3);font-size:.72em;margin-top:2px">{NAME} {INITVAL} {TYPE}</div>
+          <div style="color:var(--txt2);font-size:.82em;margin:8px 0 3px;font-weight:600">REAL Variable</div>
+          <textarea id="fmt-cmd-varReal" rows="2" spellcheck="false" style="width:100%;background:#1e1e1e;color:#d4d4d4;border:1px solid #474747;border-radius:3px;padding:6px 10px;font-size:.88em;line-height:1.5;resize:vertical;box-sizing:border-box;font-family:monospace"></textarea>
+          <div style="color:var(--txt3);font-size:.72em;margin-top:2px">{NAME} {INITVAL} {TYPE}</div>
+          <div style="color:var(--txt2);font-size:.82em;margin:8px 0 3px;font-weight:600">BOOL Variable</div>
+          <textarea id="fmt-cmd-varBool" rows="2" spellcheck="false" style="width:100%;background:#1e1e1e;color:#d4d4d4;border:1px solid #474747;border-radius:3px;padding:6px 10px;font-size:.88em;line-height:1.5;resize:vertical;box-sizing:border-box;font-family:monospace"></textarea>
+          <div style="color:var(--txt3);font-size:.72em;margin-top:2px">{NAME} {INITVAL} {TYPE}</div>
+          <div style="color:var(--txt2);font-size:.82em;margin:8px 0 3px;font-weight:600">CALL Unterprogramm</div>
+          <textarea id="fmt-cmd-call" rows="2" spellcheck="false" style="width:100%;background:#1e1e1e;color:#d4d4d4;border:1px solid #474747;border-radius:3px;padding:6px 10px;font-size:.88em;line-height:1.5;resize:vertical;box-sizing:border-box;font-family:monospace"></textarea>
+          <div style="color:var(--txt3);font-size:.72em;margin-top:2px">{PROG} {ARGS}</div>
+        </div>
+        <!-- Buttons -->
+        <div style="display:flex;gap:10px;padding:12px 20px;border-top:1px solid var(--bdr)">
+          <button onclick="fmtHfReset()" style="flex:1;background:var(--bg3);color:var(--txt2);border:1px solid var(--bdr);border-radius:3px;padding:8px;cursor:pointer;font-size:.9em">↺ Standard</button>
+          <button onclick="fmtHfSave()" style="flex:1;background:var(--bg3);color:var(--acc);border:1px solid var(--acc);border-radius:3px;padding:8px;cursor:pointer;font-size:.9em;font-weight:700">✓ Speichern</button>
         </div>
       </div>
     </div>
