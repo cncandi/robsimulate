@@ -2865,38 +2865,74 @@ function liveEditUpdate() {
 }
 
 function showEpIKSolutions(x,y,z,a,b,cv) {
-  const configs=[
-    {label:'Elbow Up · Vorne',   starts:[[0,-90,90,0,0,0],[0,-90,90,0,-45,0]]},
-    {label:'Elbow Up · Hinten',  starts:[[180,-90,90,0,0,0],[180,-90,90,0,-45,0]]},
-    {label:'Elbow Up · Flip',    starts:[[0,-90,90,180,-45,180],[0,-90,90,-180,-45,-180]]},
-    {label:'Elbow Down · Vorne', starts:[[0,-120,110,0,0,0],[0,-60,60,0,0,0]]},
-    {label:'Elbow Down · Hinten',starts:[[180,-120,110,0,0,0],[180,-60,60,0,0,0]]},
-    {label:'Elbow Down · Flip',  starts:[[0,-120,110,180,-45,180],[0,-60,60,-180,-45,-180]]},
-    {label:'Schulter Alt 1',     starts:[[45,-90,90,0,0,0],[-45,-90,90,0,0,0]]},
-    {label:'Schulter Alt 2',     starts:[[90,-90,90,0,0,0],[-90,-90,90,0,0,0]]},
+  // 12 kanonische Starts — decken alle 8 Roboter-Konfigurationen ab:
+  // Schulter (A1 Vorne/Hinten/Links/Rechts) × Elbow (↑/↓) × Handgelenk (normal/flip)
+  const CANON = [
+    // Elbow↑, Handgelenk normal
+    [   0,  -90,  90,   0,  -90,  0],  // Vorne
+    [ 170,  -90,  90,   0,  -90,  0],  // Hinten
+    [  90,  -90,  90,   0,  -90,  0],  // Rechts
+    [ -90,  -90,  90,   0,  -90,  0],  // Links
+    // Elbow↑, Handgelenk flip (A5 > 0)
+    [   0,  -90,  90,   0,   90,  0],  // Vorne, Flip
+    [ 170,  -90,  90,   0,   90,  0],  // Hinten, Flip
+    [  90,  -90,  90,   0,   90,  0],  // Rechts, Flip
+    // Elbow↓ Variante A (A3 tief)
+    [   0,  -30, -90,   0,  -90,  0],  // Vorne, Elbow↓
+    [ 170,  -30, -90,   0,  -90,  0],  // Hinten, Elbow↓
+    // Elbow↓ Variante B (A2 tief, A3 hoch → anderer Arm-Bogen)
+    [   0, -150, 120,   0,  -90,  0],  // Vorne, Elbow↓ alt
+    [ 170, -150, 120,   0,  -90,  0],  // Hinten, Elbow↓ alt
+    // Overhead-Bereich
+    [   0,  -20, 150,   0,  -90,  0],
   ];
 
-  const cur=jointAngles.slice();
-  const solutions=[];
+  const cur = jointAngles.slice();
+  const raw = [];
 
-  for(const cfg of configs){
-    let best=null;
-    for(const start of cfg.starts){
-      const res=solveIK(x,y,z,a,b,cv,start);
-      if(!best||res.score<best.score) best={...res,label:cfg.label};
-    }
-    if(!best||best.score>20) continue;
-    // Deduplication: skip if angles within 0.5° of existing solution
-    const isDup=solutions.some(s=>s.angles.every((v,i)=>Math.abs(v-best.angles[i])<0.5));
-    if(isDup) continue;
-    const inLimit=best.angles.every((v,i)=>v>=JOINTS_DEF[i].min&&v<=JOINTS_DEF[i].max);
-    const cost=Math.sqrt(best.angles.reduce((s,v,i)=>(s+(v-cur[i])**2),0));
-    solutions.push({...best,inLimit,cost});
+  for (const start of CANON) {
+    const res = solveLM({
+      tp:[x,y,z], Rt:rotZYX(a,b,cv),
+      starts:[start],
+      dt:0.3, lam:0.5, tolP:0.8, tolO:0.8,
+      maxIter:250, stepMax:2.0, stepScale:10.0,
+      earlyStop:0, okThresh:8,
+    });
+    if (res.ok) raw.push(res.angles);
   }
 
-  // Sort: in-limit first, then by cost
-  solutions.sort((a,b)=>(!a.inLimit&&b.inLimit)?1:(!b.inLimit&&a.inLimit)?-1:a.cost-b.cost);
-  if(solutions.length>0) solutions[0].isBest=true;
+  // Deduplizierung: Lösungen mit max. Gelenkwinkelabstand < 12° gelten als identisch
+  const unique = [];
+  for (const ang of raw) {
+    const isDup = unique.some(u =>
+      u.reduce((mx,v,i) => Math.max(mx, Math.abs(v-ang[i])), 0) < 12
+    );
+    if (!isDup) unique.push(ang);
+  }
+
+  // Klassifikation jeder Lösung anhand der tatsächlichen Gelenkwinkel
+  function classify(ang) {
+    const a1 = ang[0], a3 = ang[2], a5 = ang[4];
+    // Schulter
+    const shoulder = Math.abs(a1) < 80 ? 'Vorne'
+                   : a1 > 80            ? 'Rechts'
+                   :                      'Links';
+    // Elbow
+    const elbow = a3 > 50 ? 'Elbow↑' : 'Elbow↓';
+    // Handgelenk
+    const wrist = a5 > 10 ? '· Flip' : '';
+    return shoulder + ' · ' + elbow + (wrist ? ' ' + wrist : '');
+  }
+
+  const solutions = unique.map(angles => {
+    const inLimit = angles.every((v,i) => v >= JOINTS_DEF[i].min && v <= JOINTS_DEF[i].max);
+    const cost = Math.sqrt(angles.reduce((s,v,i) => s+(v-cur[i])**2, 0));
+    return { angles, inLimit, cost, label:classify(angles), score:0, ok:true };
+  });
+
+  // Sort: innerhalb Limit zuerst, dann nach Bewegungskosten (nächste Konfiguration zuerst)
+  solutions.sort((a,b) => (!a.inLimit&&b.inLimit)?1:(!b.inLimit&&a.inLimit)?-1:a.cost-b.cost);
+  if (solutions.length > 0) solutions[0].isBest = true;
 
   const listEl=document.getElementById('ep-ik-list');
   const secEl=document.getElementById('ep-ik-solutions');
