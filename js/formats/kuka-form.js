@@ -16,15 +16,12 @@ FormatRegistry.register({
        + '<line x1="4" y1="11" x2="9" y2="11" stroke="#8ab4d4" stroke-width="1.2"/>'
        + '</svg>',
   activate: function () {
-    // Zuerst code-input mit aktuellem KRL befüllen (aus parsedData)
-    // damit fvBuild immer konsistente Daten hat
+    // code-input intern auf KRL-Stand bringen (fvBuild liest daraus)
+    // Das ist nur interne Zwischenebene — kein anderes Format liest code-input zurück
     var ci = document.getElementById('code-input');
-    if (typeof generateKRL === 'function' && typeof parsedData !== 'undefined' && ci) {
+    if (ci && typeof generateKRL === 'function' && typeof parsedData !== 'undefined') {
       var krl = generateKRL(parsedData);
-      if (krl) {
-        ci.value = krl;
-        if (typeof rebuildGutter === 'function') rebuildGutter();
-      }
+      if (krl) ci.value = krl;
     }
     ci.style.display = 'none';
     document.getElementById('gutter').style.display = 'none';
