@@ -151,8 +151,51 @@
           <textarea id="fmt-cmd-call" rows="2" spellcheck="false" style="width:100%;background:#1e1e1e;color:#d4d4d4;border:1px solid #474747;border-radius:3px;padding:6px 10px;font-size:.88em;line-height:1.5;resize:vertical;box-sizing:border-box;font-family:monospace"></textarea>
           <div style="color:var(--txt3);font-size:.72em;margin-top:2px">{PROG} {ARGS}</div>
         </div>
-        <!-- Pane: Beschreibung -->
-        <div id="fmt-pane-desc" style="max-height:480px;overflow-y:auto;padding:16px 20px;display:none;font-family:inherit">
+        <!-- Pane: Platzhalter-Referenz -->
+        <div id="fmt-pane-desc" style="max-height:480px;overflow-y:auto;padding:16px 20px;display:none;font-family:inherit;font-size:.88em">
+          <div style="color:var(--acc);font-size:.95em;font-weight:700;margin-bottom:10px">Verfügbare Platzhalter in Befehlsvorlagen</div>
+          <div style="color:var(--txt3);font-size:.82em;margin-bottom:14px">Platzhalter werden beim Generieren durch echte Werte ersetzt. Format: <code style="font-family:monospace;color:#9cdcfe">{PLATZHALTER}</code></div>
+
+          <div style="color:var(--txt2);font-size:.85em;font-weight:700;margin-bottom:6px">Bewegungen (PTP, Linear, Bogen)</div>
+          <table style="width:100%;border-collapse:collapse;margin-bottom:12px">
+            <tr><td style="padding:3px 12px 3px 0;white-space:nowrap"><code style="font-family:monospace;color:#9cdcfe">{N}</code></td><td style="color:var(--txt3);font-size:.78em">Positions-Index (1, 2, 3&hellip;)</td></tr>
+            <tr><td style="padding:3px 12px 3px 0;white-space:nowrap"><code style="font-family:monospace;color:#9cdcfe">{X} {Y} {Z}</code></td><td style="color:var(--txt3);font-size:.78em">Ziel-Koordinaten in mm</td></tr>
+            <tr><td style="padding:3px 12px 3px 0;white-space:nowrap"><code style="font-family:monospace;color:#9cdcfe">{A} {B} {C}</code></td><td style="color:var(--txt3);font-size:.78em">Ziel-Orientierung in Grad</td></tr>
+            <tr><td style="padding:3px 12px 3px 0;white-space:nowrap"><code style="font-family:monospace;color:#9cdcfe">{VN}</code></td><td style="color:var(--txt3);font-size:.78em">Via-Punkt-Index (nur Bogen)</td></tr>
+            <tr><td style="padding:3px 12px 3px 0;white-space:nowrap"><code style="font-family:monospace;color:#9cdcfe">{VX} {VY} {VZ}</code></td><td style="color:var(--txt3);font-size:.78em">Via-Koordinaten mm (nur Bogen)</td></tr>
+            <tr><td style="padding:3px 12px 3px 0;white-space:nowrap"><code style="font-family:monospace;color:#9cdcfe">{VA} {VB} {VC}</code></td><td style="color:var(--txt3);font-size:.78em">Via-Orientierung Grad (nur Bogen)</td></tr>
+            <tr><td style="padding:3px 12px 3px 0;white-space:nowrap"><code style="font-family:monospace;color:#9cdcfe">{VEL_MMS}</code></td><td style="color:var(--txt3);font-size:.78em">Geschwindigkeit mm/s</td></tr>
+            <tr><td style="padding:3px 12px 3px 0;white-space:nowrap"><code style="font-family:monospace;color:#9cdcfe">{VEL_PCT}</code></td><td style="color:var(--txt3);font-size:.78em">Geschwindigkeit % (0&ndash;100)</td></tr>
+            <tr><td style="padding:3px 12px 3px 0;white-space:nowrap"><code style="font-family:monospace;color:#9cdcfe">{VEL_MS}</code></td><td style="color:var(--txt3);font-size:.78em">Geschwindigkeit m/s</td></tr>
+            <tr><td style="padding:3px 12px 3px 0;white-space:nowrap"><code style="font-family:monospace;color:#9cdcfe">{TOOL}</code></td><td style="color:var(--txt3);font-size:.78em">Aktuelle Tool-Nummer</td></tr>
+            <tr><td style="padding:3px 12px 3px 0;white-space:nowrap"><code style="font-family:monospace;color:#9cdcfe">{BASE}</code></td><td style="color:var(--txt3);font-size:.78em">Aktuelle Base-Nummer</td></tr>
+          </table>
+
+          <div style="color:var(--txt2);font-size:.85em;font-weight:700;margin-bottom:6px">I/O &amp; Warten</div>
+          <table style="width:100%;border-collapse:collapse;margin-bottom:12px">
+            <tr><td style="padding:3px 12px 3px 0;white-space:nowrap"><code style="font-family:monospace;color:#9cdcfe">{CH}</code></td><td style="color:var(--txt3);font-size:.78em">Kanal-Nummer</td></tr>
+            <tr><td style="padding:3px 12px 3px 0;white-space:nowrap"><code style="font-family:monospace;color:#9cdcfe">{VAL}</code></td><td style="color:var(--txt3);font-size:.78em">Digital-Wert: TRUE oder FALSE</td></tr>
+            <tr><td style="padding:3px 12px 3px 0;white-space:nowrap"><code style="font-family:monospace;color:#9cdcfe">{VAL_F}</code></td><td style="color:var(--txt3);font-size:.78em">Analog-Wert als Dezimalzahl</td></tr>
+            <tr><td style="padding:3px 12px 3px 0;white-space:nowrap"><code style="font-family:monospace;color:#9cdcfe">{T}</code></td><td style="color:var(--txt3);font-size:.78em">Wartezeit in Sekunden</td></tr>
+            <tr><td style="padding:3px 12px 3px 0;white-space:nowrap"><code style="font-family:monospace;color:#9cdcfe">{T_MS}</code></td><td style="color:var(--txt3);font-size:.78em">Wartezeit in Millisekunden</td></tr>
+          </table>
+
+          <div style="color:var(--txt2);font-size:.85em;font-weight:700;margin-bottom:6px">Tool / Base / Variablen / CALL</div>
+          <table style="width:100%;border-collapse:collapse;margin-bottom:14px">
+            <tr><td style="padding:3px 12px 3px 0;white-space:nowrap"><code style="font-family:monospace;color:#9cdcfe">{N}</code></td><td style="color:var(--txt3);font-size:.78em">Tool- oder Base-Nummer</td></tr>
+            <tr><td style="padding:3px 12px 3px 0;white-space:nowrap"><code style="font-family:monospace;color:#9cdcfe">{TYPE}</code></td><td style="color:var(--txt3);font-size:.78em">Variablentyp: INT / REAL / BOOL</td></tr>
+            <tr><td style="padding:3px 12px 3px 0;white-space:nowrap"><code style="font-family:monospace;color:#9cdcfe">{NAME}</code></td><td style="color:var(--txt3);font-size:.78em">Variablenname</td></tr>
+            <tr><td style="padding:3px 12px 3px 0;white-space:nowrap"><code style="font-family:monospace;color:#9cdcfe">{INITVAL}</code></td><td style="color:var(--txt3);font-size:.78em">Anfangswert der Variable</td></tr>
+            <tr><td style="padding:3px 12px 3px 0;white-space:nowrap"><code style="font-family:monospace;color:#9cdcfe">{PROG}</code></td><td style="color:var(--txt3);font-size:.78em">Unterprogramm-Name</td></tr>
+            <tr><td style="padding:3px 12px 3px 0;white-space:nowrap"><code style="font-family:monospace;color:#9cdcfe">{ARGS}</code></td><td style="color:var(--txt3);font-size:.78em">Argumente des Unterprogramms</td></tr>
+          </table>
+
+          <div style="background:var(--bg3);border-left:3px solid var(--acc);padding:10px 12px;border-radius:0 3px 3px 0;color:var(--txt2);font-size:.82em;line-height:1.7">
+            <strong style="color:var(--acc)">Beispiel</strong> &mdash; Linear-Vorlage KUKA:<br>
+            <code style="font-family:monospace;color:#d4d4d4">LIN {X {X},Y {Y},Z {Z},A {A},B {B},C {C}}</code><br>
+            ergibt:<br>
+            <code style="font-family:monospace;color:#4ec994">LIN {X 730.000,Y 385.000,Z 10.000,A -73.693,B 0.000,C 180.000}</code>
+          </div>
         </div>
         <!-- Buttons -->
         <div style="display:flex;gap:10px;padding:12px 20px;border-top:1px solid var(--bdr)">
