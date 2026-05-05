@@ -16,8 +16,18 @@ FormatRegistry.register({
        + '<line x1="4" y1="11" x2="9" y2="11" stroke="#8ab4d4" stroke-width="1.2"/>'
        + '</svg>',
   activate: function () {
-    document.getElementById('code-input').style.display = 'none';
-    document.getElementById('gutter').style.display     = 'none';
+    // Zuerst code-input mit aktuellem KRL befüllen (aus parsedData)
+    // damit fvBuild immer konsistente Daten hat
+    var ci = document.getElementById('code-input');
+    if (typeof generateKRL === 'function' && typeof parsedData !== 'undefined' && ci) {
+      var krl = generateKRL(parsedData);
+      if (krl) {
+        ci.value = krl;
+        if (typeof rebuildGutter === 'function') rebuildGutter();
+      }
+    }
+    ci.style.display = 'none';
+    document.getElementById('gutter').style.display = 'none';
     var wrap = document.getElementById('fv-form-wrap');
     if (wrap) wrap.style.display = 'flex';
     var fv = document.getElementById('krl-form-view');
