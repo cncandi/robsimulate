@@ -146,6 +146,16 @@
     return lines.join('\n');
   }
 
+
+  // Kurzform für applyTpl in den custom Emittern
+  function _t(fmtId, key, vars, fallback) {
+    if (typeof applyTpl === 'function') {
+      var r = applyTpl(fmtId, key, vars);
+      if (r !== null) return r;
+    }
+    return fallback;
+  }
+
   // ── Minimal parser: extracts positions ─────────────────────────────────
   function parsePositions(text, patterns) {
     var positions = [], steps = [];
@@ -238,29 +248,39 @@
       // Bewegungs-Block
       var curVel = 0.167;
       steps.forEach(function(s) {
+        var mv;
         switch (s.type) {
           case 'comment':  lines.push('    ! ' + (s.text || '')); break;
           case 'velcp':    curVel = s.v || 0.167; break;
-          case 'halt':     lines.push('    Stop;'); break;
-          case 'dout':     lines.push('    SetDO do' + s.n + ', ' + ((s.v === 'TRUE' || s.v === '1') ? '1' : '0') + ';'); break;
-          case 'din':      lines.push('    WaitDI di' + s.n + ', 1;'); break;
-          case 'aout':     lines.push('    SetAO ao' + s.n + ', ' + parseFloat(s.v || 0).toFixed(2) + ';'); break;
-          case 'ain':      lines.push('    r := AInput(ai' + s.n + ');'); break;
-          case 'wait':     lines.push('    WaitTime ' + parseFloat(s.t || 0).toFixed(1) + ';'); break;
-          case 'waitFor':  lines.push('    WaitUntil ' + (s.cond || 'di1 = 1') + ';'); break;
+          case 'halt':     lines.push(_t('abb','halt',{},               '    Stop;')); break;
+          case 'dout': {
+            var dv = (s.v==='TRUE'||s.v==='1'); 
+            lines.push(_t('abb','dout',{CH:s.n,VAL:dv?'TRUE':'FALSE'}, '    SetDO do'+s.n+', '+(dv?'1':'0')+';')); break;
+          }
+          case 'din':      lines.push(_t('abb','din', {CH:s.n},         '    WaitDI di'+s.n+', 1;')); break;
+          case 'aout':     lines.push(_t('abb','aout',{CH:s.n,VAL_F:parseFloat(s.v||0).toFixed(2)}, '    SetAO ao'+s.n+', '+parseFloat(s.v||0).toFixed(2)+';')); break;
+          case 'ain':      lines.push(_t('abb','ain', {CH:s.n},         '    r := AInput(ai'+s.n+');')); break;
+          case 'wait':     lines.push(_t('abb','wait',{T:parseFloat(s.t||0).toFixed(1),T_MS:Math.round(parseFloat(s.t||0)*1000)}, '    WaitTime '+parseFloat(s.t||0).toFixed(1)+';')); break;
+          case 'waitFor':  lines.push(_t('abb','din', {CH:1},           '    WaitUntil '+(s.cond||'di1 = 1')+';')); break;
           case 'move': {
             var pos = positions[s.posIdx]; if (!pos) break;
-            var nm = 'p' + (s.posIdx + 1);
-            var v = velMmS(curVel);
+            var nm = 'p' + (s.posIdx + 1), v = velMmS(curVel);
+            mv = {N:s.posIdx+1,VN:s.posIdx+1,X:pos.X.toFixed(3),Y:pos.Y.toFixed(3),Z:pos.Z.toFixed(3),
+              A:pos.A.toFixed(3),B:pos.B.toFixed(3),C:pos.C.toFixed(3),
+              VEL_MMS:v,VEL_PCT:velPct(curVel),VEL_MS:(curVel||0.167).toFixed(4),TOOL:toolN,BASE:baseN};
             if (s.moveType === 'LIN' || s.moveType === 'SLIN')
-              lines.push('    MoveL ' + nm + ', v' + v + ', fine, tool' + toolN + '\\WObj:=wobj' + baseN + ';');
+              lines.push(_t('abb','moveL',mv, '    MoveL '+nm+', v'+v+', fine, tool'+toolN+'\\WObj:=wobj'+baseN+';'));
             else
-              lines.push('    MoveJ ' + nm + ', v' + v + ', z10, tool' + toolN + '\\WObj:=wobj' + baseN + ';');
+              lines.push(_t('abb','moveJ',mv, '    MoveJ '+nm+', v'+v+', z10, tool'+toolN+'\\WObj:=wobj'+baseN+';'));
             break;
           }
           case 'circ': {
             var pv = positions[s.viaIdx], pt = positions[s.posIdx]; if (!pv || !pt) break;
-            lines.push('    MoveC p' + (s.viaIdx+1) + ', p' + (s.posIdx+1) + ', v' + velMmS(curVel) + ', fine, tool' + toolN + '\\WObj:=wobj' + baseN + ';');
+            mv = {N:s.posIdx+1,VN:s.viaIdx+1,X:pt.X.toFixed(3),Y:pt.Y.toFixed(3),Z:pt.Z.toFixed(3),
+              A:pt.A.toFixed(3),B:pt.B.toFixed(3),C:pt.C.toFixed(3),
+              VX:pv.X.toFixed(3),VY:pv.Y.toFixed(3),VZ:pv.Z.toFixed(3),
+              VEL_MMS:velMmS(curVel),TOOL:toolN,BASE:baseN};
+            lines.push(_t('abb','moveC',mv, '    MoveC p'+(s.viaIdx+1)+', p'+(s.posIdx+1)+', v'+velMmS(curVel)+', fine, tool'+toolN+'\\WObj:=wobj'+baseN+';'));
             break;
           }
         }
@@ -302,25 +322,33 @@
         switch (s.type) {
           case 'velcp':    curVel = s.v || 0.167; break;
           case 'comment':  lines.push(' ' + (ln++) + ': ! ' + (s.text||'') + ' ;'); break;
-          case 'halt':     lines.push(' ' + (ln++) + ': PAUSE ;'); break;
-          case 'dout':     lines.push(' ' + (ln++) + ': DO[' + s.n + ']=' + ((s.v==='TRUE'||s.v==='1')?'ON':'OFF') + ' ;'); break;
-          case 'din':      lines.push(' ' + (ln++) + ': WAIT DI[' + s.n + ']=ON ;'); break;
-          case 'aout':     lines.push(' ' + (ln++) + ': AO[' + s.n + ']=' + parseFloat(s.v||0).toFixed(2) + ' ;'); break;
-          case 'wait':     lines.push(' ' + (ln++) + ': WAIT ' + parseFloat(s.t||0).toFixed(2) + '(sec) ;'); break;
+          case 'halt':     lines.push(_t('fanuc','halt',{LN:ln++},           ' '+(ln-1)+': PAUSE ;')); break;
+          case 'dout': {
+            var dv=(s.v==='TRUE'||s.v==='1');
+            lines.push(_t('fanuc','dout',{LN:ln++,CH:s.n,VAL:dv?'ON':'OFF'}, ' '+(ln-1)+': DO['+s.n+']='+(dv?'ON':'OFF')+' ;')); break;
+          }
+          case 'din':      lines.push(_t('fanuc','din', {LN:ln++,CH:s.n},    ' '+(ln-1)+': WAIT DI['+s.n+']=ON ;')); break;
+          case 'aout':     lines.push(_t('fanuc','aout',{LN:ln++,CH:s.n,VAL_F:parseFloat(s.v||0).toFixed(2)}, ' '+(ln-1)+': AO['+s.n+']='+parseFloat(s.v||0).toFixed(2)+' ;')); break;
+          case 'wait':     lines.push(_t('fanuc','wait',{LN:ln++,T:parseFloat(s.t||0).toFixed(2),T_MS:Math.round(parseFloat(s.t||0)*1000)}, ' '+(ln-1)+': WAIT '+parseFloat(s.t||0).toFixed(2)+'(sec) ;')); break;
           case 'move': {
             if (posCounter[s.posIdx] === undefined) posCounter[s.posIdx] = pNum++;
             var pn = posCounter[s.posIdx];
+            var mv = {LN:ln,N:pn,VEL_MMS:velMmS(curVel),VEL_PCT:velPct(curVel),TOOL:toolN,BASE:baseN};
+            var pos = positions[s.posIdx];
+            if (pos) { mv.X=pos.X.toFixed(3); mv.Y=pos.Y.toFixed(3); mv.Z=pos.Z.toFixed(3); }
             if (s.moveType === 'LIN' || s.moveType === 'SLIN')
-              lines.push(' ' + (ln++) + ':L P[' + pn + '] ' + velMmS(curVel) + 'mm/sec FINE ;');
+              lines.push(_t('fanuc','moveL',mv, ' '+(ln++)+':L P['+pn+'] '+velMmS(curVel)+'mm/sec FINE ;'));
             else
-              lines.push(' ' + (ln++) + ':J P[' + pn + '] ' + velPct(curVel) + '% FINE ;');
+              lines.push(_t('fanuc','moveJ',mv, ' '+(ln++)+':J P['+pn+'] '+velPct(curVel)+'% FINE ;'));
             break;
           }
           case 'circ': {
             if (posCounter[s.viaIdx] === undefined) posCounter[s.viaIdx] = pNum++;
             if (posCounter[s.posIdx] === undefined) posCounter[s.posIdx] = pNum++;
-            lines.push(' ' + (ln++) + ':C P[' + posCounter[s.viaIdx] + ']');
-            lines.push('   P[' + posCounter[s.posIdx] + '] ' + velMmS(curVel) + 'mm/sec FINE ;');
+            var vn=posCounter[s.viaIdx], en=posCounter[s.posIdx];
+            var mv2={LN:ln,N:en,VN:vn,VEL_MMS:velMmS(curVel),VEL_PCT:velPct(curVel),TOOL:toolN,BASE:baseN};
+            lines.push(_t('fanuc','moveC',mv2, ' '+(ln++)+':C P['+vn+']\n   P['+en+'] '+velMmS(curVel)+'mm/sec FINE ;'));
+            ln++;
             break;
           }
         }
@@ -426,22 +454,27 @@
         switch (s.type) {
           case 'velcp':    curVel = s.v || 0.167; break;
           case 'comment':  lines.push("'" + (s.text || '')); break;
-          case 'halt':     lines.push('PAUSE'); break;
-          case 'dout':     lines.push('DOUT OT#(' + s.n + ') ' + ((s.v==='TRUE'||s.v==='1')?'ON':'OFF')); break;
-          case 'din':      lines.push('WAIT IN#(' + s.n + ')=ON'); break;
-          case 'aout':     lines.push('AOUT AO#(' + s.n + ') ' + parseFloat(s.v||0).toFixed(2)); break;
-          case 'wait':     lines.push('TIMER T=' + parseFloat(s.t||0).toFixed(2)); break;
+          case 'halt':     lines.push(_t('yaskawa','halt',{},   'PAUSE')); break;
+          case 'dout': {
+            var dv=(s.v==='TRUE'||s.v==='1');
+            lines.push(_t('yaskawa','dout',{CH:s.n,VAL:dv?'ON':'OFF'}, 'DOUT OT#('+s.n+') '+(dv?'ON':'OFF'))); break;
+          }
+          case 'din':      lines.push(_t('yaskawa','din', {CH:s.n},    'WAIT IN#('+s.n+')=ON')); break;
+          case 'aout':     lines.push(_t('yaskawa','aout',{CH:s.n,VAL_F:parseFloat(s.v||0).toFixed(2)}, 'AOUT AO#('+s.n+') '+parseFloat(s.v||0).toFixed(2))); break;
+          case 'wait':     lines.push(_t('yaskawa','wait',{T:parseFloat(s.t||0).toFixed(2),T_MS:Math.round(parseFloat(s.t||0)*1000)}, 'TIMER T='+parseFloat(s.t||0).toFixed(2))); break;
           case 'move': {
             var cName = posMap[s.posIdx]; if (!cName) break;
+            var mv = {CNAME:cName,VEL_MMS:velMmS(curVel),VEL_PCT:velPct(curVel),TOOL:toolN,BASE:baseN};
             if (s.moveType === 'LIN' || s.moveType === 'SLIN')
-              lines.push('MOVL ' + cName + ' V=' + velMmS(curVel) + '.0 PL=0');
+              lines.push(_t('yaskawa','moveL',Object.assign({N:s.posIdx+1},mv), 'MOVL '+cName+' V='+velMmS(curVel)+'.0 PL=0'));
             else
-              lines.push('MOVJ ' + cName + ' VJ=' + velPct(curVel) + '.00');
+              lines.push(_t('yaskawa','moveJ',Object.assign({N:s.posIdx+1},mv), 'MOVJ '+cName+' VJ='+velPct(curVel)+'.00'));
             break;
           }
           case 'circ': {
             var cv = posMap[s.viaIdx], ct = posMap[s.posIdx]; if (!cv||!ct) break;
-            lines.push('MOVC ' + cv + ' V=' + velMmS(curVel) + '.0');
+            var mv2={VEL_MMS:velMmS(curVel),CNAME:ct,VCNAME:cv,N:s.posIdx+1,VN:s.viaIdx+1};
+            lines.push(_t('yaskawa','moveC',mv2, 'MOVC '+cv+' V='+velMmS(curVel)+'.0'));
             lines.push('MOVC ' + ct + ' V=' + velMmS(curVel) + '.0');
             break;
           }
@@ -725,22 +758,32 @@
         switch (s.type) {
           case 'velcp':    curVel = s.v || 0.167; break;
           case 'comment':  lines.push('  -- ' + (s.text||'')); break;
-          case 'halt':     lines.push('  PAUSE'); break;
-          case 'dout':     lines.push('  $DOUT[' + s.n + '] := ' + ((s.v==='TRUE'||s.v==='1')?'TRUE':'FALSE')); break;
-          case 'din':      lines.push('  WAIT FOR $DIN[' + s.n + '] = TRUE'); break;
-          case 'aout':     lines.push('  $AOUT[' + s.n + '] := ' + parseFloat(s.v||0).toFixed(2)); break;
-          case 'ain':      lines.push('  r := $AIN[' + s.n + ']'); break;
-          case 'wait':     lines.push('  DELAY ' + parseFloat(s.t||0).toFixed(1)); break;
+          case 'halt':     lines.push(_t('comau','halt',{},   '  PAUSE')); break;
+          case 'dout': {
+            var dv=(s.v==='TRUE'||s.v==='1');
+            lines.push(_t('comau','dout',{CH:s.n,VAL:dv?'TRUE':'FALSE'}, '  $DOUT['+s.n+'] := '+(dv?'TRUE':'FALSE'))); break;
+          }
+          case 'din':      lines.push(_t('comau','din', {CH:s.n},    '  WAIT FOR $DIN['+s.n+'] = TRUE')); break;
+          case 'aout':     lines.push(_t('comau','aout',{CH:s.n,VAL_F:parseFloat(s.v||0).toFixed(2)}, '  $AOUT['+s.n+'] := '+parseFloat(s.v||0).toFixed(2))); break;
+          case 'ain':      lines.push(_t('comau','ain', {CH:s.n},    '  r := $AIN['+s.n+']')); break;
+          case 'wait':     lines.push(_t('comau','wait',{T:parseFloat(s.t||0).toFixed(1),T_MS:Math.round(parseFloat(s.t||0)*1000)}, '  DELAY '+parseFloat(s.t||0).toFixed(1))); break;
           case 'move': {
             var nm = 'p' + (s.posIdx + 1);
+            var mv={N:s.posIdx+1,VEL_MMS:velMmS(curVel),VEL_PCT:velPct(curVel),TOOL:toolN,BASE:baseN};
+            var pos=positions[s.posIdx];
+            if(pos){mv.X=pos.X.toFixed(3);mv.Y=pos.Y.toFixed(3);mv.Z=pos.Z.toFixed(3);}
             if (s.moveType === 'LIN' || s.moveType === 'SLIN')
-              lines.push('  MOVE LINEAR TO ' + nm + ' WITH $SPD_OPT:=SPD_MM_SEC,$SPD_LIN:=' + velMmS(curVel));
+              lines.push(_t('comau','moveL',mv, '  MOVE LINEAR TO '+nm+' WITH $SPD_OPT:=SPD_MM_SEC,$SPD_LIN:='+velMmS(curVel)));
             else
-              lines.push('  MOVE JOINT TO ' + nm);
+              lines.push(_t('comau','moveJ',mv, '  MOVE JOINT TO '+nm));
             break;
           }
           case 'circ': {
-            lines.push('  MOVE CIRCULAR TO p' + (s.posIdx+1) + ' VIA p' + (s.viaIdx+1));
+            var pv=positions[s.viaIdx],pt=positions[s.posIdx];
+            var mc={N:s.posIdx+1,VN:s.viaIdx+1,VEL_MMS:velMmS(curVel)};
+            if(pv){mc.VX=pv.X.toFixed(3);mc.VY=pv.Y.toFixed(3);mc.VZ=pv.Z.toFixed(3);}
+            if(pt){mc.X=pt.X.toFixed(3);mc.Y=pt.Y.toFixed(3);mc.Z=pt.Z.toFixed(3);}
+            lines.push(_t('comau','moveC',mc, '  MOVE CIRCULAR TO p'+(s.posIdx+1)+' VIA p'+(s.viaIdx+1)));
             break;
           }
         }
