@@ -1778,7 +1778,8 @@ function resize(){
   const asp=w/h;orthoCam.left=-orthoHalfSize*asp;orthoCam.right=orthoHalfSize*asp;
   orthoCam.top=orthoHalfSize;orthoCam.bottom=-orthoHalfSize;orthoCam.updateProjectionMatrix();
 }
-window.addEventListener('resize',resize);resize();
+window.addEventListener('resize', function(){ resize(); _aPlotFitWidth(); });
+resize();
 
 // ═══════════════════════════════════════════════════
 // MOUSE / ORBIT / DRAG
@@ -1925,8 +1926,14 @@ function applyDraggedPos(idx,newPos,syncCode){
   const card=document.getElementById('pcard-'+idx);
   if(card)card.querySelectorAll('.pf').forEach((el,i)=>{const vals=[newPos.X,newPos.Y,newPos.Z,newPos.A,newPos.B,newPos.C];const labels=['X','Y','Z','A(Z)','B(Y)','C(X)'];const units=['mm','mm','mm','°','°','°'];if(i<6)el.innerHTML=`<span>${labels[i]}</span> ${vals[i].toFixed(2)} ${units[i]}`;});
   updateVisitedPath(sim.t);
-  if(syncCode)syncPositionToCode(idx);
-  // recompute IK for this position
+  if(syncCode){
+    syncPositionToCode(idx);
+    // Trajektorie nach Apply neu aufbauen
+    buildScene(parsedData.positions);
+    computeIKTable(parsedData.positions);
+    return;
+  }
+  // Beim Dragging: nur IK für diesen Punkt
   const res=solveIK(newPos.X,newPos.Y,newPos.Z,newPos.A,newPos.B,newPos.C);
   ikTable[idx]=res;
   updateIKBadge(idx,res);
@@ -1934,9 +1941,12 @@ function applyDraggedPos(idx,newPos,syncCode){
 
 function syncPositionToCode(idx){
   const pos=parsedData.positions[idx];if(pos.lineNum===undefined)return;
-  const ta=document.getElementById('code-input');const lines=ta.value.split(/\r?\n/);const old=lines[pos.lineNum];
+  const ta=document.getElementById('code-input');const lines=ta.value.split(/\r?\n/);const oldLine=lines[pos.lineNum];
   const str=`{X ${pos.X.toFixed(3)},Y ${pos.Y.toFixed(3)},Z ${pos.Z.toFixed(3)},A ${pos.A.toFixed(3)},B ${pos.B.toFixed(3)},C ${pos.C.toFixed(3)}${pos.S!==null&&pos.S!==undefined?',S '+pos.S:''}${pos.T!==null&&pos.T!==undefined?',T '+pos.T:''}}`;
-  lines[pos.lineNum]=old.replace(/\{[^}]+\}/,str);ta.value=lines.join('\n');
+  lines[pos.lineNum]=oldLine.replace(/\{[^}]+\}/,str);ta.value=lines.join('\n');
+  rebuildGutter();
+  // Formular-Ansicht aktualisieren
+  if(FormatRegistry.getActiveId()==='kuka-form'&&typeof fvBuild==='function') fvBuild(-1);
 }
 
 document.getElementById('code-input').addEventListener('input',()=>rebuildGutter());
@@ -3657,6 +3667,18 @@ var _aPlotDragIdx  = -1;
 var _aPlotML = 56, _aPlotMT = 14, _aPlotMR = 10, _aPlotMB = 30;
 var _aPlotAMIN = -360, _aPlotAMAX = 360;
 
+// aPlot-Panel auf Breite des Editor-Panels (.ep) ausrichten
+function _aPlotFitWidth() {
+  var ep = document.querySelector('.ep');
+  var panel = document.getElementById('aplot-panel');
+  if (!ep || !panel) return;
+  var r = ep.getBoundingClientRect();
+  panel.style.left  = r.left + 'px';
+  panel.style.width = r.width + 'px';
+  var canvas = document.getElementById('aplot-canvas');
+  if (canvas) { canvas.width = Math.max(200, Math.round(r.width) - 14); }
+}
+
 function toggleAPlot() {
   var p = document.getElementById('aplot-panel');
   if (!p) return;
@@ -3665,6 +3687,7 @@ function toggleAPlot() {
   var btn = document.getElementById('btn-aplot');
   if (btn) btn.classList.toggle('on', show);
   if (show) {
+    _aPlotFitWidth();
     // Sofort _aPlotPos setzen damit erster Drag funktioniert
     window._aPlotPos = (parsedData && parsedData.positions) ? parsedData.positions : [];
     _aPlotCalcDists(window._aPlotPos);
@@ -4364,13 +4387,9 @@ window.addEventListener('load', function() {
   });
   document.title = 'RobSimul ' + APP_VERSION + ' · cnc-technik.de';
 
-  // Format-Dropdown + Formular als Default aktivieren
-  var _fmtSel = document.getElementById('format-select');
-  if (_fmtSel) {
-    FormatRegistry.buildDropdown(_fmtSel);
-    FormatRegistry.setActive('kuka-form');
-    // Sicherstellen dass fvBuild aufgerufen wird
-    if (typeof fvBuild === 'function') fvBuild(-1);
-  }
+  // Format-Button initialisieren + Formular als Default
+  FormatRegistry.initButton();
+  FormatRegistry.setActive('kuka-form');
+  if (typeof fvBuild === 'function') fvBuild(-1);
 });
 

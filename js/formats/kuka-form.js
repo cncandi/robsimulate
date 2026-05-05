@@ -9,6 +9,12 @@ var fvGroupCollapsed     = {};  // {startLine: bool}
 FormatRegistry.register({
   id:    'kuka-form',
   label: 'Formular',
+  icon:  '<svg viewBox="0 0 16 16" width="14" height="14" style="vertical-align:middle;margin-right:5px;opacity:.85">'
+       + '<rect x="1" y="1" width="14" height="14" rx="2" fill="none" stroke="#8ab4d4" stroke-width="1.2"/>'
+       + '<line x1="4" y1="5" x2="12" y2="5" stroke="#8ab4d4" stroke-width="1.2"/>'
+       + '<line x1="4" y1="8" x2="12" y2="8" stroke="#8ab4d4" stroke-width="1.2"/>'
+       + '<line x1="4" y1="11" x2="9" y2="11" stroke="#8ab4d4" stroke-width="1.2"/>'
+       + '</svg>',
   activate: function () {
     document.getElementById('code-input').style.display = 'none';
     document.getElementById('gutter').style.display     = 'none';

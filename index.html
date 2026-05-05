@@ -67,8 +67,10 @@
     <div class="pt">
       <span id="editor-lang-label">KRL Programm</span>
       <span style="flex:1"></span>
-      <select id="format-select" onchange="FormatRegistry.setActive(this.value)" class="sbtn"
-        style="cursor:pointer;flex-shrink:0;font-size:1em;padding:2px 6px"></select>
+      <div style="position:relative;flex-shrink:0">
+        <button id="fmt-btn" class="fmt-btn"></button>
+        <div id="fmt-menu" class="fmt-menu"></div>
+      </div>
     </div>
     <div class="ew">
       <div id="gutter"></div>
