@@ -1443,9 +1443,9 @@ function toggleGrid(){
 }
 
 var _themeIndex = 0;
-var _themes = ['dark','bg-white','bg-minimal','bg-win11','bg-deep','bg-vivid','bg-matrix'];
-var _themeBg  = [0x070d1a, 0xf0f0eb, 0xf4f4f4, 0xf3f6fc, 0x000408, 0x1a0a2e, 0x000800];
-var _themeGrid= [0x0e1e30, 0xbbbbaa, 0xcccccc, 0xc8d8e8, 0x0a1020, 0x2a1040, 0x001400];
+var _themes = ['dark','bg-pro','bg-white','bg-minimal','bg-win11','bg-deep','bg-vivid','bg-matrix'];
+var _themeBg  = [0x070d1a, 0x1e1e1e, 0xf0f0eb, 0xf4f4f4, 0xf3f6fc, 0x000408, 0x1a0a2e, 0x000800];
+var _themeGrid= [0x0e1e30, 0x2d2d30, 0xbbbbaa, 0xcccccc, 0xc8d8e8, 0x0a1020, 0x2a1040, 0x001400];
 document.getElementById('btn-bg').addEventListener('click', function(){
   // Alle Theme-Klassen entfernen
   _themes.forEach(function(t){ document.body.classList.remove(t); });
@@ -3661,14 +3661,18 @@ var _aPlotAMIN = -360, _aPlotAMAX = 360;
 
 // aPlot-Panel auf Breite des Editor-Panels (.ep) ausrichten
 function _aPlotFitWidth() {
-  var ep = document.querySelector('.ep');
+  var ep    = document.querySelector('.ep');
+  var ip    = document.getElementById('info-panel');
   var panel = document.getElementById('aplot-panel');
   if (!ep || !panel) return;
-  var r = ep.getBoundingClientRect();
-  panel.style.left  = r.left + 'px';
-  panel.style.width = r.width + 'px';
+  var epR   = ep.getBoundingClientRect();
+  // Breite: von linker Kante .ep bis rechter Kante #info-panel (oder Viewport-Ende)
+  var right = ip ? ip.getBoundingClientRect().right : window.innerWidth;
+  var w     = Math.max(300, right - epR.left);
+  panel.style.left  = epR.left + 'px';
+  panel.style.width = w + 'px';
   var canvas = document.getElementById('aplot-canvas');
-  if (canvas) { canvas.width = Math.max(200, Math.round(r.width) - 14); }
+  if (canvas) { canvas.width = Math.max(300, Math.round(w) - 14); }
 }
 
 function toggleAPlot() {

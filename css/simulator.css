@@ -646,3 +646,103 @@ body.bg-matrix #code-input { color: #a0ffa0 !important; }
 .ep-nav{display:flex;align-items:center;gap:4px;margin-top:8px;border-top:1px solid var(--bdr);padding-top:8px}
 .ep-nav-btn{flex:0 0 auto;padding:4px 10px;font-size:.9em;min-width:0}
 .ep-nav-info{flex:1;text-align:center;color:var(--txt2);font-size:.88em;font-variant-numeric:tabular-nums}
+
+/* ════════════════════════════════════════════════════════════
+   THEME: bg-pro  —  Visual Studio / Windows Professional
+   ════════════════════════════════════════════════════════════ */
+body.bg-pro {
+  --bg0: #1e1e1e;
+  --bg1: #252526;
+  --bg2: #2d2d30;
+  --bg3: #3e3e42;
+  --bg4: #505050;
+  --bdr: #474747;
+  --txt:  #cccccc;
+  --txt2: #9d9d9d;
+  --txt3: #6a6a6a;
+  --acc:  #0078d4;
+  --ok:   #4ec994;
+  --err:  #f44747;
+  --warn: #ddb100;
+  --info: #3794ff;
+}
+
+/* Header */
+body.bg-pro header { background:#252526; border-bottom:2px solid #0078d4; }
+body.bg-pro header h1 { color:#0078d4; letter-spacing:.5px; }
+body.bg-pro .htag { background:#2d2d30; color:#9d9d9d; border-color:#474747; border-radius:3px; }
+
+/* Toolbar Buttons */
+body.bg-pro .sbtn { background:#2d2d30; color:#cccccc; border:1px solid #474747; border-radius:3px; }
+body.bg-pro .sbtn:hover:not(:disabled) { background:#3e3e42; border-color:#6a6a6a; }
+body.bg-pro .sbtn.on { background:#0078d4 !important; color:#fff !important; border-color:#0063b1 !important; }
+
+/* Panels */
+body.bg-pro .ep { border-right-color: #474747; }
+body.bg-pro .info-panel { border-left-color: #474747; }
+body.bg-pro #steuer-panel { background:rgba(30,30,30,.97); border-color:#0078d4; }
+body.bg-pro .sp-hdr { background:#252526; border-bottom-color:#474747; }
+body.bg-pro .sp-hdr-title,
+body.bg-pro .sp-sec-title { color:#cccccc !important; }
+body.bg-pro .sp-axis-val,
+body.bg-pro .sp-tcp-val { color:#9cdcfe !important; background:#1e1e1e; }
+body.bg-pro .sp-axis-min,
+body.bg-pro .sp-axis-max,
+body.bg-pro .sp-tcp-lbl,
+body.bg-pro .sp-tool-lbl { color:#6a6a6a !important; }
+body.bg-pro .sp-slider-wrap { background:#1e1e1e; }
+body.bg-pro .sp-divider { border-color:#474747; }
+
+/* Edit Panel */
+body.bg-pro #edit-panel { background:rgba(30,30,30,.97); border-color:#0078d4; }
+body.bg-pro .ep-inp { background:#1e1e1e; border-color:#474747; color:#cccccc; }
+body.bg-pro .ep-inp:focus { border-color:#0078d4; }
+body.bg-pro .ep-btn { background:#2d2d30; color:#cccccc; border-color:#474747; }
+body.bg-pro .ep-btn:hover { background:#3e3e42; }
+body.bg-pro .ep-btn.active { background:#0078d4; color:#fff; border-color:#0063b1; }
+
+/* Code Editor */
+body.bg-pro #code-input { color:#d4d4d4 !important; background:#1e1e1e; }
+body.bg-pro #gutter { background:#1e1e1e; color:#6a6a6a; }
+
+/* Status-Bar */
+body.bg-pro .rb-val { color:#9cdcfe !important; }
+body.bg-pro .vn { color:#9cdcfe !important; }
+body.bg-pro .vv { color:#ce9178 !important; }
+
+/* Formular */
+body.bg-pro .fv-badge-lin  { background:#0078d4; color:#fff; }
+body.bg-pro .fv-badge-ptp  { background:#3794ff; color:#fff; }
+body.bg-pro .fv-badge-slin { background:#00aaff; color:#fff; }
+body.bg-pro .fv-card { border-left-color:#0078d4; border-color:#474747; background:rgba(0,120,212,.05); }
+body.bg-pro .fv-card.fv-open { border-color:#0078d4; background:rgba(0,120,212,.1); }
+body.bg-pro .fv-section-lbl,
+body.bg-pro .fv-pv-lbl,
+body.bg-pro .fv-coord-lbl { color:#9cdcfe !important; }
+body.bg-pro .fv-group-hdr { background:rgba(0,120,212,.08); border-left-color:#0078d4; }
+body.bg-pro .fv-group-name { color:#cccccc !important; }
+body.bg-pro .fv-inp { background:#1e1e1e; color:#d4d4d4; border-color:#474747; }
+body.bg-pro .fv-card:hover { background:rgba(0,120,212,.08); }
+
+/* Positions */
+body.bg-pro .pc { background:#252526; border-color:#474747; }
+body.bg-pro .pc:hover { border-color:#0078d4; }
+body.bg-pro .pf { color:#6a6a6a !important; }
+
+/* Variablen / Signale */
+body.bg-pro .led.on { background:#4ec994; box-shadow:0 0 5px #4ec994; }
+body.bg-pro .led.off { background:#474747; }
+
+/* aPlot */
+body.bg-pro #aplot-panel { background:rgba(30,30,30,.97); border-color:#474747; }
+
+/* Format-Button */
+body.bg-pro .fmt-btn { background:#2d2d30; color:#cccccc; border-color:#474747; }
+body.bg-pro .fmt-menu { background:#252526; border-color:#0078d4; }
+body.bg-pro .fmt-item:hover { background:#3e3e42; }
+body.bg-pro .fmt-item.active { color:#0078d4; }
+
+/* Scrollbar */
+body.bg-pro ::-webkit-scrollbar-track { background:#1e1e1e; }
+body.bg-pro ::-webkit-scrollbar-thumb { background:#474747; }
+body.bg-pro ::-webkit-scrollbar-thumb:hover { background:#6a6a6a; }
