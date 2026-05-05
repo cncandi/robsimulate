@@ -2937,67 +2937,12 @@ function showEpIKSolutions(x,y,z,a,b,cv) {
 }
 
 function applyEpSolution(angles) {
-  // Roboter auf neue Gelenkwinkel bewegen
+  // Roboter auf neue Gelenkwinkel animieren — Koordinaten bleiben unverändert,
+  // da alle IK-Lösungen dieselbe TCP-Position haben.
   tweenToAngles(angles, 500);
-
   if (selectedPosIdx === null) return;
-  var pos = parsedData.positions[selectedPosIdx];
-  if (!pos) return;
-
-  // FK → XYZABC berechnen
-  var fkResult = fkAll(angles);
-  var R = fkResult.tcp_rot;
-  var B2 = -Math.asin(Math.max(-1, Math.min(1, R[2][0])));
-  var cb2 = Math.cos(B2);
-  var A2, C2;
-  if (Math.abs(cb2) > 1e-6) {
-    A2 = Math.atan2(R[1][0]/cb2, R[0][0]/cb2);
-    C2 = Math.atan2(R[2][1]/cb2, R[2][2]/cb2);
-  } else {
-    A2 = 0;
-    C2 = Math.atan2(-R[1][2], R[1][1]);
-  }
-  function toDeg(v) {
-    var d = v * 180 / Math.PI;
-    while (d > 180)  d -= 360;
-    while (d <= -180) d += 360;
-    return d;
-  }
-  var newA = toDeg(A2), newB = toDeg(B2), newC = toDeg(C2);
-  var tcp = fkResult.pts[7];
-  var newX = tcp[0], newY = tcp[1], newZ = tcp[2];
-
-  // ep-Felder aktualisieren
-  document.getElementById('ep-x').value = newX.toFixed(3);
-  document.getElementById('ep-y').value = newY.toFixed(3);
-  document.getElementById('ep-z').value = newZ.toFixed(3);
-  document.getElementById('ep-a').value = newA.toFixed(3);
-  document.getElementById('ep-b').value = newB.toFixed(3);
-  document.getElementById('ep-c').value = newC.toFixed(3);
-
-  // parsedData aktualisieren
-  parsedData.positions[selectedPosIdx] = Object.assign({}, pos, {
-    X: newX, Y: newY, Z: newZ, A: newA, B: newB, C: newC
-  });
+  // IK-Tabelle mit gewählter Konfiguration aktualisieren
   ikTable[selectedPosIdx] = { angles: angles, score: 0, ok: true };
-  document.getElementById('rb-fk').textContent = '0.00';
-
-  // Direkt ins KRL schreiben (kein Apply nötig)
-  var lineNum = pos.lineNum;
-  if (lineNum === undefined) return;
-  var ta = document.getElementById('code-input');
-  var lines = ta.value.split(/\r?\n/)
-  if (!lines[lineNum]) return;
-
-  var newStr = '{X ' + newX.toFixed(3) + ', Y ' + newY.toFixed(3) +
-               ', Z ' + newZ.toFixed(3) + ', A ' + newA.toFixed(3) +
-               ', B ' + newB.toFixed(3) + ', C ' + newC.toFixed(3) +
-               (pos.S !== null && pos.S !== undefined ? ', S ' + pos.S : '') +
-               (pos.T !== null && pos.T !== undefined ? ', T ' + pos.T : '') + '}';
-
-  lines[lineNum] = lines[lineNum].replace(/\{[^}]+\}/, newStr);
-  ta.value = lines.join('\n');
-  rebuildGutter();
 }
 
 function writeBackPosition(idx, x, y, z, a, b, c) {
