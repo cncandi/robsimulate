@@ -1126,6 +1126,419 @@
     });
   });
 
+
+// ══════════════════════════════════════════════════════════════════════════
+// FORMAT-BESCHREIBUNGEN (Tab 5 im Einstellungen-Popup)
+// Quelle: CAD/CAM Reitz - Roboter-Befehlsvergleich (2026-05-05)
+// ══════════════════════════════════════════════════════════════════════════
+var FMT_DESCRIPTIONS = {
+  kuka: {
+    model: 'DIRECT_STREAM',
+    note: 'Ausführung im SRC-Programm blockweise/zeilenweise. Positionen können zusätzlich in DAT-Dateien stehen; die Bewegungsfolge entsteht im SRC-Ablauf.',
+    table: [
+      ['PTP / Joint',   'PTP XP1'],
+      ['Linear',        'LIN XP2'],
+      ['Spline/SLIN',   'SPLINE / SLIN XP3 / ENDSPLINE'],
+      ['Bogen/Kreis',   'CIRC XP3, XP4  (ARC als PP-Alias)'],
+      ['Stop',          'HALT / BRAKE'],
+      ['Digital I/O',   '$OUT[1]=TRUE / WAIT FOR $IN[1]'],
+      ['Analog I/O',    'ANOUT ON 1 = 5.0 / r = $ANIN[1]'],
+      ['Wait',          'WAIT SEC 1.0 / WAIT FOR $IN[1]'],
+      ['Tool/Base',     '$TOOL = TOOL_DATA[1] / $BASE = BASE_DATA[1]'],
+      ['Variablen',     'DECL INT i / DECL REAL r / DECL BOOL b'],
+      ['CALL',          'MY_SUB(i, r, b)'],
+    ],
+    example: 'DEF PP_MAIN()\n DECL INT i\n DECL REAL r\n DECL BOOL b\n $TOOL=TOOL_DATA[1]\n $BASE=BASE_DATA[1]\n PTP XP1\n LIN XP2\n CIRC XP3, XP4\n $OUT[1]=TRUE\n WAIT SEC 0.5\n MY_SUB(i,r,b)\nEND',
+    source: 'KUKA KRL Reference / KRL Syntax 8.x',
+  },
+  abb: {
+    model: 'MIXED_MODULE',
+    note: 'Daten/robtargets werden vor der PROC definiert; die Bewegung wird im PROC-Ablauf ausgeführt.',
+    table: [
+      ['PTP / Joint',   'MoveJ p1, v100, z10, t1\\WObj:=w1;'],
+      ['Linear',        'MoveL p2, v100, z10, t1\\WObj:=w1;'],
+      ['Spline',        'Kein SLIN-Standard; MoveL-Kette mit zone/Path'],
+      ['Bogen/Kreis',   'MoveC p_mid, p_end, v100, z10, t1\\WObj:=w1;'],
+      ['Stop',          'StopMove; / Stop;'],
+      ['Digital I/O',   'SetDO do1, 1; / WaitDI di1, 1;'],
+      ['Analog I/O',    'SetAO ao1, 5; / r := AInput(ai1);'],
+      ['Wait',          'WaitTime 1; / WaitUntil b;'],
+      ['Tool/Base',     'tooldata t1 / wobjdata w1'],
+      ['Variablen',     'VAR num i; / VAR bool b;'],
+      ['CALL',          'SubProc i, r, b;'],
+    ],
+    example: 'MODULE PP_MAIN\n VAR num i:=1;\n VAR bool b:=TRUE;\n PROC main()\n  MoveJ p1,v100,z10,t1\\WObj:=w1;\n  MoveL p2,v100,z10,t1\\WObj:=w1;\n  MoveC p3,p4,v100,z10,t1\\WObj:=w1;\n  SetDO do1,1;\n  WaitTime 0.5;\n ENDPROC\nENDMODULE',
+    source: 'ABB RAPID Technical Reference Manual, search.abb.com',
+  },
+  fanuc: {
+    model: 'POINT_SECTION_THEN_INSTRUCTIONS',
+    note: 'TP-Dateien besitzen Programminstruktionen und Positionsbereich; Bewegungszeilen referenzieren P[]/PR[]. Die /POS-Sektion steht am Ende.',
+    table: [
+      ['PTP / Joint',   'J P[1] 100% FINE'],
+      ['Linear',        'L P[2] 500mm/sec CNT50'],
+      ['Spline',        'Kein SLIN-Standard; controller-optional'],
+      ['Bogen/Kreis',   'C P[3] P[4] 500mm/sec FINE'],
+      ['Stop',          'PAUSE / ABORT'],
+      ['Digital I/O',   'DO[1]=ON / WAIT DI[1]=ON'],
+      ['Analog I/O',    'AO[1]=50 / R[1]=AI[1]'],
+      ['Wait',          'WAIT 1.00(sec) / WAIT DI[1]=ON'],
+      ['Tool/Base',     'UTOOL_NUM=1 / UFRAME_NUM=1'],
+      ['Variablen',     'R[n] numerisch / F[n] bool'],
+      ['CALL',          'CALL SUBPROG(R[1])'],
+    ],
+    example: '/PROG PP_MAIN\n/MN\n 1: UTOOL_NUM=1 ;\n 2: UFRAME_NUM=1 ;\n 3:J P[1] 100% FINE ;\n 4:L P[2] 500mm/sec FINE ;\n 5:C P[3] P[4] 500mm/sec FINE ;\n 6: DO[1]=ON ;\n 7: WAIT 0.50(sec) ;\n/POS\n P[1]{...}\n/END',
+    source: 'FANUC TP/KAREL Herstellerhandbuch (lizenzgebunden)',
+  },
+  yaskawa: {
+    model: 'POINT_TABLE_THEN_INST',
+    note: 'JBI-Datei enthält zuerst //POS mit Positionsdaten (C00000...), danach //INST mit NOP, MOVJ/MOVL/MOVC und END. Der PP muss zweiphasig ausgeben: Punkte sammeln, Referenzen erzeugen, Bewegungsjob schreiben.',
+    table: [
+      ['PTP / Joint',   'MOVJ C00000 VJ=80.00'],
+      ['Linear',        'MOVL C00001 V=200.0 PL=0'],
+      ['Spline',        'MOVS C00002 V=200.0'],
+      ['Bogen/Kreis',   'MOVC C00003 V=200.0'],
+      ['Stop',          'PAUSE / HOLD'],
+      ['Digital I/O',   'DOUT OT#(1) ON / WAIT IN#(1)=ON'],
+      ['Analog I/O',    'AOUT AO#(1) 5.0 / AIN je Controller'],
+      ['Wait',          'TIMER T=0.50'],
+      ['Tool/Base',     '///TOOL 1 im Header / ///USER n'],
+      ['Variablen',     'Bxxx / Ixxx / Dxxx / Rxxx'],
+      ['CALL',          'CALL JOB:SUBPROG ARGF\"1;2;3\"'],
+    ],
+    example: '/JOB\n//NAME PP_MAIN\n//POS\n///NPOS 3,0,0,0,0,0\n///TOOL 1\nC00000=...\nC00001=...\n//INST\nNOP\nMOVJ C00000 VJ=80.00\nMOVL C00001 V=200.0 PL=0\nDOUT OT#(1) ON\nTIMER T=0.50\nEND',
+    source: 'Yaskawa Motoman Knowledge Center: YRC1000/DX200 INFORM LANGUAGE',
+  },
+  kawasaki: {
+    model: 'DIRECT_STREAM',
+    note: 'AS-Programm führt Befehle sequenziell aus; Punkte können vorher als Transformationen definiert werden.',
+    table: [
+      ['PTP / Joint',   'JMOVE p1'],
+      ['Linear',        'LMOVE p2'],
+      ['Spline',        'Kein direktes SLIN; LMOVE-Kette/CP-Option'],
+      ['Bogen/Kreis',   'C1MOVE p_mid / C2MOVE p_end'],
+      ['Stop',          'HALT / BRAKE'],
+      ['Digital I/O',   'SIGNAL 1 / IF SIG(1001) THEN...'],
+      ['Analog I/O',    'AOUT/AIN je I/O-Option'],
+      ['Wait',          'WAIT SIG(1001) / TWAIT 0.5'],
+      ['Tool/Base',     'TOOL tool1 / BASE base1'],
+      ['Variablen',     'i = 1 / r = 1.0 / b = TRUE'],
+      ['CALL',          'CALL sub(i)'],
+    ],
+    example: '.PROGRAM pp_main()\n TOOL tool1\n BASE base1\n JMOVE p1\n LMOVE p2\n C1MOVE p3\n C2MOVE p4\n SIGNAL 1\n TWAIT 0.5\n CALL sub(i)\n.END',
+    source: 'Kawasaki AS Language Reference Manual, F/E/C Series',
+  },
+  staubli: {
+    model: 'SCRIPTED_API',
+    note: 'Bewegungsbefehle stehen im Programmablauf; Punkte, Tool und Frame sind typisierte Datenobjekte der VAL3-Applikation.',
+    table: [
+      ['PTP / Joint',   'movej(p1, tTool, mNomSpeed)'],
+      ['Linear',        'movel(p2, tTool, mNomSpeed)'],
+      ['Spline',        'Kein SLIN-Standard; movel-Kette/Blending'],
+      ['Bogen/Kreis',   'movec(pMid, pEnd, tTool, mNomSpeed)'],
+      ['Stop',          'stopMove() / halt'],
+      ['Digital I/O',   'dioOut1 = true / b = dioIn1'],
+      ['Analog I/O',    'aioOut1 = 5.0 / r = aioIn1'],
+      ['Wait',          'delay(0.5) / waitEndMove()'],
+      ['Tool/Base',     'tool tTool / frame fBase'],
+      ['Variablen',     'num i / bool b'],
+      ['CALL',          'sub(i, r, b)'],
+    ],
+    example: 'program pp_main()\nbegin\n num i\n bool b\n movej(p1,tTool,mNomSpeed)\n movel(p2,tTool,mNomSpeed)\n movec(p3,p4,tTool,mNomSpeed)\n dioOut1 = true\n delay(0.5)\nend',
+    source: 'Stäubli VAL3 Reference Manual / Trainingsunterlagen',
+  },
+  ur: {
+    model: 'SCRIPTED_DIRECT',
+    note: 'URScript wird als Funktionsblock ausgeführt; Posen können inline, als Variablen oder extern erzeugt werden.',
+    table: [
+      ['PTP / Joint',   'movej(q_or_pose, a=1.2, v=0.25)'],
+      ['Linear',        'movel(pose, a=1.2, v=0.25)'],
+      ['Spline',        'Kein SLIN; ggf. movep/Blending'],
+      ['Bogen/Kreis',   'movec(pose_via, pose_to, a=1.2, v=0.25)'],
+      ['Stop',          'stopj(2.0) / stopl(1.0) / halt'],
+      ['Digital I/O',   'set_standard_digital_out(0, True) / get_standard_digital_in(0)'],
+      ['Analog I/O',    'set_standard_analog_out(0, 0.5) / get_standard_analog_in(0)'],
+      ['Wait',          'sleep(0.5)'],
+      ['Tool/Base',     'set_tcp(p[...]) / pose_trans(...)'],
+      ['Variablen',     'i = 1 / r = 1.0 / b = True'],
+      ['CALL',          'sub(i, r, b)'],
+    ],
+    example: 'def pp_main():\n i = 1\n set_tcp(p[0,0,0.2,0,0,0])\n movej(p[0.5,0,0.4,3.14,0,0])\n movel(p[0.6,0,0.4,3.14,0,0])\n set_standard_digital_out(0, True)\n sleep(0.5)\nend',
+    source: 'Universal Robots Script Manual SW5.x',
+  },
+  adept: {
+    model: 'DIRECT_STREAM',
+    note: 'V+/Adept-Programme werden sequenziell ausgeführt; Punkte können als Daten/Speicherpositionen getrennt verwaltet werden.',
+    table: [
+      ['PTP / Joint',   'MOVE p1'],
+      ['Linear',        'MOVES p2'],
+      ['Spline',        'Kein SLIN; MOVES-Kette/Continuous Path'],
+      ['Bogen/Kreis',   'MOVEC pMid, pEnd'],
+      ['Stop',          'HALT / BRAKE / ESTOP'],
+      ['Digital I/O',   'SIGNAL 1 / IF SIG(1) THEN...'],
+      ['Analog I/O',    'AIO/AOUT je Controller-Option'],
+      ['Wait',          'WAIT SIG(1) / TIMER'],
+      ['Tool/Base',     'TOOL tool1 / BASE base1'],
+      ['Variablen',     'AUTO i, r, b'],
+      ['CALL',          'CALL sub(i)'],
+    ],
+    example: '.PROGRAM pp_main()\n AUTO i\n TOOL tool1\n BASE base1\n MOVE p1\n MOVES p2\n MOVEC p3,p4\n SIGNAL 1\n WAIT 0.5\n CALL sub(i)\n.END',
+    source: 'Adept/Omron V+ Language Reference Guide',
+  },
+  omron: {
+    model: 'DIRECT_STREAM',
+    note: 'Omron/Adept V+ ist je nach Controller und eV+/V+ Variante leicht unterschiedlich.',
+    table: [
+      ['PTP / Joint',   'JMOVE p1'],
+      ['Linear',        'MOVES p2'],
+      ['Spline',        'Kein SLIN; MOVES-Kette/CP'],
+      ['Bogen/Kreis',   'MOVEC pMid, pEnd'],
+      ['Stop',          'HALT / BRAKE / ESTOP'],
+      ['Digital I/O',   'SIGNAL 1 / WAIT SIG(1)'],
+      ['Analog I/O',    'AOUT / AIN je Controller'],
+      ['Wait',          'WAIT / TWAIT'],
+      ['Tool/Base',     'TOOL tool1 / BASE base1'],
+      ['Variablen',     'LOCAL i, r, b'],
+      ['CALL',          'CALL sub(i)'],
+    ],
+    example: '.PROGRAM pp_main()\n LOCAL i\n TOOL tool1\n BASE base1\n JMOVE p1\n MOVES p2\n SIGNAL 1\n TWAIT 0.5\n CALL sub(i)\n.END',
+    source: 'Omron V+ Keyword Reference Manual / eV+ Language Reference',
+  },
+  epson: {
+    model: 'DIRECT_STREAM',
+    note: 'SPEL+-Programm mit Funktionskopf; Bewegungen im Funktionsablauf. Punkte im Projekt/Controller gespeichert.',
+    table: [
+      ['PTP / Joint',   'Go P1 / Jump P1'],
+      ['Linear',        'Move P2'],
+      ['Spline',        'Kein SLIN; Move-Kette/CP'],
+      ['Bogen/Kreis',   'Arc P3, P4 / Arc3 P2, P3, P4'],
+      ['Stop',          'Halt / Quit'],
+      ['Digital I/O',   'On 1 / Off 1 / If Sw(1)=On'],
+      ['Analog I/O',    'AIn(1) / AOut 1, value'],
+      ['Wait',          'Wait 0.5 / Wait Sw(1)=On'],
+      ['Tool/Base',     'Tool 1 / Local 1'],
+      ['Variablen',     'Integer i / Real r / Boolean b'],
+      ['CALL',          'Call sub(i, r, b)'],
+    ],
+    example: 'Function main\n Integer i\n Tool 1\n Local 1\n Go P1\n Move P2\n Arc P3, P4\n On 1\n Wait 0.5\n Call sub(i,r,b)\nFend',
+    source: 'Epson RC+ SPEL+ Language Reference',
+  },
+  comau: {
+    model: 'DIRECT/MIXED',
+    note: 'PDL2 ist blockstrukturiert; Positions- und Variablendaten können vor BEGIN stehen, Ausführung im BEGIN/END-Ablauf.',
+    table: [
+      ['PTP / Joint',   'MOVE JOINT TO p1'],
+      ['Linear',        'MOVE LINEAR TO p2 WITH $SPD_OPT:=SPD_MM_SEC'],
+      ['Spline',        'Kein SLIN-Standard; CP-Funktionen'],
+      ['Bogen/Kreis',   'MOVE CIRCULAR TO pEnd VIA pMid'],
+      ['Stop',          'PAUSE / ABORT'],
+      ['Digital I/O',   '$DOUT[1] := TRUE / WAIT FOR $DIN[1]'],
+      ['Analog I/O',    '$AOUT[1] := 5.0 / r := $AIN[1]'],
+      ['Wait',          'DELAY 0.5 / WAIT FOR $DIN[1]'],
+      ['Tool/Base',     '$TOOL := tool1 / $BASE := base1'],
+      ['Variablen',     'VAR i : INTEGER / r : REAL / b : BOOLEAN'],
+      ['CALL',          'CALL SUBPROG(i, r, b)'],
+    ],
+    example: 'PROGRAM PP_MAIN\nVAR\n i : INTEGER\nBEGIN\n $TOOL := tool1\n MOVE JOINT TO p1\n MOVE LINEAR TO p2\n $DOUT[1] := TRUE\n DELAY 0.5\n CALL SUBPROG(i,r,b)\nEND PP_MAIN',
+    source: 'Comau PDL2 Programming Language / C5G controller documentation',
+  },
+  aubo: {
+    model: 'SCRIPTED_API',
+    note: 'Script/Lua-ähnliche Struktur; konkrete Funktionsnamen hängen von Controller- und SDK-Version ab.',
+    table: [
+      ['PTP / Joint',   'move_joint(joint_or_pose, a, v)'],
+      ['Linear',        'move_line(pose, a, v)'],
+      ['Spline',        'move_track(...) / Segmentkette'],
+      ['Bogen/Kreis',   'move_track(..., ARC) je API'],
+      ['Stop',          'robot_slow_stop() / robot_fast_stop()'],
+      ['Digital I/O',   'set_robot_io_status("DO",...) / get_robot_io_status("DI",...)'],
+      ['Analog I/O',    'set_robot_io_status("AO",...) / get_robot_io_status("AI",...)'],
+      ['Wait',          'sleep(0.5)'],
+      ['Tool/Base',     'set_tool_kinematics_param(...) / User/Base über API'],
+      ['Variablen',     'local i = 1 / local r = 1.0 / local b = true'],
+      ['CALL',          'sub(i, r, b)'],
+    ],
+    example: 'function pp_main()\n local i = 1\n set_tool_kinematics_param(tool1)\n move_joint(p1, 1.0, 0.5)\n move_line(p2, 1.0, 0.2)\n set_robot_io_status("DO",1,true)\n sleep(0.5)\nend',
+    source: 'AUBO Teach Pendant Scripting Interface Manual',
+  },
+  dobot: {
+    model: 'SCRIPTED_DIRECT',
+    note: 'DobotScript/Lua-ähnlich; Befehlssatz je Modell/Controller validieren (Magician/MG400/CR/Nova).',
+    table: [
+      ['PTP / Joint',   'MovJ(P1)'],
+      ['Linear',        'MovL(P2)'],
+      ['Spline',        'Kein SLIN-Standard'],
+      ['Bogen/Kreis',   'Arc(P3, P4) / Circle(P3, P4, count)'],
+      ['Stop',          'Stop() / PauseScript()'],
+      ['Digital I/O',   'DO(1, 1) / b = DI(1)'],
+      ['Analog I/O',    'AO(1, 5.0) / r = AI(1)'],
+      ['Wait',          'Wait(500) je Version / Sleep(0.5)'],
+      ['Tool/Base',     'Tool(1) / User(1)'],
+      ['Variablen',     'local i = 1 / local r = 1.0'],
+      ['CALL',          'sub(i, r, b)'],
+    ],
+    example: 'function main()\n Tool(1)\n User(1)\n MovJ(P1)\n MovL(P2)\n Arc(P3, P4)\n DO(1,1)\n Wait(500)\nend',
+    source: 'Dobot CR/Magician manuals and DobotScript/API references',
+  },
+  denso: {
+    model: 'DIRECT_STREAM',
+    note: 'Programmablauf mit Bewegungsbefehlen; Punkte/Variablen können separat im Projekt definiert sein.',
+    table: [
+      ['PTP / Joint',   'MOVE P, P1'],
+      ['Linear',        'MOVE L, P2'],
+      ['Spline',        'Kein SLIN-Standard; lineare Segmente/Interpolation'],
+      ['Bogen/Kreis',   'MOVE C, P3, P4 / ARC je Controller'],
+      ['Stop',          'STOP / PAUSE'],
+      ['Digital I/O',   'SET IO[1] / WAIT IO[2]'],
+      ['Analog I/O',    'AO[1] = 5.0 / r = AI[1]'],
+      ['Wait',          'WAIT 0.5 / WAIT IO[2]'],
+      ['Tool/Base',     'TOOL 1 / WORK 1'],
+      ['Variablen',     'DIM i AS INTEGER / DIM r AS SINGLE'],
+      ['CALL',          'CALL SUBPROG(i, r, b)'],
+    ],
+    example: 'PROGRAM PP_MAIN\nDIM i AS INTEGER\nTAKEARM\nTOOL 1\nMOVE P, P1\nMOVE L, P2\nSET IO[1]\nWAIT 0.5\nCALL SUBPROG(i,r,b)\nGIVEARM\nEND',
+    source: 'DENSO PACScript / RC8 manuals and training material',
+  },
+  nachi: {
+    model: 'DIRECT_STREAM',
+    note: 'Bewegungen stehen in Job-Reihenfolge; genaue Syntax hängt von FD/CFD/AX und Systemsoftware ab.',
+    table: [
+      ['PTP / Joint',   'MOVEX A, P1, S=50'],
+      ['Linear',        'MOVEX L, P2, S=200'],
+      ['Spline',        'MOVEX S / Spline-Option je Controller'],
+      ['Bogen/Kreis',   'MOVEX C, P3, P4, S=200'],
+      ['Stop',          'STOP / PAUSE'],
+      ['Digital I/O',   'OUT[1]=ON / IF IN[1]=ON THEN'],
+      ['Analog I/O',    'AO[1]=5.0 / r=AI[1]'],
+      ['Wait',          'WAIT 0.5 / WAIT IN[1]=ON'],
+      ['Tool/Base',     'TOOL 1 / BASE 1'],
+      ['Variablen',     'INT i / REAL r / BOOL b'],
+      ['CALL',          'CALL SUBPROG(i, r, b)'],
+    ],
+    example: 'PROGRAM PP_MAIN\nINT i\nTOOL 1\nBASE 1\nMOVEX A, P1, S=50\nMOVEX L, P2, S=200\nOUT[1]=ON\nWAIT 0.5\nCALL SUBPROG(i,r,b)\nEND',
+    source: 'Nachi FD Controller Robot Language documentation',
+  },
+  hanwha: {
+    model: 'SCRIPTED/TEACH_TEMPLATE',
+    note: 'HCR-Software bietet Teach-/Script-/API-Ebene; konkrete Syntax je Controllerstand prüfen.',
+    table: [
+      ['PTP / Joint',   'MoveJ(p1) / movej(p1)'],
+      ['Linear',        'MoveL(p2) / movel(p2)'],
+      ['Spline',        'Segmentkette/Blending je API'],
+      ['Bogen/Kreis',   'MoveC(pMid,pEnd) falls verfügbar'],
+      ['Stop',          'Stop/Halt-Funktion je API'],
+      ['Digital I/O',   'SetDO(1, True) / GetDI(1)'],
+      ['Analog I/O',    'SetAO(1, 5.0) / GetAI(1)'],
+      ['Wait',          'Wait(0.5) / sleep(0.5)'],
+      ['Tool/Base',     'setTCP(1) / setUserFrame(1)'],
+      ['Variablen',     'int i / double r / bool b'],
+      ['CALL',          'sub(i, r, b)'],
+    ],
+    example: 'def pp_main():\n SetTool(1)\n SetBase(1)\n MoveJ(p1)\n MoveL(p2)\n SetDO(1, True)\n Wait(0.5)\nend',
+    source: 'Hanwha HCR manuals / Task-Builder; versionsabhängig',
+  },
+  igus: {
+    model: 'PROJECT_FORMAT',
+    note: 'iRC arbeitet stark projekt-/GUI-orientiert. Für den PP sollte ein XML/Programmbaustein-Modell statt reiner Textzeilen verwendet werden.',
+    table: [
+      ['PTP / Joint',   '<Move type="Joint" target="P1"/>'],
+      ['Linear',        '<Move type="Linear" target="P2"/>'],
+      ['Spline',        'Nicht einheitlich; ggf. Pfadsegmentliste'],
+      ['Bogen/Kreis',   'Nicht einheitlich; falls vorhanden Kreis-/Splinebaustein'],
+      ['Stop',          '<Stop/>'],
+      ['Digital I/O',   '<SetDO channel="1" value="true"/>'],
+      ['Analog I/O',    'Feldbus-/I/O-Modul abhängig'],
+      ['Wait',          '<Wait time="0.5"/>'],
+      ['Tool/Base',     'Tool/TCP im Projekt / Base/Frame im Projekt'],
+      ['Variablen',     '<Var name="i" type="INT" value="1"/>'],
+      ['CALL',          '<Call program="SUB" arg="i"/>'],
+    ],
+    example: '<Program name="PP_MAIN">\n <Var name="i" type="INT" value="1"/>\n <SetTool id="1"/>\n <Move type="Joint" target="P1"/>\n <Move type="Linear" target="P2"/>\n <SetDO channel="1" value="true"/>\n <Wait time="0.5"/>\n</Program>',
+    source: 'igus Robot Control / iJC user guides',
+  },
+  estun: {
+    model: 'INFORM-LIKE_TEMPLATE',
+    note: 'Bei vielen Estun-Controllern werden MOVJ/MOVL/MOVC-ähnliche Befehle verwendet; genaue Syntax und Header je Controller prüfen.',
+    table: [
+      ['PTP / Joint',   'MOVJ P1, VJ=50'],
+      ['Linear',        'MOVL P2, V=200'],
+      ['Spline',        'MOVS / Spline-Option je Controller'],
+      ['Bogen/Kreis',   'MOVC P3, P4, V=200'],
+      ['Stop',          'STOP / PAUSE'],
+      ['Digital I/O',   'DO[1]=ON / b = DI[1]'],
+      ['Analog I/O',    'AO[1]=5.0 / r = AI[1]'],
+      ['Wait',          'WAIT 0.5 / WAIT DI[1]=ON'],
+      ['Tool/Base',     'TOOL 1 / USER/BASE 1'],
+      ['Variablen',     'INT i / REAL r / BOOL b'],
+      ['CALL',          'CALL SUBPROG(i, r, b)'],
+    ],
+    example: 'PROGRAM PP_MAIN\nINT i\nTOOL 1\nMOVJ P1, VJ=50\nMOVL P2, V=200\nDO[1]=ON\nWAIT 0.5\nCALL SUBPROG(i,r,b)\nEND',
+    source: 'ESTUN Robot manuals; controller- und softwareabhängig',
+  },
+  neura: {
+    model: 'SDK/APP_TEMPLATE',
+    note: 'NEURA ist stärker API-/Teach-orientiert. Für den PP ist ein abstrakter Script-/API-Emitter sinnvoll; finale Syntax nur mit konkreter SDK-Version verbindlich.',
+    table: [
+      ['PTP / Joint',   'robot.moveJ(p1) / move_joint(p1)'],
+      ['Linear',        'robot.moveL(p2) / move_linear(p2)'],
+      ['Spline',        'trajectory/path API je SDK'],
+      ['Bogen/Kreis',   'robot.moveC(pMid,pEnd) falls SDK-Funktion'],
+      ['Stop',          'robot.stop() / stop_motion()'],
+      ['Digital I/O',   'robot.setDigitalOutput(1, True) / robot.digitalInput(1)'],
+      ['Analog I/O',    'robot.setAnalogOutput(1, 5.0) / robot.analogInput(1)'],
+      ['Wait',          'robot.sleep(0.5) / wait(condition)'],
+      ['Tool/Base',     'robot.setTool(tool1) / robot.setBase(base1)'],
+      ['Variablen',     'int i = 1 / double r / bool b'],
+      ['CALL',          'sub(i, r, b)'],
+    ],
+    example: 'def pp_main():\n robot.setTool(tool1)\n robot.moveJ(p1)\n robot.moveL(p2)\n robot.setDigitalOutput(1, True)\n robot.sleep(0.5)\nend',
+    source: 'NEURA Teach/SDK: öffentliche Detailsyntax versionsabhängig',
+  },
+  mabi: {
+    model: 'VENDOR_TEMPLATE',
+    note: 'Öffentliche Syntax ist nicht ausreichend belastbar. Der PP sollte als konfigurierbares Template mit separatem Header, Footer, Punktliste und Bewegungsinstruktionen aufgebaut werden.',
+    table: [
+      ['PTP / Joint',   'PTP/JMOVE P1 (nach Controller-Mapping)'],
+      ['Linear',        'LIN/LMOVE P2 (nach Controller-Mapping)'],
+      ['Spline',        'Nach Handbuch'],
+      ['Bogen/Kreis',   'ARC/CIRC P3, P4 nach Handbuch'],
+      ['Stop',          'STOP/HALT nach Handbuch'],
+      ['Digital I/O',   'SET_DO(1,TRUE) / GET_DI(1)'],
+      ['Analog I/O',    'SET_AO(1,5.0) / GET_AI(1)'],
+      ['Wait',          'WAIT 0.5 / WAIT_DI'],
+      ['Tool/Base',     'SET_TOOL(1) / SET_BASE(1)'],
+      ['Variablen',     'INT i / REAL r / BOOL b'],
+      ['CALL',          'CALL SUBPROG(i,r,b)'],
+    ],
+    example: 'PROGRAM PP_MAIN\nINT i\nSET_TOOL(1)\nSET_BASE(1)\nMoveJ(P1)\nMoveL(P2)\nSET_DO(1,TRUE)\nWAIT 0.5\nCALL SUBPROG(i,r,b)\nEND',
+    source: 'MABI: öffentliche Detailsyntax nicht ausreichend belastbar',
+  },
+};
+
+// Tab 5: Beschreibung rendern
+function fmtHfRenderDesc(id) {
+  var el = document.getElementById('fmt-pane-desc');
+  if (!el) return;
+  var d = FMT_DESCRIPTIONS[id];
+  if (!d) { el.innerHTML = '<div style="color:var(--txt3);padding:16px">Keine Beschreibung verfügbar.</div>'; return; }
+
+  var rows = d.table.map(function(r) {
+    return '<tr><td style="padding:4px 10px 4px 0;color:var(--txt2);white-space:nowrap">' + r[0] +
+           '</td><td style="padding:4px 0;color:#d4d4d4;font-family:monospace;font-size:.88em">' + r[1] + '</td></tr>';
+  }).join('');
+
+  el.innerHTML =
+    '<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">' +
+      '<span style="background:var(--bg3);color:var(--acc);border:1px solid var(--acc);border-radius:3px;padding:2px 8px;font-size:.8em;font-weight:700">' + d.model + '</span>' +
+    '</div>' +
+    '<div style="color:var(--txt2);font-size:.88em;margin-bottom:12px;line-height:1.5">' + d.note + '</div>' +
+    '<table style="width:100%;border-collapse:collapse;margin-bottom:14px">' + rows + '</table>' +
+    '<div style="color:var(--txt2);font-size:.82em;font-weight:600;margin-bottom:6px">Mini-Beispiel</div>' +
+    '<pre style="background:#1e1e1e;color:#d4d4d4;border:1px solid #474747;border-radius:3px;padding:10px 12px;font-size:.85em;line-height:1.5;overflow-x:auto;margin:0 0 10px">' +
+      d.example.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'\n') +
+    '</pre>' +
+    '<div style="color:var(--txt3);font-size:.75em">Quelle: ' + d.source + '</div>';
+}
+
 })();
 
 // ══════════════════════════════════════════════════════════════════════════
@@ -1595,7 +2008,7 @@ function _initFmtHfDrag() {
 var _fmtHfTab = 'hf';
 function fmtHfSwitchTab(tab) {
   _fmtHfTab = tab;
-  ['hf','move','io','vars'].forEach(function(t) {
+  ['hf','move','io','vars','desc'].forEach(function(t) {
     var btn = document.getElementById('fmt-tab-' + t);
     var pane = document.getElementById('fmt-pane-' + t);
     if (btn)  btn.style.borderBottom  = (t === tab) ? '2px solid var(--acc)' : '2px solid transparent';
@@ -1633,6 +2046,8 @@ function fmtHfOpenEditor() {
 
   // Ersten Tab aktivieren
   fmtHfSwitchTab('hf');
+  // Beschreibung für dieses Format vorab rendern
+  if (typeof fmtHfRenderDesc === 'function') fmtHfRenderDesc(activeId);
 
   // Popup positionieren
   var popup = document.getElementById('fmt-hf-popup');

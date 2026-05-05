@@ -88,6 +88,7 @@
           <button id="fmt-tab-move" style="background:none;border:none;border-bottom:2px solid transparent;color:var(--txt2);cursor:pointer;padding:8px 14px;font-family:monospace;font-size:.9em" onclick="fmtHfSwitchTab('move')">Bewegungen</button>
           <button id="fmt-tab-io"   style="background:none;border:none;border-bottom:2px solid transparent;color:var(--txt2);cursor:pointer;padding:8px 14px;font-family:monospace;font-size:.9em" onclick="fmtHfSwitchTab('io')">I/O &amp; Warten</button>
           <button id="fmt-tab-vars" style="background:none;border:none;border-bottom:2px solid transparent;color:var(--txt2);cursor:pointer;padding:8px 14px;font-family:monospace;font-size:.9em" onclick="fmtHfSwitchTab('vars')">Tool / Vars / CALL</button>
+          <button id="fmt-tab-desc" style="background:none;border:none;border-bottom:2px solid transparent;color:var(--txt2);cursor:pointer;padding:8px 14px;font-family:monospace;font-size:.9em" onclick="fmtHfSwitchTab('desc')">ℹ Beschreibung</button>
         </div>
         <!-- Pane: Kopf/Fuß -->
         <div id="fmt-pane-hf" style="max-height:420px;overflow-y:auto;padding:10px 20px 16px">
@@ -149,6 +150,9 @@
           <div style="color:var(--txt2);font-size:.82em;margin:8px 0 3px;font-weight:600">CALL Unterprogramm</div>
           <textarea id="fmt-cmd-call" rows="2" spellcheck="false" style="width:100%;background:#1e1e1e;color:#d4d4d4;border:1px solid #474747;border-radius:3px;padding:6px 10px;font-size:.88em;line-height:1.5;resize:vertical;box-sizing:border-box;font-family:monospace"></textarea>
           <div style="color:var(--txt3);font-size:.72em;margin-top:2px">{PROG} {ARGS}</div>
+        </div>
+        <!-- Pane: Beschreibung -->
+        <div id="fmt-pane-desc" style="max-height:480px;overflow-y:auto;padding:16px 20px;display:none;font-family:inherit">
         </div>
         <!-- Buttons -->
         <div style="display:flex;gap:10px;padding:12px 20px;border-top:1px solid var(--bdr)">
