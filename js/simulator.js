@@ -1621,125 +1621,88 @@ function ikCandidates(pos, prevAngles) {
   return cands;
 }
 
-function computeIKTable(positions) {
-  ikTable = [];
-  var N = positions.length;
-  if (!N) { buildTrajectory(positions, ikTable); return; }
-
-  // ── DPSolver ─────────────────────────────────────────────
-  // Schwellwert: bei > 150 Punkten → direkte IK mit Warm-Start (Performance)
-  var DP_MAX_POINTS = 150;
-  if (N > DP_MAX_POINTS) {
-
-    splashProgress && splashProgress(50, N + ' Punkte — Schnell-IK wird berechnet…');
-    var prevQ = jointAngles.slice();
-    if (parsedData.steps) {
-      for (var _si=0; _si<parsedData.steps.length; _si++) {
-        if (parsedData.steps[_si].type==='ptpAxis'&&parsedData.steps[_si].angles) { prevQ=parsedData.steps[_si].angles.slice(); break; }
-        if (parsedData.steps[_si].type==='move') break;
-      }
-    }
-    for (var pi=0; pi<N; pi++) {
-      var res = solveIKFast(positions[pi].X, positions[pi].Y, positions[pi].Z,
-                            positions[pi].A, positions[pi].B, positions[pi].C, prevQ);
-      var angles = res.ok ? res.angles : prevQ;
-      // Normalize to shortest path
-      angles = angles.map(function(v,j){ return prevQ[j] + shortestAngleDiff(prevQ[j], v); });
-      ikTable.push({ angles: angles, score: res.score, ok: res.ok });
-      prevQ = angles.slice();
-    }
-    buildTrajectory(positions, ikTable);
-    return;
+// Startkonfiguration aus parsedData ermitteln (letzter PTP vor ersten LIN)
+function _ikGetStartQ() {
+  var q = jointAngles.slice();
+  if (!parsedData.steps) return q;
+  for (var i = 0; i < parsedData.steps.length; i++) {
+    var s = parsedData.steps[i];
+    if (s.type === 'ptpAxis' && s.angles) q = s.angles.slice();
+    if (s.type === 'move') break;
   }
-  try {
-    // Arc-length s for each position
-    var arcS = [0];
-    for (var pi = 1; pi < N; pi++) {
-      var p0=positions[pi-1], p1=positions[pi];
-      var dx=p1.X-p0.X, dy=p1.Y-p0.Y, dz=p1.Z-p0.Z;
-      arcS.push(arcS[pi-1]+Math.sqrt(dx*dx+dy*dy+dz*dz));
-    }
-    var targetPts = positions.map(function(p,i){ return {s:arcS[i],X:p.X,Y:p.Y,Z:p.Z,A:p.A,B:p.B,C:p.C}; });
-    // qStart: letzter PTP-Achswinkel vor den LIN-Positionen
-    var qStart = jointAngles.slice();
-    if (parsedData.steps) {
-      for (var si = 0; si < parsedData.steps.length; si++) {
-        var step = parsedData.steps[si];
-        if (step.type === 'ptpAxis' && step.angles) {
-          qStart = step.angles.slice();  // letzten PTP merken
-        }
-        if (step.type === 'move') break; // Erster LIN → stopp
-      }
-    }
-    var result = DPSolver.plan(targetPts, qStart);
+  return q;
+}
 
-    // ikTable aus DP raw path (Konfigurationswahl)
-    for (var pi2 = 0; pi2 < N; pi2++) {
-      var rp = result.rawPath[pi2] || result.rawPath[result.rawPath.length-1];
-      ikTable.push({ angles: rp.q.slice(), ok: true, score: 0 });
-    }
-
-    // Trajektorie: lineare Interpolation im kartesischen Raum (LIN-Semantik!)
-    // Gelenkwinkel werden zwischen den DP-Konfigurationen interpoliert
-    buildTrajectory(positions, ikTable);
-    return;
-
-  } catch(e) {
-    console.warn('DPSolver Fehler, Fallback:', e.message);
-  }
-
-  // ── Fallback: alter DP-Planer ─────────────────────────────
-
-  // Schritt 1: Kandidaten für jede Position generieren
-  var allCands = [];
-  var prevAngles = jointAngles.slice();
+// Pfad 1: Warm-Start IK für große Punktmengen (> 150 Punkte)
+function _ikTableWarmStart(positions, N) {
+  splashProgress && splashProgress(50, N + ' Punkte — Schnell-IK wird berechnet…');
+  var prevQ = _ikGetStartQ();
   for (var i = 0; i < N; i++) {
-    var cands = ikCandidates(positions[i], prevAngles);
+    var p = positions[i];
+    var res = solveIKFast(p.X, p.Y, p.Z, p.A, p.B, p.C, prevQ);
+    var angles = (res.ok ? res.angles : prevQ)
+      .map(function(v, j) { return prevQ[j] + shortestAngleDiff(prevQ[j], v); });
+    ikTable.push({ angles: angles, score: res.score, ok: res.ok });
+    prevQ = angles.slice();
+  }
+}
+
+// Pfad 2: DPSolver (kompakter globaler Optimierer)
+function _ikTableDPSolver(positions, N) {
+  var arcS = [0];
+  for (var i = 1; i < N; i++) {
+    var p0 = positions[i-1], p1 = positions[i];
+    var dx = p1.X-p0.X, dy = p1.Y-p0.Y, dz = p1.Z-p0.Z;
+    arcS.push(arcS[i-1] + Math.sqrt(dx*dx+dy*dy+dz*dz));
+  }
+  var targetPts = positions.map(function(p, i) {
+    return {s:arcS[i], X:p.X, Y:p.Y, Z:p.Z, A:p.A, B:p.B, C:p.C};
+  });
+  var result = DPSolver.plan(targetPts, _ikGetStartQ());
+  for (var i = 0; i < N; i++) {
+    var rp = result.rawPath[i] || result.rawPath[result.rawPath.length-1];
+    ikTable.push({ angles: rp.q.slice(), ok: true, score: 0 });
+  }
+}
+
+// Pfad 3: Fallback — manueller DP-Planer mit Kandidaten
+function _ikTableFallbackDP(positions, N) {
+  // Kandidaten pro Position erzeugen
+  var allCands = [];
+  var prevQ = jointAngles.slice();
+  for (var i = 0; i < N; i++) {
+    var p = positions[i];
+    var cands = ikCandidates(p, prevQ);
     if (!cands.length) {
-      // Fallback: normaler Solver
-      var res = solveIK(positions[i].X, positions[i].Y, positions[i].Z,
-                        positions[i].A, positions[i].B, positions[i].C, prevAngles);
+      var res = solveIK(p.X, p.Y, p.Z, p.A, p.B, p.C, prevQ);
       cands = [{ angles: res.angles, score: res.score }];
     }
     allCands.push(cands);
-    if (cands.length) prevAngles = cands[0].angles.slice();
+    prevQ = cands[0].angles.slice();
   }
 
-  // Schritt 2: Dynamic Programming — globaler Pfad
+  // DP forward pass
   var INF = 1e12;
-  // dp[i][j] = { cost, prevJ }
   var dp = allCands.map(function(c) {
     return c.map(function() { return { cost: INF, prevJ: -1 }; });
   });
-
-  // Init: erste Position kostet 0
-  for (var j0 = 0; j0 < allCands[0].length; j0++) {
-    dp[0][j0].cost = ikCost(jointAngles, allCands[0][j0].angles);
+  for (var j = 0; j < allCands[0].length; j++) {
+    dp[0][j].cost = ikCost(jointAngles, allCands[0][j].angles);
   }
-
-  // Forward pass
   for (var i = 1; i < N; i++) {
     for (var j = 0; j < allCands[i].length; j++) {
       for (var k = 0; k < allCands[i-1].length; k++) {
         var c = dp[i-1][k].cost + ikCost(allCands[i-1][k].angles, allCands[i][j].angles);
-        if (c < dp[i][j].cost) {
-          dp[i][j].cost = c;
-          dp[i][j].prevJ = k;
-        }
+        if (c < dp[i][j].cost) { dp[i][j].cost = c; dp[i][j].prevJ = k; }
       }
     }
   }
 
-  // Backward pass: besten Endpunkt finden
+  // Besten Endknoten wählen + Pfad zurückverfolgen
   var bestJ = 0, bestCost = INF;
   for (var j = 0; j < allCands[N-1].length; j++) {
-    if (dp[N-1][j].cost < bestCost) {
-      bestCost = dp[N-1][j].cost;
-      bestJ = j;
-    }
+    if (dp[N-1][j].cost < bestCost) { bestCost = dp[N-1][j].cost; bestJ = j; }
   }
-
-  // Pfad zurückverfolgen
   var path = new Array(N);
   var cur = bestJ;
   for (var i = N-1; i >= 0; i--) {
@@ -1748,13 +1711,30 @@ function computeIKTable(positions) {
     if (cur < 0) cur = 0;
   }
 
-  // IK-Tabelle aus DP-Pfad aufbauen
   for (var i = 0; i < N; i++) {
     var cand = allCands[i][path[i]];
     ikTable.push({ angles: cand.angles, score: cand.score, ok: cand.score < 20 });
   }
+}
 
-  // Build trajectory after IK table is ready
+function computeIKTable(positions) {
+  ikTable = [];
+  var N = positions.length;
+  if (!N) { buildTrajectory(positions, ikTable); return; }
+
+  if (N > 150) {
+    _ikTableWarmStart(positions, N);
+    buildTrajectory(positions, ikTable);
+    return;
+  }
+
+  try {
+    _ikTableDPSolver(positions, N);
+  } catch(e) {
+    console.warn('DPSolver Fehler, Fallback:', e.message);
+    _ikTableFallbackDP(positions, N);
+  }
+
   buildTrajectory(positions, ikTable);
 }
 
@@ -3701,24 +3681,12 @@ function _aPlotCalcDists(pos) {
   }
 }
 
-function aPlotDraw() {
-  var canvas = document.getElementById('aplot-canvas');
-  var panel  = document.getElementById('aplot-panel');
-  if (!canvas || !panel || panel.style.display === 'none') return;
-  var pos = (parsedData && parsedData.positions) ? parsedData.positions : [];
-  var W = canvas.width, H = canvas.height;
-  var ML=56, MT=14, MR=10, MB=30;
-  var CW = W-ML-MR, CH = H-MT-MB;
-  var ctx = canvas.getContext('2d');
-  ctx.clearRect(0, 0, W, H);
+// ── aPlot Zeichenhilfen ──────────────────────────────────────────────────────
 
-  // Hintergrund
+function _aPlotDrawBackground(ctx, ML, MT, CW, CH, W, H) {
+  const AMIN = -360, ARNG = 720;
   ctx.fillStyle = '#07111a'; ctx.fillRect(0, 0, W, H);
   ctx.fillStyle = '#0b1925'; ctx.fillRect(ML, MT, CW, CH);
-
-  var AMIN = -360, AMAX = 360, ARNG = 720;
-
-  // Horizontale Gitterlinien + Y-Beschriftung
   ctx.font = '10px monospace';
   [-360,-270,-180,-90,0,90,180,270,360].forEach(function(deg) {
     var yp = MT + (1 - (deg - AMIN) / ARNG) * CH;
@@ -3726,33 +3694,20 @@ function aPlotDraw() {
     ctx.strokeStyle = isZero ? '#1d4060' : '#0d2030';
     ctx.lineWidth = (isZero || is180) ? 1 : 0.5;
     ctx.beginPath(); ctx.moveTo(ML, yp); ctx.lineTo(ML + CW, yp); ctx.stroke();
-    ctx.fillStyle  = isZero ? '#70b0d0' : is180 ? '#4a8090' : '#2a5060';
-    ctx.textAlign  = 'right';
+    ctx.fillStyle = isZero ? '#70b0d0' : is180 ? '#4a8090' : '#2a5060';
+    ctx.textAlign = 'right';
     ctx.fillText(deg + '°', ML - 4, yp + 3.5);
   });
-
-  // Y-Achsenbeschriftung (rotiert)
   ctx.save();
   ctx.translate(10, MT + CH / 2);
   ctx.rotate(-Math.PI / 2);
   ctx.fillStyle = '#4a8090'; ctx.font = '10px monospace'; ctx.textAlign = 'center';
   ctx.fillText('A (Rz) [°]', 0, 0);
   ctx.restore();
+}
 
-  if (!pos.length) {
-    ctx.fillStyle = '#3a6080'; ctx.font = '13px monospace'; ctx.textAlign = 'center';
-    ctx.fillText('Kein Programm geladen', W / 2, H / 2);
-    return;
-  }
-
-  _aPlotCalcDists(pos);
-  var total = _aPlotDists[_aPlotDists.length - 1] || 1;
-  _aPlotML=ML; _aPlotMT=MT; window._aPlotCW=CW; window._aPlotCH=CH;
-  window._aPlotTotal=total; window._aPlotPos=pos;
-
-  // Vertikale Gitterlinien + X-Beschriftung (Distanz)
-  var xSteps = Math.min(8, pos.length - 1);
-  if (xSteps < 1) xSteps = 1;
+function _aPlotDrawVerticalGrid(ctx, ML, MT, CW, CH, pos, total) {
+  var xSteps = Math.max(1, Math.min(8, pos.length - 1));
   for (var xs = 0; xs <= xSteps; xs++) {
     var xf  = xs / xSteps;
     var xpx = ML + xf * CW;
@@ -3761,174 +3716,182 @@ function aPlotDraw() {
     ctx.fillStyle = '#3a6080'; ctx.textAlign = 'center'; ctx.font = '10px monospace';
     ctx.fillText((xf * total / 1000).toFixed(2) + 'm', xpx, MT + CH + 18);
   }
-
-  // Rahmen
   ctx.strokeStyle = '#2a5070'; ctx.lineWidth = 1;
   ctx.strokeRect(ML, MT, CW, CH);
+}
 
-  // Gelbe Bänder: unlösbare A-Bereiche je Wegpunkt
-  if (_aPlotReach && _aPlotReach.length > 0) { var _reachN = Math.min(_aPlotReach.length, pos.length);
-    var ASTEP = 6, NSTEPS = Math.round(720 / ASTEP); // -360..+360
-    for (var ri = 0; ri < _reachN; ri++) {
-      var reach = _aPlotReach[ri];
-      if (!reach) continue;
-      var x0 = ri > 0 ? ML + (_aPlotDists[ri-1] / total) * CW : ML;
-      var x1 = ri < pos.length-1 ? ML + (_aPlotDists[ri+1] / total) * CW : ML + CW;
-      var xMid = ML + (_aPlotDists[ri] / total) * CW;
-      var xL = (x0 + xMid) / 2, xR = (xMid + x1) / 2;
-      if (ri === 0) xL = ML;
-      if (ri === pos.length-1) xR = ML + CW;
-      ctx.save();
-      ctx.beginPath(); ctx.rect(xL, MT, xR - xL, CH); ctx.clip();
-      for (var si = 0; si < NSTEPS; si++) {
-        if (reach[si]) continue; // lösbar
-        var aLo = -360 + si * ASTEP, aHi = aLo + ASTEP;
-        var yTop = MT + (1 - (aHi - AMIN) / ARNG) * CH;
-        var yBot = MT + (1 - (aLo - AMIN) / ARNG) * CH;
-        ctx.fillStyle = 'rgba(200,160,0,0.18)';
-        ctx.fillRect(xL, yTop, xR - xL, yBot - yTop);
-      }
-      ctx.restore();
+function _aPlotDrawReachBands(ctx, ML, MT, CW, CH, pos, total) {
+  if (!_aPlotReach || !_aPlotReach.length) return;
+  const AMIN = -360, ARNG = 720, ASTEP = 6, NSTEPS = Math.round(720 / ASTEP);
+  var reachN = Math.min(_aPlotReach.length, pos.length);
+  for (var ri = 0; ri < reachN; ri++) {
+    var reach = _aPlotReach[ri]; if (!reach) continue;
+    var xMid = ML + (_aPlotDists[ri] / total) * CW;
+    var xL = ri === 0 ? ML : (ML + (_aPlotDists[ri-1] / total) * CW + xMid) / 2;
+    var xR = ri === pos.length-1 ? ML+CW : (xMid + ML + (_aPlotDists[ri+1] / total) * CW) / 2;
+    ctx.save();
+    ctx.beginPath(); ctx.rect(xL, MT, xR - xL, CH); ctx.clip();
+    for (var si = 0; si < NSTEPS; si++) {
+      if (reach[si]) continue;
+      var yTop = MT + (1 - (-360 + (si+1)*ASTEP - AMIN) / ARNG) * CH;
+      var yBot = MT + (1 - (-360 + si*ASTEP   - AMIN) / ARNG) * CH;
+      ctx.fillStyle = 'rgba(200,160,0,0.18)';
+      ctx.fillRect(xL, yTop, xR - xL, yBot - yTop);
     }
-    // Legende
-    ctx.fillStyle = 'rgba(200,160,0,0.5)'; ctx.fillRect(ML+4, MT+4, 10, 8);
-    ctx.fillStyle = '#aaa080'; ctx.font = '9px monospace'; ctx.textAlign = 'left';
-    ctx.fillText('keine IK-Lösung', ML+17, MT+11);
+    ctx.restore();
   }
+  ctx.fillStyle = 'rgba(200,160,0,0.5)'; ctx.fillRect(ML+4, MT+4, 10, 8);
+  ctx.fillStyle = '#aaa080'; ctx.font = '9px monospace'; ctx.textAlign = 'left';
+  ctx.fillText('keine IK-Lösung', ML+17, MT+11);
+}
 
-  // A-Winkel Linie
+function _aPlotDrawCurves(ctx, ML, MT, CW, CH, pos, total) {
+  const AMIN = -360, ARNG = 720;
+  var xp = function(i) { return ML + (_aPlotDists[i] / total) * CW; };
+  var yp = function(a) { return MT + (1 - (a - AMIN) / ARNG) * CH; };
+  // Originallinie (orange)
   ctx.beginPath(); ctx.strokeStyle = '#f05500'; ctx.lineWidth = 2;
-  pos.forEach(function(p, i) {
-    var xp = ML + (_aPlotDists[i] / total) * CW;
-    var yp = MT + (1 - (p.A - AMIN) / ARNG) * CH;
-    if (i === 0) ctx.moveTo(xp, yp); else ctx.lineTo(xp, yp);
-  });
+  pos.forEach(function(p, i) { i===0 ? ctx.moveTo(xp(i),yp(p.A)) : ctx.lineTo(xp(i),yp(p.A)); });
   ctx.stroke();
-
-  // Wegpunkte als Punkte (original + editiert)
+  // Wegpunkte
   pos.forEach(function(p, i) {
-    var aVal = (_aPlotEdits[i] !== undefined) ? _aPlotEdits[i] : p.A;
-    var xp = ML + (_aPlotDists[i] / total) * CW;
-    var yp = MT + (1 - (aVal - AMIN) / ARNG) * CH;
+    var a = (_aPlotEdits[i] !== undefined) ? _aPlotEdits[i] : p.A;
     ctx.fillStyle = (_aPlotEdits[i] !== undefined) ? '#ffee00' : '#ff8800';
-    ctx.beginPath(); ctx.arc(xp, yp, 4, 0, 2 * Math.PI); ctx.fill();
+    ctx.beginPath(); ctx.arc(xp(i), yp(a), 4, 0, 2*Math.PI); ctx.fill();
   });
-
-  // Editierte Linie (gelb) überzeichnen
+  // Editierte Linie (gelb gestrichelt)
   if (Object.keys(_aPlotEdits).length > 0) {
     ctx.beginPath(); ctx.strokeStyle = '#ffee00'; ctx.lineWidth = 1.5; ctx.setLineDash([4,3]);
     pos.forEach(function(p, i) {
-      var aVal = (_aPlotEdits[i] !== undefined) ? _aPlotEdits[i] : p.A;
-      var xp = ML + (_aPlotDists[i] / total) * CW;
-      var yp = MT + (1 - (aVal - AMIN) / ARNG) * CH;
-      if (i === 0) ctx.moveTo(xp, yp); else ctx.lineTo(xp, yp);
+      var a = (_aPlotEdits[i] !== undefined) ? _aPlotEdits[i] : p.A;
+      i===0 ? ctx.moveTo(xp(i),yp(a)) : ctx.lineTo(xp(i),yp(a));
     });
     ctx.stroke(); ctx.setLineDash([]);
   }
+}
 
-  // ── Singularitäten: punktuelle Marker am aktuellen A-Wert ──
-  // + Im Reachability-Scan: erreichbare aber singuläre A-Werte als Punkte
-  var SING_LCOL = { wrist:'#ffb400', shoulder:'#dc3232', elbow:'#32b4dc' };
-  var SING_LBL  = { wrist:'Handgelenk', shoulder:'Schulter', elbow:'Ellbogen' };
+function _aPlotDrawSingMarkers(ctx, ML, MT, CW, CH, pos, total) {
+  if (typeof classifySingTypes !== 'function' || !pos.length) return;
+  const AMIN = -360, ARNG = 720;
+  const SING_LCOL = { wrist:'#ffb400', shoulder:'#dc3232', elbow:'#32b4dc' };
+  const SING_LBL  = { wrist:'Handgelenk', shoulder:'Schulter', elbow:'Ellbogen' };
+  ctx.save();
+  var legendTypes = {};
 
-  if (typeof classifySingTypes === 'function' && pos.length) {
-    ctx.save();
-    var legendTypes = {};
-
-    // ── A: Reachability-Scan → singuläre Punkte je A-Wert ──────
-    // (erweitert _aPlotReach um Singularitätsinformation)
-    if (_aPlotReach && _aPlotReach.length === pos.length &&
-        typeof _aPlotReachAngles !== 'undefined' && _aPlotReachAngles) {
-      var ASTEP2 = 6, NSTEPS2 = Math.round(720 / ASTEP2);
-      for (var ri = 0; ri < pos.length; ri++) {
-        var x0 = ri > 0 ? ML+(_aPlotDists[ri-1]/total)*CW : ML;
-        var x1 = ri < pos.length-1 ? ML+(_aPlotDists[ri+1]/total)*CW : ML+CW;
-        var xMid = ML+(_aPlotDists[ri]/total)*CW;
-        var xL = (x0+xMid)/2, xR = (xMid+x1)/2;
-        if (ri===0) xL=ML; if (ri===pos.length-1) xR=ML+CW;
-        for (var si2 = 0; si2 < NSTEPS2; si2++) {
-          if (!_aPlotReach[ri][si2]) continue; // nicht erreichbar
-          var angEntry = _aPlotReachAngles[ri] && _aPlotReachAngles[ri][si2];
-          if (!angEntry) continue;
-          var stypes = classifySingTypes(angEntry);
-          if (!stypes.length) continue;
-          var aVal2 = -360 + si2*ASTEP2;
-          var yp2 = MT + (1-(aVal2-AMIN)/ARNG)*CH;
-          stypes.forEach(function(t) {
-            legendTypes[t] = true;
-            ctx.fillStyle = SING_LCOL[t];
-            ctx.globalAlpha = 0.7;
-            ctx.beginPath();
-            ctx.arc((xL+xR)/2, yp2, 2.5, 0, 2*Math.PI);
-            ctx.fill();
-          });
-        }
-      }
-      ctx.globalAlpha = 1;
-    }
-
-    // ── B: Aktueller Pfad (ikTable) → Raute-Symbol am A-Wert ───
-    if (typeof ikTable !== 'undefined' && ikTable.length > 0) {
-      var _singN = Math.min(ikTable.length, pos.length);
-      for (var si = 0; si < _singN; si++) {
-        var ik = ikTable[si]; if (!ik || !ik.angles) continue;
-        var stypes = classifySingTypes(ik.angles);
+  // Reachability-Scan: singuläre erreichbare A-Werte
+  if (_aPlotReach && _aPlotReach.length === pos.length &&
+      typeof _aPlotReachAngles !== 'undefined' && _aPlotReachAngles) {
+    var ASTEP = 6, NSTEPS = Math.round(720 / ASTEP);
+    for (var ri = 0; ri < pos.length; ri++) {
+      var xMid = ML + (_aPlotDists[ri] / total) * CW;
+      var xL = ri===0 ? ML : (ML+(_aPlotDists[ri-1]/total)*CW + xMid)/2;
+      var xR = ri===pos.length-1 ? ML+CW : (xMid + ML+(_aPlotDists[ri+1]/total)*CW)/2;
+      for (var si = 0; si < NSTEPS; si++) {
+        if (!_aPlotReach[ri][si]) continue;
+        var ang = _aPlotReachAngles[ri] && _aPlotReachAngles[ri][si];
+        if (!ang) continue;
+        var stypes = classifySingTypes(ang);
         if (!stypes.length) continue;
-        var xpS = ML + (_aPlotDists[si]/total)*CW;
-        var aVal = pos[si].A;
-        var ypS = MT + (1-(aVal-AMIN)/ARNG)*CH;
+        var yp = MT + (1 - (-360 + si*ASTEP - AMIN) / ARNG) * CH;
         stypes.forEach(function(t) {
           legendTypes[t] = true;
-          // Raute ◇
-          var r = 6;
-          ctx.fillStyle = SING_LCOL[t];
-          ctx.strokeStyle = '#000';
-          ctx.lineWidth = 0.5;
-          ctx.beginPath();
-          ctx.moveTo(xpS, ypS-r); ctx.lineTo(xpS+r, ypS);
-          ctx.lineTo(xpS, ypS+r); ctx.lineTo(xpS-r, ypS);
-          ctx.closePath(); ctx.fill(); ctx.stroke();
+          ctx.fillStyle = SING_LCOL[t]; ctx.globalAlpha = 0.7;
+          ctx.beginPath(); ctx.arc((xL+xR)/2, yp, 2.5, 0, 2*Math.PI); ctx.fill();
         });
       }
     }
+    ctx.globalAlpha = 1;
+  }
 
-    // ── Legende ──────────────────────────────────────────────
-    ctx.font = '9px monospace';
-    var lx2 = ML+CW-4, ly2 = MT+CH-4;
-    var legItems = ['elbow','shoulder','wrist'].filter(function(t){ return legendTypes[t]; });
-    legItems.forEach(function(t, i) {
-      var yy = ly2-i*13;
+  // Aktueller Pfad (ikTable): Raute-Symbole
+  if (typeof ikTable !== 'undefined' && ikTable.length > 0) {
+    var singN = Math.min(ikTable.length, pos.length);
+    for (var i = 0; i < singN; i++) {
+      var ik = ikTable[i]; if (!ik || !ik.angles) continue;
+      var stypes = classifySingTypes(ik.angles);
+      if (!stypes.length) continue;
+      var xpS = ML + (_aPlotDists[i] / total) * CW;
+      var ypS = MT + (1 - (pos[i].A - AMIN) / ARNG) * CH;
+      stypes.forEach(function(t) {
+        legendTypes[t] = true;
+        var r = 6;
+        ctx.fillStyle = SING_LCOL[t]; ctx.strokeStyle = '#000'; ctx.lineWidth = 0.5;
+        ctx.beginPath();
+        ctx.moveTo(xpS, ypS-r); ctx.lineTo(xpS+r, ypS);
+        ctx.lineTo(xpS, ypS+r); ctx.lineTo(xpS-r, ypS);
+        ctx.closePath(); ctx.fill(); ctx.stroke();
+      });
+    }
+  }
+
+  // Legende
+  ctx.font = '9px monospace';
+  var lx = ML+CW-4, ly = MT+CH-4;
+  ['elbow','shoulder','wrist'].filter(function(t){ return legendTypes[t]; })
+    .forEach(function(t, i) {
+      var yy = ly - i*13;
       ctx.fillStyle = SING_LCOL[t]; ctx.globalAlpha = 0.85;
       ctx.beginPath();
-      ctx.moveTo(lx2-78, yy-6); ctx.lineTo(lx2-74, yy-2);
-      ctx.lineTo(lx2-78, yy+2); ctx.lineTo(lx2-82, yy-2);
-      ctx.closePath(); ctx.fill(); ctx.globalAlpha=1;
-      ctx.fillStyle = SING_LCOL[t]; ctx.textAlign='left';
-      ctx.fillText(SING_LBL[t], lx2-70, yy);
+      ctx.moveTo(lx-78,yy-6); ctx.lineTo(lx-74,yy-2);
+      ctx.lineTo(lx-78,yy+2); ctx.lineTo(lx-82,yy-2);
+      ctx.closePath(); ctx.fill(); ctx.globalAlpha = 1;
+      ctx.fillStyle = SING_LCOL[t]; ctx.textAlign = 'left';
+      ctx.fillText(SING_LBL[t], lx-70, yy);
     });
-    ctx.restore();
+  ctx.restore();
+}
+
+function _aPlotDrawCursor(ctx, ML, MT, CW, CH, pos, total) {
+  if (typeof sim === 'undefined' || pos.length < 2) return;
+  const AMIN = -360, ARNG = 720;
+  var N  = pos.length;
+  var i0 = Math.max(0, Math.min(N-1, Math.floor(sim.t)));
+  var i1 = Math.min(i0+1, N-1);
+  var fr = sim.t - i0;
+  var cd = _aPlotDists[i0] + (_aPlotDists[i1] - _aPlotDists[i0]) * fr;
+  var ca = pos[i0].A + (pos[i1].A - pos[i0].A) * fr;
+  var cx = ML + (cd / total) * CW;
+  var cy = MT + (1 - (ca - AMIN) / ARNG) * CH;
+  ctx.strokeStyle = 'rgba(0,200,255,0.55)'; ctx.lineWidth = 1; ctx.setLineDash([4,3]);
+  ctx.beginPath(); ctx.moveTo(cx, MT); ctx.lineTo(cx, MT+CH); ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.fillStyle = '#00ccff';
+  ctx.beginPath(); ctx.arc(cx, cy, 4, 0, 2*Math.PI); ctx.fill();
+  var info = document.getElementById('aplot-info');
+  if (info) info.textContent = 'A = ' + ca.toFixed(2) + '°  ·  Pos ' + (i0+1) + '/' + N + '  ·  ' + (cd/1000).toFixed(3) + ' m';
+}
+
+// ── aPlotDraw: Koordinator ───────────────────────────────────────────────────
+function aPlotDraw() {
+  var canvas = document.getElementById('aplot-canvas');
+  var panel  = document.getElementById('aplot-panel');
+  if (!canvas || !panel || panel.style.display === 'none') return;
+
+  var W = canvas.width, H = canvas.height;
+  var ML=56, MT=14, MR=10, MB=30;
+  var CW = W-ML-MR, CH = H-MT-MB;
+  var ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, W, H);
+
+  _aPlotDrawBackground(ctx, ML, MT, CW, CH, W, H);
+
+  var pos = (parsedData && parsedData.positions) ? parsedData.positions : [];
+  if (!pos.length) {
+    ctx.fillStyle = '#3a6080'; ctx.font = '13px monospace'; ctx.textAlign = 'center';
+    ctx.fillText('Kein Programm geladen', W/2, H/2);
+    return;
   }
 
-  // Simulations-Cursor
-  if (typeof sim !== 'undefined' && pos.length >= 2) {
-    var t  = sim.t;
-    var N  = pos.length;
-    var i0 = Math.max(0, Math.min(N - 1, Math.floor(t)));
-    var i1 = Math.min(i0 + 1, N - 1);
-    var fr = t - i0;
-    var cd = _aPlotDists[i0] + (_aPlotDists[i1] - _aPlotDists[i0]) * fr;
-    var ca = pos[i0].A + (pos[i1].A - pos[i0].A) * fr;
-    var cx = ML + (cd / total) * CW;
-    var cy = MT + (1 - (ca - AMIN) / ARNG) * CH;
-    ctx.strokeStyle = 'rgba(0,200,255,0.55)'; ctx.lineWidth = 1;
-    ctx.setLineDash([4, 3]);
-    ctx.beginPath(); ctx.moveTo(cx, MT); ctx.lineTo(cx, MT + CH); ctx.stroke();
-    ctx.setLineDash([]);
-    ctx.fillStyle = '#00ccff';
-    ctx.beginPath(); ctx.arc(cx, cy, 4, 0, 2 * Math.PI); ctx.fill();
-    var info = document.getElementById('aplot-info');
-    if (info) info.textContent = 'A = ' + ca.toFixed(2) + '°  ·  Pos ' + (i0 + 1) + '/' + N + '  ·  ' + (cd / 1000).toFixed(3) + ' m';
-  }
+  _aPlotCalcDists(pos);
+  var total = _aPlotDists[_aPlotDists.length-1] || 1;
+  _aPlotML=ML; _aPlotMT=MT; window._aPlotCW=CW; window._aPlotCH=CH;
+  window._aPlotTotal=total; window._aPlotPos=pos;
+
+  _aPlotDrawVerticalGrid(ctx, ML, MT, CW, CH, pos, total);
+  _aPlotDrawReachBands(ctx, ML, MT, CW, CH, pos, total);
+  _aPlotDrawCurves(ctx, ML, MT, CW, CH, pos, total);
+  _aPlotDrawSingMarkers(ctx, ML, MT, CW, CH, pos, total);
+  _aPlotDrawCursor(ctx, ML, MT, CW, CH, pos, total);
 }
 
 // Map Canvas Drag: A-Wert eines Punktes ändern
