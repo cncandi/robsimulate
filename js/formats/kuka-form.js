@@ -92,8 +92,8 @@ var FV_SYSVARS = [
     getVal: function(t){ var m=t.match(/^\$OUT\[(\d+)\]\s*=\s*(TRUE|FALSE|ON|OFF|1|0)/i); return m?{n:parseInt(m[1]),v:m[2].toUpperCase()}:{n:1,v:'TRUE'}; },
     toKRL: function(n,v){ return '$OUT['+n+']='+v; },
     ioType:'dout' },
-  { rx: /^\$IN\[(\d+)\]/i, id:'din', label:'Digitaler Eingang', color:'#8888cc',
-    getVal: function(t){ var m=t.match(/^\$IN\[(\d+)\]/i); return m?{n:parseInt(m[1])}:{n:1}; },
+  { rx: /^;?\s*\$IN\[(\d+)\]/i, id:'din', label:'Digitaler Eingang', color:'#8888cc',
+    getVal: function(t){ var m=t.match(/^;?\s*\$IN\[(\d+)\]/i); return m?{n:parseInt(m[1])}:{n:1}; },
     toKRL: function(n){ return '$IN['+n+']'; },
     ioType:'din' },
   // Analoge I/O
@@ -101,8 +101,8 @@ var FV_SYSVARS = [
     getVal: function(t){ var m=t.match(/^\$ANOUT\[(\d+)\]\s*=\s*([\d.\-+]+)/i); return m?{n:parseInt(m[1]),v:parseFloat(m[2])}:{n:1,v:0}; },
     toKRL: function(n,v){ return '$ANOUT['+n+']='+parseFloat(v).toFixed(2); },
     ioType:'aout' },
-  { rx: /^\$ANIN\[(\d+)\]/i, id:'ain', label:'Analoger Eingang', unit:'V', color:'#8888cc',
-    getVal: function(t){ var m=t.match(/^\$ANIN\[(\d+)\]/i); return m?{n:parseInt(m[1])}:{n:1}; },
+  { rx: /^;?\s*\$ANIN\[(\d+)\]/i, id:'ain', label:'Analoger Eingang', unit:'V', color:'#8888cc',
+    getVal: function(t){ var m=t.match(/^;?\s*\$ANIN\[(\d+)\]/i); return m?{n:parseInt(m[1])}:{n:1}; },
     toKRL: function(n){ return '$ANIN['+n+']'; },
     ioType:'ain' },
   // Variablen
@@ -827,13 +827,13 @@ function fvToolbarInit() {
     },
     { id:'digital', icon: ICONS.digital, label:'Digital', color:'#8888ee',
       items: [
-        { label:'Eingang', badge:'DIN',  bc:'#8888cc', bcolor:'#fff', insert: '; $IN[1]  ; lesen: IF $IN[1] THEN ...' },
+        { label:'Eingang', badge:'DIN',  bc:'#8888cc', bcolor:'#fff', insert: '$IN[1]' },
         { label:'Ausgang', badge:'DOUT', bc:'#cc8800', bcolor:'#fff', insert: '$OUT[1]=TRUE' },
       ]
     },
     { id:'analog', icon: ICONS.analog, label:'Analog', color:'#cc8800',
       items: [
-        { label:'Eingang', badge:'AIN',  bc:'#8888cc', bcolor:'#fff', insert: '; $ANIN[1]  ; lesen in Variable' },
+        { label:'Eingang', badge:'AIN',  bc:'#8888cc', bcolor:'#fff', insert: '$ANIN[1]' },
         { label:'Ausgang', badge:'AOUT', bc:'#cc8800', bcolor:'#fff', insert: '$ANOUT[1]=0.0' },
       ]
     },
@@ -893,9 +893,9 @@ var fvTbTemplates = {
   process_0: '$VEL.CP=0.167',
   process_1: '$VEL.PTP=100',
   process_2: '$ACC.CP=1.0',
-  digital_0: '; $IN[1]',
+  digital_0: '$IN[1]',
   digital_1: '$OUT[1]=TRUE',
-  analog_0:  '; $ANIN[1]',
+  analog_0:  '$ANIN[1]',
   analog_1:  '$ANOUT[1]=0.0',
   data_0:    '$TOOL=TOOL_DATA[24]',
   data_1:    '$BASE = BASE_DATA[1]',
