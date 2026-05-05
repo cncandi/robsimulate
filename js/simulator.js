@@ -1,4 +1,4 @@
-const APP_VERSION = 'V0.64';
+const APP_VERSION = 'V0.77';
 
 
 // ── Splash Screen ─────────────────────────────────────────────
@@ -131,249 +131,189 @@ function solve6x6(A, b) {
   return x;
 }
 
+const R2DEG = 180 / Math.PI;
+
+// ── Levenberg-Marquardt Kern ─────────────────────────────────────────────────
+// cfg:
+//   tp            [x,y,z]       Zielposition
+//   Rt            3×3 Matrix    Zielorientierung (null wenn posOnly)
+//   starts        Array         Start-Gelenkwinkel-Arrays
+//   dt            number        Jacobian-Schrittweite
+//   lam           number        LM-Dämpfung
+//   tolP/tolO     number        Positions-/Orientierungstoleranz
+//   maxIter       number        Max. Iterationen
+//   stepMax       number        Max. Schrittweite
+//   stepScale     number        step = min(stepMax, stepScale/max(1,score))
+//   earlyStop     number        Bricht ab wenn score < (tolP+tolO)*earlyStop (0=aus)
+//   okThresh      number        ok=true wenn score < okThresh
+//   posOnly       bool          Nur Positionsfehler, 3D-Jacobian (default false)
+//   a6penalty     {target,weight} Soft-Constraint auf A6 (default null)
+//   a6fixed       number|null   A6 hart fixieren, nur A1–A5 optimieren
+//   okExtra       fn(q)=>bool   Zusätzliche ok-Bedingung
+function solveLM(cfg) {
+  const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+  const {
+    tp, Rt, starts, dt, lam, tolP, tolO = 0, maxIter,
+    stepMax, stepScale, earlyStop = 0, okThresh,
+    posOnly = false, a6penalty = null, a6fixed = null, okExtra = null,
+  } = cfg;
+
+  let bestScore = Infinity;
+  let bestQ = starts[0].slice();
+
+  for (const startQ of starts) {
+    const q = startQ.slice();
+    if (a6fixed !== null) q[5] = a6fixed;
+
+    for (let iter = 0; iter < maxIter; iter++) {
+      let score, eP, eO, converged;
+
+      if (posOnly) {
+        // ── 3D Positions-Jacobian ──────────────────────────────────────────
+        const fk = fkTCP_full(q);
+        const ex = tp[0]-fk.pos[0], ey = tp[1]-fk.pos[1], ez = tp[2]-fk.pos[2];
+        eP = Math.sqrt(ex*ex + ey*ey + ez*ez);
+        const a6e = a6penalty ? (q[5]-a6penalty.target)*a6penalty.weight*Math.PI/180 : 0;
+        score = eP + (a6penalty ? Math.abs(a6e)*R2DEG/a6penalty.weight : 0);
+        if (score < bestScore) { bestScore = score; bestQ = q.slice(); }
+        converged = eP < tolP && (!a6penalty || Math.abs(q[5]-a6penalty.target) < 1);
+        if (converged) break;
+
+        // Jacobian: J[i] = [∂ex/∂qi, ∂ey/∂qi, ∂ez/∂qi]
+        const J3 = [];
+        for (let i = 0; i < 6; i++) {
+          const q1 = q.slice(); q1[i] += dt;
+          const f1 = fkTCP_full(q1);
+          J3.push([(f1.pos[0]-fk.pos[0])/dt, (f1.pos[1]-fk.pos[1])/dt, (f1.pos[2]-fk.pos[2])/dt]);
+        }
+        const JtJ = Array.from({length:6}, () => Array(6).fill(0));
+        const Jte = Array(6).fill(0);
+        const e3 = [ex, ey, ez];
+        for (let i = 0; i < 6; i++) {
+          for (let r = 0; r < 3; r++) {
+            Jte[i] += J3[i][r] * e3[r];
+            for (let j = 0; j < 6; j++) JtJ[i][j] += J3[i][r] * J3[j][r];
+          }
+          JtJ[i][i] += lam;
+        }
+        if (a6penalty) { JtJ[5][5] += a6penalty.weight**2; Jte[5] += a6e*a6penalty.weight; }
+        const dq = solve6x6(JtJ, Jte);
+        const step = Math.min(stepMax, stepScale/Math.max(1, bestScore));
+        for (let i = 0; i < 6; i++) {
+          if (!isFinite(dq[i])) continue;
+          q[i] = clamp(q[i]-step*dq[i], JOINTS_DEF[i].min, JOINTS_DEF[i].max);
+        }
+
+      } else {
+        // ── 6D Positions+Orientierungs-Jacobian ───────────────────────────
+        const e = err6(q, tp, Rt);
+        eP = Math.sqrt(e[0]**2+e[1]**2+e[2]**2);
+        const a6e = a6penalty ? (q[5]-a6penalty.target)*a6penalty.weight*Math.PI/180 : 0;
+        eO = Math.sqrt(e[3]**2+e[4]**2+e[5]**2+(a6penalty ? a6e**2 : 0));
+        score = eP + eO;
+        if (score < bestScore) { bestScore = score; bestQ = q.slice(); }
+        if (eP < tolP && eO < tolO) break;
+
+        const J = [];
+        for (let i = 0; i < 6; i++) {
+          if (a6fixed !== null && i === 5) { J.push([0,0,0,0,0,0]); continue; }
+          const q1 = q.slice(); q1[i] += dt;
+          const e1 = err6(q1, tp, Rt);
+          J.push([(e1[0]-e[0])/dt,(e1[1]-e[1])/dt,(e1[2]-e[2])/dt,
+                  (e1[3]-e[3])/dt,(e1[4]-e[4])/dt,(e1[5]-e[5])/dt]);
+        }
+        const JtJ = Array.from({length:6}, () => Array(6).fill(0));
+        const Jte = Array(6).fill(0);
+        for (let i = 0; i < 6; i++) {
+          for (let r = 0; r < 6; r++) {
+            Jte[i] += J[i][r]*e[r];
+            for (let j = 0; j < 6; j++) JtJ[i][j] += J[i][r]*J[j][r];
+          }
+          JtJ[i][i] += lam;
+        }
+        if (a6penalty) { JtJ[5][5] += a6penalty.weight**2; Jte[5] += a6e*a6penalty.weight; }
+        const dq = solve6x6(JtJ, Jte);
+        const step = Math.min(stepMax, stepScale/Math.max(1, bestScore));
+        const updateN = (a6fixed !== null) ? 5 : 6;
+        for (let i = 0; i < updateN; i++) {
+          if (!isFinite(dq[i])) continue;
+          q[i] = clamp(q[i]-step*dq[i], JOINTS_DEF[i].min, JOINTS_DEF[i].max);
+        }
+        if (a6fixed !== null) q[5] = a6fixed;
+      }
+    }
+    if (earlyStop > 0 && bestScore < (tolP+tolO)*earlyStop) break;
+  }
+
+  const ok = bestScore < okThresh && (okExtra ? okExtra(bestQ) : true);
+  return {angles: bestQ, score: bestScore, ok};
+}
+
+// ── IK-Wrapper (öffentliche API bleibt identisch) ───────────────────────────
+
 function solveIK(tx, ty, tz, ta, tb, tc, initAngles) {
-  const clamp=(v,lo,hi)=>Math.max(lo,Math.min(hi,v));
-  const tp = [tx, ty, tz];
-  const Rt = rotZYX(ta, tb, tc);
-  const dt=0.3, lam=0.5, tolP=1.0, tolO=1.0;
-
-  const starts = [
-    initAngles || jointAngles.slice(),
-    [0,-90,90,0,0,0], [0,-90,90,0,-45,0], [0,-90,90,0,-90,0],
-    [0,-90,90,-90,-45,0], [0,-90,90,90,-45,0],
-    [0,-120,110,0,-45,0], [0,-60,60,0,-45,0],
-  ];
-
-  let bestScore=Infinity, bestQ=JOINTS_DEF.map((_,i)=>jointAngles[i]);
-
-  for (const start of starts) {
-    let q=[...start];
-    for (let iter=0; iter<300; iter++) {
-      const e=err6(q, tp, Rt);
-      const eP=Math.sqrt(e[0]**2+e[1]**2+e[2]**2);
-      const eO=Math.sqrt(e[3]**2+e[4]**2+e[5]**2);
-      const score=eP+eO;
-      if (score<bestScore){bestScore=score;bestQ=[...q];}
-      if (eP<tolP&&eO<tolO) break;
-
-      const J=[];
-      for (let i=0;i<6;i++){
-        const q1=[...q]; q1[i]+=dt;
-        const e1=err6(q1,tp,Rt);
-        J.push([(e1[0]-e[0])/dt,(e1[1]-e[1])/dt,(e1[2]-e[2])/dt,
-                (e1[3]-e[3])/dt,(e1[4]-e[4])/dt,(e1[5]-e[5])/dt]);
-      }
-      const JtJ=Array.from({length:6},()=>Array(6).fill(0));
-      const Jte=Array(6).fill(0);
-      for (let i=0;i<6;i++){
-        for (let r=0;r<6;r++){
-          Jte[i]+=J[i][r]*e[r];
-          for (let j=0;j<6;j++) JtJ[i][j]+=J[i][r]*J[j][r];
-        }
-        JtJ[i][i]+=lam;
-      }
-      const dq=solve6x6(JtJ,Jte);
-      const step=Math.min(2.0,10.0/Math.max(1,bestScore));
-      for (let i=0;i<6;i++){
-        if (!isFinite(dq[i])) continue;
-        q[i]=clamp(q[i]-step*dq[i], JOINTS_DEF[i].min, JOINTS_DEF[i].max);
-      }
-    }
-    if (bestScore<(tolP+tolO)*1.5) break;
-  }
-  return {angles:bestQ, score:bestScore, ok: bestScore<30};
+  return solveLM({
+    tp:[tx,ty,tz], Rt:rotZYX(ta,tb,tc),
+    starts:[
+      initAngles || jointAngles.slice(),
+      [0,-90,90,0,0,0],[0,-90,90,0,-45,0],[0,-90,90,0,-90,0],
+      [0,-90,90,-90,-45,0],[0,-90,90,90,-45,0],
+      [0,-120,110,0,-45,0],[0,-60,60,0,-45,0],
+    ],
+    dt:0.3, lam:0.5, tolP:1.0, tolO:1.0,
+    maxIter:300, stepMax:2.0, stepScale:10.0,
+    earlyStop:1.5, okThresh:30,
+  });
 }
 
-
-// IK nur mit Position + A6-Ziel — Orientierung frei (ergibt sich aus Kinematik)
+// IK nur mit Position + A6-Ziel — Orientierung frei
 function solveIKPosA6(tx, ty, tz, a6target, initAngles) {
-  const clamp=(v,lo,hi)=>Math.max(lo,Math.min(hi,v));
-  const tp=[tx,ty,tz];
-  const dt=0.3, lam=0.5, tolP=0.5;
-  const A6W=60;  // Starke Gewichtung A6
-
-  var starts=[
-    initAngles?initAngles.slice():jointAngles.slice(),
-  ];
-  starts.forEach(s=>{s[5]=a6target;});
-
-  var bestScore=Infinity, bestQ=starts[0].slice();
-
-  for(var si=0;si<starts.length;si++){
-    var q=starts[si].slice();
-    for(var iter=0;iter<300;iter++){
-      var fk=fkTCP_full(q);
-      var ex=tp[0]-fk.pos[0], ey=tp[1]-fk.pos[1], ez=tp[2]-fk.pos[2];
-      var a6e=(q[5]-a6target)*A6W*Math.PI/180;
-      var eP=Math.sqrt(ex*ex+ey*ey+ez*ez);
-      var score=eP+Math.abs(a6e)*R2DEG/A6W;
-      if(score<bestScore){bestScore=score;bestQ=q.slice();}
-      if(eP<tolP&&Math.abs(q[5]-a6target)<1)break;
-
-      // Jacobian: 3 position + 1 A6
-      var J3=[];
-      for(var i=0;i<6;i++){
-        var q1=q.slice();q1[i]+=dt;
-        var f1=fkTCP_full(q1);
-        J3.push([(f1.pos[0]-fk.pos[0])/dt,
-                 (f1.pos[1]-fk.pos[1])/dt,
-                 (f1.pos[2]-fk.pos[2])/dt]);
-      }
-      var JtJ=Array.from({length:6},()=>Array(6).fill(0));
-      var Jte=Array(6).fill(0);
-      var e3=[ex,ey,ez];
-      for(var i=0;i<6;i++){
-        for(var r=0;r<3;r++){
-          Jte[i]+=J3[i][r]*e3[r];
-          for(var j=0;j<6;j++) JtJ[i][j]+=J3[i][r]*J3[j][r];
-        }
-        JtJ[i][i]+=lam;
-      }
-      // A6 penalty
-      JtJ[5][5]+=A6W*A6W;
-      Jte[5]+=a6e*A6W;
-
-      var dq=solve6x6(JtJ,Jte);
-      var step=Math.min(2.0,10.0/Math.max(1,bestScore));
-      for(var i=0;i<6;i++){
-        if(!isFinite(dq[i]))continue;
-        q[i]=clamp(q[i]-step*dq[i],JOINTS_DEF[i].min,JOINTS_DEF[i].max);
-      }
-    }
-  }
-  return{angles:bestQ,score:bestScore,
-    ok:bestScore<5 && Math.abs(bestQ[5]-a6target)<10};
+  const starts = [initAngles ? initAngles.slice() : jointAngles.slice()];
+  starts.forEach(s => { s[5] = a6target; });
+  return solveLM({
+    tp:[tx,ty,tz], Rt:null, posOnly:true,
+    starts,
+    dt:0.3, lam:0.5, tolP:0.5, tolO:0,
+    maxIter:300, stepMax:2.0, stepScale:10.0,
+    earlyStop:0, okThresh:5,
+    a6penalty:{target:a6target, weight:60},
+    okExtra: q => Math.abs(q[5]-a6target) < 10,
+  });
 }
-var R2DEG=180/Math.PI;
 
 // IK mit A6-Zielwert als starke Soft-Constraint
 function solveIKTargetA6(tx, ty, tz, ta, tb, tc, a6target, initAngles) {
-  const clamp=(v,lo,hi)=>Math.max(lo,Math.min(hi,v));
-  const tp=[tx,ty,tz];
-  const Rt=rotZYX(ta,tb,tc);
-  const dt=0.3, lam=0.5, tolP=0.5, tolO=0.5;
-  const A6W=50; // Starke Gewichtung für A6-Ziel
-
-  var starts=[
-    initAngles?initAngles.slice():jointAngles.slice(),
-    [0,-90,90,0,0,a6target],
-    [0,-90,90,-90,0,a6target],
-    [0,-90,90,90,0,a6target],
+  const starts = [
+    initAngles ? initAngles.slice() : jointAngles.slice(),
+    [0,-90,90,0,0,a6target],[0,-90,90,-90,0,a6target],[0,-90,90,90,0,a6target],
   ];
-  starts.forEach(s=>{s[5]=a6target;});
-
-  var bestScore=Infinity, bestQ=starts[0].slice();
-
-  for(var si=0;si<starts.length;si++){
-    var q=starts[si].slice(); q[5]=a6target;
-    for(var iter=0;iter<200;iter++){
-      var e=err6(q,tp,Rt);
-      // Add A6 penalty
-      var a6err=(q[5]-a6target)*A6W*Math.PI/180;
-      var eP=Math.sqrt(e[0]*e[0]+e[1]*e[1]+e[2]*e[2]);
-      var eO=Math.sqrt(e[3]*e[3]+e[4]*e[4]+e[5]*e[5]+a6err*a6err);
-      var score=eP+eO;
-      if(score<bestScore){bestScore=score;bestQ=q.slice();}
-      if(eP<tolP&&eO<tolO)break;
-
-      var J=[];
-      for(var i=0;i<6;i++){
-        var q1=q.slice();q1[i]+=dt;
-        var e1=err6(q1,tp,Rt);
-        J.push([(e1[0]-e[0])/dt,(e1[1]-e[1])/dt,(e1[2]-e[2])/dt,
-                (e1[3]-e[3])/dt,(e1[4]-e[4])/dt,(e1[5]-e[5])/dt]);
-      }
-      // Add A6 row
-      var JA6=[0,0,0,0,0,A6W*Math.PI/180];
-      var eExt=e.concat([a6err]);
-      var Jext=J.map(r=>r.slice());
-      Jext.forEach(r=>r.push(0));
-      Jext.push(JA6.concat([0]));
-
-      var JtJ=Array.from({length:6},()=>Array(6).fill(0));
-      var Jte=Array(6).fill(0);
-      for(var i=0;i<6;i++){
-        for(var r=0;r<6;r++){
-          Jte[i]+=J[i][r]*e[r];
-          for(var j=0;j<6;j++)JtJ[i][j]+=J[i][r]*J[j][r];
-        }
-        JtJ[i][i]+=lam;
-      }
-      // Add A6 penalty gradient
-      JtJ[5][5]+=A6W*A6W;
-      Jte[5]+=a6err*A6W;
-
-      var dq=solve6x6(JtJ,Jte);
-      var step=Math.min(2.0,10.0/Math.max(1,bestScore));
-      for(var i=0;i<6;i++){
-        if(!isFinite(dq[i]))continue;
-        q[i]=clamp(q[i]-step*dq[i],JOINTS_DEF[i].min,JOINTS_DEF[i].max);
-      }
-    }
-    if(bestScore<(tolP+tolO)*1.5)break;
-  }
-  return{angles:bestQ,score:bestScore,ok:bestScore<15};
+  starts.forEach(s => { s[5] = a6target; });
+  return solveLM({
+    tp:[tx,ty,tz], Rt:rotZYX(ta,tb,tc),
+    starts,
+    dt:0.3, lam:0.5, tolP:0.5, tolO:0.5,
+    maxIter:200, stepMax:2.0, stepScale:10.0,
+    earlyStop:1.5, okThresh:15,
+    a6penalty:{target:a6target, weight:50},
+  });
 }
 
-// IK mit fixiertem A6 — nur A1-A5 werden optimiert
+// IK mit fixiertem A6 — nur A1–A5 werden optimiert
 function solveIKFixedA6(tx, ty, tz, ta, tb, tc, a6fixed, initAngles) {
-  const clamp=(v,lo,hi)=>Math.max(lo,Math.min(hi,v));
-  const tp = [tx, ty, tz];
-  const Rt = rotZYX(ta, tb, tc);
-  const dt=0.3, lam=0.5, tolP=1.0, tolO=1.0;
-
-  var starts = [
+  const starts = [
     initAngles ? initAngles.slice() : jointAngles.slice(),
-    [0,-90,90,0,0,a6fixed],
-    [0,-90,90,0,-45,a6fixed],
-    [0,-90,90,-90,0,a6fixed],
-    [0,-90,90,90,0,a6fixed],
+    [0,-90,90,0,0,a6fixed],[0,-90,90,0,-45,a6fixed],
+    [0,-90,90,-90,0,a6fixed],[0,-90,90,90,0,a6fixed],
   ];
-  // Setze in allen Starts A6 auf a6fixed
-  starts.forEach(function(s){ s[5] = a6fixed; });
-
-  var bestScore=Infinity, bestQ=jointAngles.slice();
-  bestQ[5] = a6fixed;
-
-  for (var si=0; si<starts.length; si++) {
-    var q = starts[si].slice();
-    q[5] = a6fixed;  // A6 immer fixiert
-    for (var iter=0; iter<150; iter++) {
-      var e=err6(q, tp, Rt);
-      var eP=Math.sqrt(e[0]*e[0]+e[1]*e[1]+e[2]*e[2]);
-      var eO=Math.sqrt(e[3]*e[3]+e[4]*e[4]+e[5]*e[5]);
-      var score=eP+eO;
-      if (score<bestScore){ bestScore=score; bestQ=q.slice(); }
-      if (eP<tolP && eO<tolO) break;
-
-      var J=[];
-      for (var i=0;i<6;i++){
-        if (i===5){ J.push([0,0,0,0,0,0]); continue; } // A6 fest
-        var q1=q.slice(); q1[i]+=dt;
-        var e1=err6(q1,tp,Rt);
-        J.push([(e1[0]-e[0])/dt,(e1[1]-e[1])/dt,(e1[2]-e[2])/dt,
-                (e1[3]-e[3])/dt,(e1[4]-e[4])/dt,(e1[5]-e[5])/dt]);
-      }
-      var JtJ=Array.from({length:6},function(){return Array(6).fill(0);});
-      var Jte=Array(6).fill(0);
-      for (var i=0;i<6;i++){
-        for (var r=0;r<6;r++){
-          Jte[i]+=J[i][r]*e[r];
-          for (var j=0;j<6;j++) JtJ[i][j]+=J[i][r]*J[j][r];
-        }
-        JtJ[i][i]+=lam;
-      }
-      var dq=solve6x6(JtJ,Jte);
-      var step=Math.min(2.0,10.0/Math.max(1,bestScore));
-      for (var i=0;i<5;i++){  // nur A1-A5 (i<5)
-        if (!isFinite(dq[i])) continue;
-        q[i]=clamp(q[i]-step*dq[i], JOINTS_DEF[i].min, JOINTS_DEF[i].max);
-      }
-      q[5] = a6fixed;  // A6 immer zurücksetzen
-    }
-    if (bestScore<(tolP+tolO)*1.5) break;
-  }
-  return {angles:bestQ, score:bestScore, ok: bestScore<20};
+  starts.forEach(s => { s[5] = a6fixed; });
+  return solveLM({
+    tp:[tx,ty,tz], Rt:rotZYX(ta,tb,tc),
+    starts,
+    dt:0.3, lam:0.5, tolP:1.0, tolO:1.0,
+    maxIter:150, stepMax:2.0, stepScale:10.0,
+    earlyStop:1.5, okThresh:20,
+    a6fixed,
+  });
 }
 
 
@@ -1017,7 +957,7 @@ function saveKinematic() {
       } catch(ex) { console.warn('ZIP: STL base64 error A'+(i+1), ex); }
     }
   }
-  console.log('ZIP: ' + axisAdded + ' Achsen-STLs hinzugefügt');
+
 
   // Pedestal STL
   if (window._pedestalSTLBuffer) {
@@ -1042,7 +982,7 @@ function saveKinematic() {
       zip.file('scene/' + sName, new Uint8Array(so.buf));
       sceneAdded++;
     }
-    if (sceneAdded) console.log('ZIP: ' + sceneAdded + ' Szenen-STLs hinzugefügt');
+
   }
 
   zip.generateAsync({type:'blob', compression:'DEFLATE', compressionOptions:{level:6}})
@@ -1536,92 +1476,26 @@ document.getElementById('btn-tcp-trace').addEventListener('click', function(){
 let ikTable = []; // [{angles, ok, score}] per position
 
 
-// Schneller IK für Kandidaten-Generierung (weniger Iterationen)
+// Single-Start, schnelle Konvergenz (für Echtzeit-Nutzung)
 function solveIKFast(tx, ty, tz, ta, tb, tc, initAngles) {
-  var clamp = function(v,lo,hi){ return Math.max(lo,Math.min(hi,v)); };
-  var tp = [tx, ty, tz];
-  var Rt = rotZYX(ta, tb, tc);
-  var dt = 0.4, lam = 0.8, tolP = 1.0, tolO = 1.0;
-  var q = initAngles ? initAngles.slice() : jointAngles.slice();
-  var bestScore = Infinity, bestQ = q.slice();
-  for (var iter = 0; iter < 80; iter++) {
-    var e = err6(q, tp, Rt);
-    var eP = Math.sqrt(e[0]*e[0]+e[1]*e[1]+e[2]*e[2]);
-    var eO = Math.sqrt(e[3]*e[3]+e[4]*e[4]+e[5]*e[5]);
-    var score = eP + eO;
-    if (score < bestScore) { bestScore = score; bestQ = q.slice(); }
-    if (eP < tolP && eO < tolO) break;
-    var J = [];
-    for (var i = 0; i < 6; i++) {
-      var q1 = q.slice(); q1[i] += dt;
-      var e1 = err6(q1, tp, Rt);
-      J.push([(e1[0]-e[0])/dt,(e1[1]-e[1])/dt,(e1[2]-e[2])/dt,
-               (e1[3]-e[3])/dt,(e1[4]-e[4])/dt,(e1[5]-e[5])/dt]);
-    }
-    var JtJ = Array.from({length:6}, function(){ return Array(6).fill(0); });
-    var Jte = Array(6).fill(0);
-    for (var i = 0; i < 6; i++) {
-      for (var r = 0; r < 6; r++) {
-        Jte[i] += J[i][r] * e[r];
-        for (var j = 0; j < 6; j++) JtJ[i][j] += J[i][r] * J[j][r];
-      }
-      JtJ[i][i] += lam;
-    }
-    var dq = solve6x6(JtJ, Jte);
-    var step = Math.min(2.0, 8.0 / Math.max(1, bestScore));
-    for (var i = 0; i < 6; i++) {
-      if (!isFinite(dq[i])) continue;
-      q[i] = clamp(q[i] - step*dq[i], JOINTS_DEF[i].min, JOINTS_DEF[i].max);
-    }
-  }
-  return { angles: bestQ, score: bestScore, ok: bestScore < 25 };
+  return solveLM({
+    tp:[tx,ty,tz], Rt:rotZYX(ta,tb,tc),
+    starts:[initAngles ? initAngles.slice() : jointAngles.slice()],
+    dt:0.4, lam:0.8, tolP:1.0, tolO:1.0,
+    maxIter:80, stepMax:2.0, stepScale:8.0,
+    earlyStop:0, okThresh:25,
+  });
 }
-
 
 // Hochpräzisions-IK für Map: viele Iterationen, enge Toleranz
 function solveIKPrecise(tx, ty, tz, ta, tb, tc, initAngles) {
-  var clamp = function(v,lo,hi){ return Math.max(lo,Math.min(hi,v)); };
-  var tp = [tx, ty, tz];
-  var Rt = rotZYX(ta, tb, tc);
-  var dt = 0.2, lam = 0.3, tolP = 0.01, tolO = 0.01;
-  var starts = [
-    initAngles ? initAngles.slice() : jointAngles.slice(),
-  ];
-  var bestScore = Infinity, bestQ = starts[0].slice();
-  for (var si = 0; si < starts.length; si++) {
-    var q = starts[si].slice();
-    for (var iter = 0; iter < 500; iter++) {
-      var e = err6(q, tp, Rt);
-      var eP = Math.sqrt(e[0]*e[0]+e[1]*e[1]+e[2]*e[2]);
-      var eO = Math.sqrt(e[3]*e[3]+e[4]*e[4]+e[5]*e[5]);
-      var score = eP + eO;
-      if (score < bestScore) { bestScore = score; bestQ = q.slice(); }
-      if (eP < tolP && eO < tolO) break;
-      var J = [];
-      for (var i = 0; i < 6; i++) {
-        var q1 = q.slice(); q1[i] += dt;
-        var e1 = err6(q1, tp, Rt);
-        J.push([(e1[0]-e[0])/dt,(e1[1]-e[1])/dt,(e1[2]-e[2])/dt,
-                 (e1[3]-e[3])/dt,(e1[4]-e[4])/dt,(e1[5]-e[5])/dt]);
-      }
-      var JtJ = Array.from({length:6}, function(){ return Array(6).fill(0); });
-      var Jte = Array(6).fill(0);
-      for (var i = 0; i < 6; i++) {
-        for (var r = 0; r < 6; r++) {
-          Jte[i] += J[i][r] * e[r];
-          for (var j = 0; j < 6; j++) JtJ[i][j] += J[i][r] * J[j][r];
-        }
-        JtJ[i][i] += lam;
-      }
-      var dq = solve6x6(JtJ, Jte);
-      var step = Math.min(1.0, 5.0 / Math.max(1, bestScore));
-      for (var i = 0; i < 6; i++) {
-        if (!isFinite(dq[i])) continue;
-        q[i] = clamp(q[i] - step*dq[i], JOINTS_DEF[i].min, JOINTS_DEF[i].max);
-      }
-    }
-  }
-  return { angles: bestQ, score: bestScore, ok: bestScore < 0.1 };
+  return solveLM({
+    tp:[tx,ty,tz], Rt:rotZYX(ta,tb,tc),
+    starts:[initAngles ? initAngles.slice() : jointAngles.slice()],
+    dt:0.2, lam:0.3, tolP:0.01, tolO:0.01,
+    maxIter:500, stepMax:1.0, stepScale:5.0,
+    earlyStop:0, okThresh:0.1,
+  });
 }
 
 // ── Jacobi-Singularitätserkennung (PDF Punkt 2) ───────────────
@@ -1756,7 +1630,7 @@ function computeIKTable(positions) {
   // Schwellwert: bei > 150 Punkten → direkte IK mit Warm-Start (Performance)
   var DP_MAX_POINTS = 150;
   if (N > DP_MAX_POINTS) {
-    console.log('[Perf] ' + N + ' Punkte → DPSolver deaktiviert, verwende Warm-Start IK');
+
     splashProgress && splashProgress(50, N + ' Punkte — Schnell-IK wird berechnet…');
     var prevQ = jointAngles.slice();
     if (parsedData.steps) {
