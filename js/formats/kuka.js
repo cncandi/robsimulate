@@ -13,5 +13,12 @@ FormatRegistry.register({
     if (fv) fv.style.display = 'none';
   },
 
-  deactivate: function () {}
+  deactivate: function () {},
+
+  // Rückrichtung: KUKA KRL → parsedData wird von parseKRL() übernommen (simulator.js)
+  // Hier nur Stub damit Registry den Parse-Pfad korrekt einschlägt
+  _parse: function (text) {
+    if (typeof parseKRL === 'function') return parseKRL(text);
+    return null;
+  }
 });

@@ -43,12 +43,28 @@ var FormatRegistry = (function () {
     setActive: function (id) {
       if (id === _activeId) return;
       var prev = _find(_activeId);
+
+      // Aktuelles Format parsen → parsedData aktualisieren
+      // Damit hat das nächste Format immer frische Daten zum Generieren
+      var ci = document.getElementById('code-input');
+      if (prev && prev._parse && ci && ci.value.trim()) {
+        try {
+          var parsed = prev._parse(ci.value);
+          if (parsed && parsed.positions && parsed.positions.length) {
+            if (typeof parsedData !== 'undefined') {
+              parsedData.positions = parsed.positions;
+              parsedData.steps     = parsed.steps || parsedData.steps || [];
+            }
+          }
+        } catch (e) { /* Parse-Fehler ignorieren */ }
+      }
+      // Wenn Formular aktiv war → parsedData ist bereits aktuell (kein Parse nötig)
+
       if (prev && prev.deactivate) prev.deactivate();
       _activeId = id;
       var next = _find(id);
       if (next && next.activate) next.activate();
       _renderBtn();
-      // Label aktualisieren
       var lbl = document.getElementById('editor-lang-label');
       if (lbl && next) lbl.textContent = next.label;
     },

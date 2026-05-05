@@ -31,7 +31,11 @@ FormatRegistry.register({
     if (fv) fv.style.display = 'none';
     document.getElementById('code-input').style.display = '';
     document.getElementById('gutter').style.display     = '';
-  }
+  },
+
+  // kuka-form ist kanonische Quelle — parsedData ist bereits aktuell
+  // Kein _parse nötig; Registry überspringt Parse wenn _parse fehlt
+  _parse: null
 });
 
 // ── Parser ──────────────────────────────────────────
