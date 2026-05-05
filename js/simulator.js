@@ -335,6 +335,71 @@ function parseVal(s){
   if(/^TRUE$/i.test(s))return true;if(/^FALSE$/i.test(s))return false;
   const n=Number(s);return(!isNaN(n)&&s!=='')?n:s.replace(/^"|"$/g,'');
 }
+// Generiert KRL-Code aus parsedData (Umkehrung von parseKRL)
+function generateKRL(pd) {
+  var lines = [];
+  if (!pd || (!pd.steps && !pd.positions)) return '';
+  var positions = pd.positions || [];
+
+  // Fallback: nur Positionen vorhanden
+  if (!pd.steps || !pd.steps.length) {
+    lines.push('$BASE = BASE_DATA[1]');
+    lines.push('$TOOL = TOOL_DATA[1]');
+    lines.push('$VEL.CP=0.167');
+    positions.forEach(function(pos) {
+      var S = (pos.S != null ? ' S '+pos.S : ''), T = (pos.T != null ? ' T '+pos.T : '');
+      lines.push('LIN {X '+pos.X.toFixed(3)+',Y '+pos.Y.toFixed(3)+',Z '+pos.Z.toFixed(3)+',A '+pos.A.toFixed(3)+',B '+pos.B.toFixed(3)+',C '+pos.C.toFixed(3)+S+T+'}');
+    });
+    return lines.join('\n');
+  }
+
+  pd.steps.forEach(function(s) {
+    switch (s.type) {
+      case 'comment':  lines.push('; ' + (s.text || '')); break;
+      case 'tool':     lines.push('$TOOL=TOOL_DATA[' + s.n + ']'); break;
+      case 'base':     lines.push('$BASE=BASE_DATA[' + s.n + ']'); break;
+      case 'velcp':    lines.push('$VEL.CP=' + parseFloat(s.v || 0.167).toFixed(3)); break;
+      case 'velptp':   lines.push('$VEL.PTP=' + Math.round(s.v || 100)); break;
+      case 'acccp':    lines.push('$ACC.CP=' + parseFloat(s.v || 1).toFixed(1)); break;
+      case 'advance':  lines.push('$advance=' + Math.round(s.v != null ? s.v : 5)); break;
+      case 'wait':     lines.push('WAIT SEC ' + parseFloat(s.t || 0).toFixed(1)); break;
+      case 'halt':     lines.push('HALT'); break;
+      case 'brake':    lines.push('BRAKE'); break;
+      case 'dout':     lines.push('$OUT[' + s.n + ']=' + (s.v || 'FALSE')); break;
+      case 'din':      lines.push('$IN[' + s.n + ']'); break;
+      case 'aout':     lines.push('$ANOUT[' + s.n + ']=' + parseFloat(s.v || 0).toFixed(2)); break;
+      case 'ain':      lines.push('$ANIN[' + s.n + ']'); break;
+      case 'waitFor':  lines.push('WAIT FOR ' + (s.cond || '$IN[1]')); break;
+      case 'var': {
+        var vt = s.varType || 'REAL';
+        var vv = s.val != null ? s.val : (vt === 'BOOL' ? 'FALSE' : vt === 'INT' ? '0' : '0.0');
+        lines.push('DECL ' + vt + ' ' + s.name + '=' + vv);
+        break;
+      }
+      case 'ptpAxis':
+        if (s.angles) lines.push('PTP {A1 '+s.angles[0].toFixed(3)+',A2 '+s.angles[1].toFixed(3)+',A3 '+s.angles[2].toFixed(3)+',A4 '+s.angles[3].toFixed(3)+',A5 '+s.angles[4].toFixed(3)+',A6 '+s.angles[5].toFixed(3)+'}');
+        break;
+      case 'move': {
+        var pos = positions[s.posIdx];
+        if (!pos) break;
+        var Sv = (pos.S != null ? ' S '+pos.S : ''), Tv = (pos.T != null ? ' T '+pos.T : '');
+        var coord = '{X '+pos.X.toFixed(3)+',Y '+pos.Y.toFixed(3)+',Z '+pos.Z.toFixed(3)+',A '+pos.A.toFixed(3)+',B '+pos.B.toFixed(3)+',C '+pos.C.toFixed(3)+Sv+Tv+'}';
+        lines.push((s.moveType || 'LIN') + ' ' + coord);
+        break;
+      }
+      case 'circ': {
+        var pVia = positions[s.viaIdx], pTo = positions[s.posIdx];
+        if (pVia && pTo) {
+          var cVia = '{X '+pVia.X.toFixed(3)+',Y '+pVia.Y.toFixed(3)+',Z '+pVia.Z.toFixed(3)+',A '+pVia.A.toFixed(3)+',B '+pVia.B.toFixed(3)+',C '+pVia.C.toFixed(3)+'}';
+          var cTo  = '{X '+pTo.X.toFixed(3)+',Y '+pTo.Y.toFixed(3)+',Z '+pTo.Z.toFixed(3)+',A '+pTo.A.toFixed(3)+',B '+pTo.B.toFixed(3)+',C '+pTo.C.toFixed(3)+'}';
+          lines.push('CIRC ' + cVia + ', ' + cTo);
+        }
+        break;
+      }
+    }
+  });
+  return lines.join('\n');
+}
 function parseKRL(code){
   const lines=code.split(/\r?\n/);const steps=[],positions=[],vars={},din={},dout={},anout={};
   let _velCP = 0.167; // m/s aktuelle Geschwindigkeit

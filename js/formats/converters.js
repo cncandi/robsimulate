@@ -114,8 +114,9 @@
       if (gt) gt.style.display = '';
       if (fv) fv.style.display = 'none';
       if (fw) fw.style.display = 'none';
+      // Formular ist immer Quelle — parsedData direkt verwenden
+      var pd = (typeof parsedData !== 'undefined') ? parsedData : { positions: [], steps: [], finalState: {} };
       if (impl && impl._generate) {
-        var pd = (typeof parsedData !== 'undefined') ? parsedData : { positions: [], steps: [], finalState: {} };
         ci.value = impl._generate(pd);
         if (typeof rebuildGutter === 'function') rebuildGutter();
       }
@@ -842,9 +843,6 @@
   // REGISTRATION
   // ══════════════════════════════════════════════════════════════════════════
 
-  // Lookup für activate()
-  FormatRegistry._implById = function (id) { return IMPLS[id]; };
-
   var META = [
     { id: 'abb',      label: 'ABB RAPID',        file: 'abb.png'      },
     { id: 'fanuc',    label: 'FANUC TP',          file: 'fanuc.png'    },
@@ -877,11 +875,7 @@
       activate:   makeActivate(impl),
       deactivate: function () {},
       _generate:  impl._generate,
-      _parse:     impl._parse,
     });
   });
-
-  // KUKA logo auf PNG umstellen (Icon im bestehenden Eintrag überschreiben)
-  // wird nach DOMContentLoaded via registry.setIcon aufgerufen falls nötig
 
 })();
