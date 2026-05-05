@@ -50,7 +50,15 @@
     var lines = [];
     var push = function (l) { if (l != null && l !== '') lines.push(l); };
 
-    (cfg.header ? cfg.header(toolN, baseN, vars) : []).forEach(push);
+    // Programmkopf: Settings (localStorage) überschreiben Default
+    var hfId = cfg._formatId;
+    var hfStored = (hfId && typeof fmtHfLoad === 'function') ? fmtHfLoad(hfId) : null;
+    var useStoredHeader = hfStored && (hfStored.header !== (FMT_HF_DEFAULTS[hfId] || {}).header || !FMT_HF_DEFAULTS[hfId]);
+    if (useStoredHeader) {
+      hfStored.header.split('\n').forEach(push);
+    } else if (cfg.header) {
+      cfg.header(toolN, baseN, vars).forEach(push);
+    }
 
     positions.forEach(function (pos, i) {
       var vel  = pos.velCP || 0.167;
@@ -76,7 +84,13 @@
       if (ptpLines && ptpLines.length) ptpLines.forEach(push);
     }
 
-    (cfg.footer ? cfg.footer() : []).forEach(push);
+    // Programmfuß: Settings (localStorage) überschreiben Default
+    var useStoredFooter = hfStored && (hfStored.footer !== (FMT_HF_DEFAULTS[hfId] || {}).footer || !FMT_HF_DEFAULTS[hfId]);
+    if (useStoredFooter) {
+      hfStored.footer.split('\n').forEach(push);
+    } else if (cfg.footer) {
+      cfg.footer().forEach(push);
+    }
     return lines.join('\n');
   }
 
@@ -133,6 +147,7 @@
   IMPLS.abb = {
     _generate: function (pd) {
       return generate(pd, {
+        _formatId: 'abb',
         header: function (t, b, vars) {
           var h = ['MODULE Main_Prog'];
           vars.forEach(function (v) {
@@ -221,6 +236,7 @@
   IMPLS.yaskawa = {
     _generate: function (pd) {
       return generate(pd, {
+        _formatId: 'yaskawa',
         header: function (t, b, vars) {
           var h = ['/JOB', '//NAME MAIN_PROG', 'NOP'];
           vars.forEach(function (v) {
@@ -257,6 +273,7 @@
   IMPLS.kawasaki = {
     _generate: function (pd) {
       return generate(pd, {
+        _formatId: 'kawasaki',
         header: function (t, b, vars) {
           var h = ['.PROGRAM main()'];
           vars.forEach(function (v) {
@@ -300,6 +317,7 @@
   IMPLS.staubli = {
     _generate: function (pd) {
       return generate(pd, {
+        _formatId: 'staubli',
         header: function (t, b, vars) {
           var h = ['begin'];
           vars.forEach(function (v) {
@@ -336,6 +354,7 @@
   IMPLS.ur = {
     _generate: function (pd) {
       return generate(pd, {
+        _formatId: 'ur',
         header: function (t, b, vars) {
           var h = ['def main():'];
           vars.forEach(function (v) {
@@ -371,6 +390,7 @@
   IMPLS.adept = {
     _generate: function (pd) {
       return generate(pd, {
+        _formatId: 'adept',
         header: function (t, b, vars) {
           var h = ['.PROGRAM main()'];
           var vn = vars.map(function (v) { return v.name; }).join(', ');
@@ -406,6 +426,7 @@
   IMPLS.omron = {
     _generate: function (pd) {
       return generate(pd, {
+        _formatId: 'omron',
         header: function (t, b, vars) {
           var h = ['.PROGRAM main()'];
           var vn = vars.map(function (v) { return v.name; }).join(', ');
@@ -441,6 +462,7 @@
   IMPLS.epson = {
     _generate: function (pd) {
       return generate(pd, {
+        _formatId: 'epson',
         header: function (t, b, vars) {
           var h = ['Function Main'];
           vars.forEach(function (v) {
@@ -477,6 +499,7 @@
   IMPLS.comau = {
     _generate: function (pd) {
       return generate(pd, {
+        _formatId: 'comau',
         header: function (t, b, vars) {
           var h = ['PROGRAM main'];
           if (vars.length) {
@@ -517,6 +540,7 @@
   IMPLS.aubo = {
     _generate: function (pd) {
       return generate(pd, {
+        _formatId: 'aubo',
         header: function (t, b, vars) {
           var h = [];
           vars.forEach(function (v) {
@@ -551,6 +575,7 @@
   IMPLS.dobot = {
     _generate: function (pd) {
       return generate(pd, {
+        _formatId: 'dobot',
         header: function (t, b, vars) {
           var h = [];
           vars.forEach(function (v) {
@@ -587,6 +612,7 @@
   IMPLS.denso = {
     _generate: function (pd) {
       return generate(pd, {
+        _formatId: 'denso',
         header: function (t, b, vars) {
           var h = ['PROGRAM mini_denso'];
           vars.forEach(function (v) {
@@ -630,6 +656,7 @@
   IMPLS.nachi = {
     _generate: function (pd) {
       return generate(pd, {
+        _formatId: 'nachi',
         header: function (t, b, vars) {
           var h = ['PROGRAM MAIN_NACHI'];
           vars.forEach(function (v) { h.push('  ' + v.varType + ' ' + v.name); });
@@ -664,6 +691,7 @@
   IMPLS.hanwha = {
     _generate: function (pd) {
       return generate(pd, {
+        _formatId: 'hanwha',
         header: function (t, b, vars) {
           var h = ['// Hanwha HCR'];
           vars.forEach(function (v) {
@@ -701,6 +729,7 @@
   IMPLS.igus = {
     _generate: function (pd) {
       return generate(pd, {
+        _formatId: 'igus',
         header: function (t, b, vars) {
           var h = ['# igus iRC/iJC'];
           vars.forEach(function (v) {
@@ -737,6 +766,7 @@
   IMPLS.estun = {
     _generate: function (pd) {
       return generate(pd, {
+        _formatId: 'estun',
         header: function (t, b, vars) {
           var h = ['PROGRAM MAIN_ESTUN'];
           vars.forEach(function (v) { h.push('  ' + v.varType + ' ' + v.name); });
@@ -771,6 +801,7 @@
   IMPLS.neura = {
     _generate: function (pd) {
       return generate(pd, {
+        _formatId: 'neura',
         header: function (t, b, vars) {
           var h = ['// NEURA SDK'];
           vars.forEach(function (v) {
@@ -807,6 +838,7 @@
   IMPLS.mabi = {
     _generate: function (pd) {
       return generate(pd, {
+        _formatId: 'mabi',
         header: function (t, b, vars) {
           var h = ['// MABI Robot'];
           vars.forEach(function (v) {
@@ -879,3 +911,111 @@
   });
 
 })();
+
+// ══════════════════════════════════════════════════════════════════════════
+// PROGRAMMKOPF / PROGRAMMFUSS — Settings UI + localStorage
+// ══════════════════════════════════════════════════════════════════════════
+
+var FMT_HF_DEFAULTS = {
+  kuka:     { header: 'DEF Main()\n; Automatisch generiert von RobSimul', footer: 'END' },
+  abb:      { header: 'MODULE Main_Prog\nPROC main()', footer: 'ENDPROC\nENDMODULE' },
+  fanuc:    { header: '/PROG MAIN_PROG\n/MN', footer: '/END' },
+  yaskawa:  { header: '/JOB\n//NAME MAIN_PROG\nNOP', footer: 'END' },
+  kawasaki: { header: '.PROGRAM main()', footer: '.END' },
+  staubli:  { header: 'begin', footer: 'end' },
+  ur:       { header: 'def main():', footer: 'end' },
+  adept:    { header: '.PROGRAM main()', footer: '.END' },
+  omron:    { header: '.PROGRAM main()', footer: '.END' },
+  epson:    { header: 'Function Main', footer: 'Fend' },
+  comau:    { header: 'PROGRAM main\nBEGIN', footer: 'END main' },
+  aubo:     { header: '-- AUBO Script', footer: 'robot_slow_stop()' },
+  dobot:    { header: '# Dobot CR Script', footer: 'PauseScript()' },
+  denso:    { header: 'PROGRAM mini_denso', footer: 'END' },
+  nachi:    { header: 'PROGRAM MAIN_NACHI', footer: 'END' },
+  hanwha:   { header: '// Hanwha HCR', footer: 'Stop()' },
+  igus:     { header: '# igus iRC/iJC', footer: 'StopProgram()' },
+  estun:    { header: 'PROGRAM MAIN_ESTUN', footer: 'END' },
+  neura:    { header: '// NEURA SDK', footer: 'robot.stop();' },
+  mabi:     { header: '// MABI Robot', footer: 'Stop()' },
+};
+
+var _fmtHfCurrentId = null;
+
+function fmtHfLoad(id) {
+  var key = 'robsimul_hf_' + id;
+  try {
+    var stored = localStorage.getItem(key);
+    if (stored) return JSON.parse(stored);
+  } catch(e) {}
+  return FMT_HF_DEFAULTS[id] || { header: '', footer: '' };
+}
+
+function fmtHfSaveKey(id, header, footer) {
+  try {
+    localStorage.setItem('robsimul_hf_' + id, JSON.stringify({ header: header, footer: footer }));
+  } catch(e) {}
+}
+
+function fmtHfRemoveKey(id) {
+  try { localStorage.removeItem('robsimul_hf_' + id); } catch(e) {}
+}
+
+// Format in der Bearbeitungs-UI auswählen
+function fmtHfSelect(id, label) {
+  _fmtHfCurrentId = id;
+  var lbl = document.getElementById('fmt-hf-label');
+  if (lbl) lbl.textContent = label;
+  var hf = fmtHfLoad(id);
+  var hEl = document.getElementById('fmt-hf-header');
+  var fEl = document.getElementById('fmt-hf-footer');
+  if (hEl) hEl.value = hf.header;
+  if (fEl) fEl.value = hf.footer;
+  var menu = document.getElementById('fmt-hf-menu');
+  if (menu) menu.style.display = 'none';
+}
+
+// Dropdown öffnen
+function fmtHfOpenMenu(e) {
+  e.stopPropagation();
+  var menu = document.getElementById('fmt-hf-menu');
+  if (!menu) return;
+  if (menu.style.display === 'block') { menu.style.display = 'none'; return; }
+  menu.innerHTML = '';
+  var fmts = FormatRegistry._allFormats ? FormatRegistry._allFormats() : [];
+  fmts.forEach(function(f) {
+    if (f.id === 'kuka-form') return; // Formular hat keinen Kopf/Fuß
+    var item = document.createElement('div');
+    item.className = 'fmt-item' + (f.id === _fmtHfCurrentId ? ' active' : '');
+    item.innerHTML = (f.icon || '') + '<span>' + f.label + '</span>';
+    item.onclick = function() { fmtHfSelect(f.id, f.label); };
+    menu.appendChild(item);
+  });
+  menu.style.display = 'block';
+  document.addEventListener('click', function h() {
+    menu.style.display = 'none';
+    document.removeEventListener('click', h);
+  });
+}
+
+// Speichern
+function fmtHfSave() {
+  if (!_fmtHfCurrentId) return;
+  var h = (document.getElementById('fmt-hf-header') || {}).value || '';
+  var f = (document.getElementById('fmt-hf-footer') || {}).value || '';
+  fmtHfSaveKey(_fmtHfCurrentId, h, f);
+  var btn = document.getElementById('fmt-hf-menu');
+  // Kurzes Feedback
+  var saveBtn = event && event.target;
+  if (saveBtn) { var old = saveBtn.textContent; saveBtn.textContent = '✓ Gespeichert'; setTimeout(function(){ saveBtn.textContent = old; }, 1200); }
+}
+
+// Auf Standard zurücksetzen
+function fmtHfReset() {
+  if (!_fmtHfCurrentId) return;
+  fmtHfRemoveKey(_fmtHfCurrentId);
+  var def = FMT_HF_DEFAULTS[_fmtHfCurrentId] || { header: '', footer: '' };
+  var hEl = document.getElementById('fmt-hf-header');
+  var fEl = document.getElementById('fmt-hf-footer');
+  if (hEl) hEl.value = def.header;
+  if (fEl) fEl.value = def.footer;
+}

@@ -393,6 +393,33 @@
       <button id="lang-btn-en" class="sp-jog-btn" onclick="setLang('en')" style="flex:0 0 auto;padding:4px 12px">English</button>
     </div>
     <hr class="sp-divider">
+    <div class="sp-sec-title">Programmkopf / Programmfuß</div>
+    <div class="sp-axis-row" style="flex-direction:column;align-items:stretch;gap:6px">
+      <div style="display:flex;align-items:center;gap:6px">
+        <span style="color:#c8d8e8;font-size:.9em;flex:1">Format:</span>
+        <div id="fmt-hf-selector" style="position:relative;flex:2">
+          <button id="fmt-hf-btn" class="fmt-btn" style="width:100%;justify-content:space-between" onclick="fmtHfOpenMenu(event)">
+            <span id="fmt-hf-label">Formular wählen</span><span style="opacity:.5">▾</span>
+          </button>
+          <div id="fmt-hf-menu" class="fmt-menu" style="width:100%;max-height:200px;overflow-y:auto"></div>
+        </div>
+      </div>
+      <div>
+        <div style="color:#6a6a6a;font-size:.78em;margin-bottom:3px">Programmkopf (eine Zeile pro Zeile)</div>
+        <textarea id="fmt-hf-header" rows="4" spellcheck="false"
+          style="width:100%;background:#1e1e1e;color:#cccccc;border:1px solid #474747;border-radius:3px;padding:5px 7px;font-family:monospace;font-size:.82em;resize:vertical;box-sizing:border-box"></textarea>
+      </div>
+      <div>
+        <div style="color:#6a6a6a;font-size:.78em;margin-bottom:3px">Programmfuß (eine Zeile pro Zeile)</div>
+        <textarea id="fmt-hf-footer" rows="3" spellcheck="false"
+          style="width:100%;background:#1e1e1e;color:#cccccc;border:1px solid #474747;border-radius:3px;padding:5px 7px;font-family:monospace;font-size:.82em;resize:vertical;box-sizing:border-box"></textarea>
+      </div>
+      <div style="display:flex;gap:6px">
+        <button class="sp-jog-btn" onclick="fmtHfReset()" style="flex:1">↺ Standard</button>
+        <button class="sp-jog-btn" onclick="fmtHfSave()" style="flex:1;color:var(--acc);border-color:var(--acc)">✓ Speichern</button>
+      </div>
+    </div>
+    <hr class="sp-divider">
     <div style="display:flex;gap:6px">
       <button class="sp-jog-btn" onclick="resetSettings()" style="flex:1" data-i18n="fz_reset">↺ Reset</button>
       <button class="sp-jog-btn" onclick="saveSettings()" style="flex:1;color:var(--acc);border-color:var(--acc)">✓ Speichern</button>

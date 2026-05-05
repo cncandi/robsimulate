@@ -54,6 +54,8 @@ var FormatRegistry = (function () {
 
     getActiveId: function () { return _activeId; },
 
+    _allFormats: function () { return _formats.slice(); },
+
     // Dropdown aufbauen (Legacy-Kompatibilität, wird nicht mehr für <select> verwendet)
     buildDropdown: function (selectEl) {
       if (!selectEl) return;
