@@ -960,30 +960,31 @@ function fmtHfRemoveKey(id) {
   try { localStorage.removeItem('robsimul_hf_' + id); } catch(e) {}
 }
 
-// Drag-Logik für das Popup
-(function() {
-  var drag = { active: false, startX: 0, startY: 0, origL: 0, origT: 0 };
-  document.addEventListener('mousedown', function(e) {
-    var handle = document.getElementById('fmt-hf-drag');
-    if (!handle || !handle.contains(e.target)) return;
-    var popup = document.getElementById('fmt-hf-popup');
-    if (!popup) return;
-    drag.active = true;
-    drag.startX = e.clientX;
-    drag.startY = e.clientY;
-    drag.origL  = parseInt(popup.style.left) || popup.getBoundingClientRect().left;
-    drag.origT  = parseInt(popup.style.top)  || popup.getBoundingClientRect().top;
+// Drag-Logik wird beim ersten Öffnen initialisiert
+var _fmtHfDragInit = false;
+function _initFmtHfDrag() {
+  if (_fmtHfDragInit) return;
+  _fmtHfDragInit = true;
+  var popup = document.getElementById('fmt-hf-popup');
+  var handle = document.getElementById('fmt-hf-drag');
+  if (!popup || !handle) return;
+  var dx = 0, dy = 0, dragging = false;
+  handle.addEventListener('mousedown', function(e) {
+    if (e.button !== 0) return;
+    dragging = true;
+    var r = popup.getBoundingClientRect();
+    dx = e.clientX - r.left;
+    dy = e.clientY - r.top;
+    popup.style.right = 'auto';
     e.preventDefault();
   });
   document.addEventListener('mousemove', function(e) {
-    if (!drag.active) return;
-    var popup = document.getElementById('fmt-hf-popup');
-    if (!popup) return;
-    popup.style.left = (drag.origL + e.clientX - drag.startX) + 'px';
-    popup.style.top  = (drag.origT + e.clientY - drag.startY) + 'px';
+    if (!dragging) return;
+    popup.style.left = (e.clientX - dx) + 'px';
+    popup.style.top  = (e.clientY - dy) + 'px';
   });
-  document.addEventListener('mouseup', function() { drag.active = false; });
-})();
+  document.addEventListener('mouseup', function() { dragging = false; });
+}
 
 // Popup für aktives Format öffnen
 function fmtHfOpenEditor() {
@@ -1011,6 +1012,7 @@ function fmtHfOpenEditor() {
     popup.style.left = Math.max(8, r.right - 340) + 'px';
   }
   popup.style.display = 'block';
+  _initFmtHfDrag();
 }
 
 // Speichern + Code-Output sofort neu generieren
