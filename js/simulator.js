@@ -2973,11 +2973,25 @@ function showEpIKSolutions(x,y,z,a,b,cv) {
 }
 
 function applyEpSolution(angles) {
-  // Roboter auf neue Gelenkwinkel animieren — Koordinaten bleiben unverändert,
-  // da alle IK-Lösungen dieselbe TCP-Position haben.
   tweenToAngles(angles, 500);
+
+  // FK berechnen und Felder aktualisieren (nur Anzeige, kein Code-Writeback)
+  var fk  = fkAll(angles);
+  var tcp = fk.pts[7];
+  var R   = fk.tcp_rot;
+  var B2  = -Math.asin(Math.max(-1, Math.min(1, R[2][0])));
+  var cb2 = Math.cos(B2);
+  var A2  = Math.abs(cb2) > 1e-6 ? Math.atan2(R[1][0]/cb2, R[0][0]/cb2) : 0;
+  var C2  = Math.abs(cb2) > 1e-6 ? Math.atan2(R[2][1]/cb2, R[2][2]/cb2) : Math.atan2(-R[1][2], R[1][1]);
+  function toDeg(v){ var d=v*180/Math.PI; while(d>180)d-=360; while(d<=-180)d+=360; return d; }
+  document.getElementById('ep-x').value = tcp[0].toFixed(3);
+  document.getElementById('ep-y').value = tcp[1].toFixed(3);
+  document.getElementById('ep-z').value = tcp[2].toFixed(3);
+  document.getElementById('ep-a').value = toDeg(A2).toFixed(3);
+  document.getElementById('ep-b').value = toDeg(B2).toFixed(3);
+  document.getElementById('ep-c').value = toDeg(C2).toFixed(3);
+
   if (selectedPosIdx === null) return;
-  // IK-Tabelle mit gewählter Konfiguration aktualisieren
   ikTable[selectedPosIdx] = { angles: angles, score: 0, ok: true };
 }
 
