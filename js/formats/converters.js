@@ -26,69 +26,51 @@
   }
 
   // ── Core generator ──────────────────────────────────────────────────────
-  // cfg: { header, footer, moveL, moveJ, moveC, halt, brake,
-  //        dout, dinWait, aout, ainRead, waitSec, waitFor,
-  //        tool, base, velLine, comment, varDecl, ptpSection }
+  // Iteriert direkt über parsedData.positions.
+  // Jede Position trägt: type ('LIN'|'PTP'|'SLIN'|'CIRC'|'CIRC_AUX'), velCP, X..C
+  // Tool/Base/Vars werden aus dem KRL-Code (code-input) extrahiert.
   function generate(parsedData, cfg) {
     if (!parsedData) return '';
-    var steps     = parsedData.steps     || [];
     var positions = parsedData.positions || [];
 
-    // Collect tool/base/vars from steps
+    // Tool/Base aus KRL-Code lesen
     var toolN = 1, baseN = 1, vars = [];
-    steps.forEach(function (s) {
-      if (s.type === 'tool') toolN = s.n;
-      if (s.type === 'base') baseN = s.n;
-      if (s.type === 'var')  vars.push(s);
+    var code = (typeof document !== 'undefined' && document.getElementById('code-input'))
+      ? document.getElementById('code-input').value : '';
+    code.split(/\r?\n/).forEach(function (line) {
+      var t = line.trim();
+      var tm = t.match(/^\$TOOL\s*=\s*TOOL_DATA\[(\d+)\]/i);
+      if (tm) toolN = parseInt(tm[1]);
+      var bm = t.match(/^\$BASE\s*=\s*BASE_DATA\[(\d+)\]/i);
+      if (bm) baseN = parseInt(bm[1]);
+      var vm = t.match(/^DECL\s+(INT|REAL|BOOL)\s+(\w+)(?:\s*=\s*(.+))?/i);
+      if (vm) vars.push({ varType: vm[1].toUpperCase(), name: vm[2], val: (vm[3] || '').trim() });
     });
 
     var lines = [];
-    var push  = function (l) { if (l != null) lines.push(l); };
+    var push = function (l) { if (l != null && l !== '') lines.push(l); };
 
-    // Header
     (cfg.header ? cfg.header(toolN, baseN, vars) : []).forEach(push);
 
-    var curVel = 0.167;
-    steps.forEach(function (s) {
-      switch (s.type) {
-        case 'comment': if (cfg.comment) push(cfg.comment(s.text || '')); break;
-        case 'velcp':
-          curVel = s.v || 0.167;
-          if (cfg.velLine) push(cfg.velLine(curVel));
-          break;
-        case 'tool': if (cfg.tool) push(cfg.tool(s.n)); break;
-        case 'base': if (cfg.base) push(cfg.base(s.n)); break;
-        case 'var':  if (cfg.varDecl) push(cfg.varDecl(s.varType, s.name, s.val)); break;
-        case 'move': {
-          var pos = positions[s.posIdx]; if (!pos) break;
-          var p = fmtP(pos), idx = (s.posIdx || 0) + 1;
-          if (s.moveType === 'LIN' || s.moveType === 'SLIN') push(cfg.moveL(p, curVel, idx, pos));
-          else push(cfg.moveJ(p, curVel, idx, pos));
-          break;
-        }
-        case 'circ': {
-          if (cfg.moveC) {
-            var pVia = positions[s.viaIdx], pTo = positions[s.posIdx];
-            if (pVia && pTo) push(cfg.moveC(fmtP(pVia), fmtP(pTo), curVel, (s.posIdx || 0) + 1));
-          }
-          break;
-        }
-        case 'halt':   if (cfg.halt)    push(cfg.halt());       break;
-        case 'brake':  if (cfg.brake)   push(cfg.brake());
-                       else if (cfg.halt) push(cfg.halt());     break;
-        case 'dout':   if (cfg.dout)    push(cfg.dout(s.n, s.v === 'TRUE' || s.v === '1' || s.v === 'ON')); break;
-        case 'din':    if (cfg.dinWait) push(cfg.dinWait(s.n)); break;
-        case 'aout':   if (cfg.aout)    push(cfg.aout(s.n, s.v));   break;
-        case 'ain':    if (cfg.ainRead) push(cfg.ainRead(s.n));      break;
-        case 'wait':   if (cfg.waitSec) push(cfg.waitSec(s.t));      break;
-        case 'waitFor':
-          if (cfg.waitFor) push(cfg.waitFor(s.cond || ''));
-          else if (cfg.dinWait) push(cfg.dinWait(1));
-          break;
+    positions.forEach(function (pos, i) {
+      var vel  = pos.velCP || 0.167;
+      var idx  = i + 1;
+      var p    = fmtP(pos);
+      var typ  = (pos.type || 'LIN').toUpperCase();
+
+      if (typ === 'CIRC_AUX') return; // Wird zusammen mit CIRC ausgegeben
+
+      if (typ === 'CIRC') {
+        var via = (i > 0 && positions[i - 1].type === 'CIRC_AUX') ? positions[i - 1] : null;
+        if (via && cfg.moveC) push(cfg.moveC(fmtP(via), p, vel, idx));
+        else if (cfg.moveL)   push(cfg.moveL(p, vel, idx, pos));
+      } else if (typ === 'LIN' || typ === 'SLIN') {
+        if (cfg.moveL) push(cfg.moveL(p, vel, idx, pos));
+      } else {
+        if (cfg.moveJ) push(cfg.moveJ(p, vel, idx, pos));
       }
     });
 
-    // Optional position table (for formats using point names)
     if (cfg.ptpSection && positions.length) {
       var ptpLines = cfg.ptpSection(positions);
       if (ptpLines && ptpLines.length) ptpLines.forEach(push);
@@ -121,18 +103,20 @@
     return { positions: positions, steps: steps, finalState: { variables: {}, digitalIn: {}, digitalOut: {}, analogOut: {} } };
   }
 
-  // ── Shared activate / deactivate for all code-view formats ──────────────
-  function makeActivate(id) {
+  // ── Shared activate — impl direkt via Closure ──────────────────────────
+  function makeActivate(impl) {
     return function () {
       var ci = document.getElementById('code-input');
       var gt = document.getElementById('gutter');
       var fv = document.getElementById('krl-form-view');
+      var fw = document.getElementById('fv-form-wrap');
       if (ci) ci.style.display = '';
       if (gt) gt.style.display = '';
       if (fv) fv.style.display = 'none';
-      var fmt = FormatRegistry._implById(id);
-      if (fmt && fmt._generate && typeof parsedData !== 'undefined') {
-        ci.value = fmt._generate(parsedData);
+      if (fw) fw.style.display = 'none';
+      if (impl && impl._generate) {
+        var pd = (typeof parsedData !== 'undefined') ? parsedData : { positions: [], steps: [], finalState: {} };
+        ci.value = impl._generate(pd);
         if (typeof rebuildGutter === 'function') rebuildGutter();
       }
     };
@@ -890,7 +874,7 @@
       id:    meta.id,
       label: meta.label,
       icon:  logo(meta.file),
-      activate:   makeActivate(meta.id),
+      activate:   makeActivate(impl),
       deactivate: function () {},
       _generate:  impl._generate,
       _parse:     impl._parse,
