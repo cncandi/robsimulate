@@ -1336,12 +1336,11 @@ function fmtHfOpenEditor() {
   fmtHfSwitchTab('hf');
   var popup = document.getElementById('fmt-hf-popup');
   if (!popup) return;
-  var btn = document.getElementById('fmt-edit-btn');
-  if (btn) {
-    var r = btn.getBoundingClientRect();
-    popup.style.top  = Math.min(r.bottom + 6, window.innerHeight - 520) + 'px';
-    popup.style.left = Math.max(8, r.right - 640) + 'px';
-  }
+  // Popup mittig auf dem Bildschirm positionieren (robust)
+  var pw = 640, ph = 520;
+  popup.style.left = Math.max(8, Math.round((window.innerWidth  - pw) / 2)) + 'px';
+  popup.style.top  = Math.max(8, Math.round((window.innerHeight - ph) / 2)) + 'px';
+  popup.style.zIndex = '9999';
   popup.style.display = 'block';
   _initFmtHfDrag();
 }
