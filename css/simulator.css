@@ -684,6 +684,9 @@ body.bg-pro #steuer-panel { background:rgba(30,30,30,.97); border-color:#0078d4;
 body.bg-pro .sp-hdr { background:#252526; border-bottom-color:#474747; }
 body.bg-pro .sp-hdr-title,
 body.bg-pro .sp-sec-title { color:#cccccc !important; }
+body.bg-pro .sec-t { color:#e0e0e0; font-weight:600; font-size:.72em; background:#2d2d30; border-bottom-color:#474747; }
+body.bg-pro .sec-t:hover { background:#3e3e42; }
+body.bg-pro .sec-t .tog { color:#9d9d9d; }
 body.bg-pro .sp-axis-val,
 body.bg-pro .sp-tcp-val { color:#9cdcfe !important; background:#1e1e1e; }
 body.bg-pro .sp-axis-min,
