@@ -960,6 +960,31 @@ function fmtHfRemoveKey(id) {
   try { localStorage.removeItem('robsimul_hf_' + id); } catch(e) {}
 }
 
+// Drag-Logik für das Popup
+(function() {
+  var drag = { active: false, startX: 0, startY: 0, origL: 0, origT: 0 };
+  document.addEventListener('mousedown', function(e) {
+    var handle = document.getElementById('fmt-hf-drag');
+    if (!handle || !handle.contains(e.target)) return;
+    var popup = document.getElementById('fmt-hf-popup');
+    if (!popup) return;
+    drag.active = true;
+    drag.startX = e.clientX;
+    drag.startY = e.clientY;
+    drag.origL  = parseInt(popup.style.left) || popup.getBoundingClientRect().left;
+    drag.origT  = parseInt(popup.style.top)  || popup.getBoundingClientRect().top;
+    e.preventDefault();
+  });
+  document.addEventListener('mousemove', function(e) {
+    if (!drag.active) return;
+    var popup = document.getElementById('fmt-hf-popup');
+    if (!popup) return;
+    popup.style.left = (drag.origL + e.clientX - drag.startX) + 'px';
+    popup.style.top  = (drag.origT + e.clientY - drag.startY) + 'px';
+  });
+  document.addEventListener('mouseup', function() { drag.active = false; });
+})();
+
 // Popup für aktives Format öffnen
 function fmtHfOpenEditor() {
   var activeId = FormatRegistry.getActiveId ? FormatRegistry.getActiveId() : null;
