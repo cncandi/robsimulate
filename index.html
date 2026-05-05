@@ -121,6 +121,14 @@
         <button class="ep-btn" id="ep-tz" onclick="setDragMode('tz')">↕ Move Z</button>
         <button class="ep-btn" onclick="applyEditPanel()">✓ Apply</button>
       </div>
+      <!-- Navigation -->
+      <div class="ep-nav">
+        <button class="ep-btn ep-nav-btn" onclick="epNavFirst()" title="Zum ersten Punkt">|◀</button>
+        <button class="ep-btn ep-nav-btn" onclick="epNavPrev()"  title="Vorheriger Punkt">◀</button>
+        <span id="ep-nav-info" class="ep-nav-info">—</span>
+        <button class="ep-btn ep-nav-btn" onclick="epNavNext()"  title="Nächster Punkt">▶</button>
+        <button class="ep-btn ep-nav-btn" onclick="epNavLast()"  title="Zum letzten Punkt">▶|</button>
+      </div>
       <!-- IK Solutions in edit panel -->
       <div id="ep-ik-solutions" style="margin-top:8px;display:none">
         <div style="font-size:.85em;color:var(--txt3);border-top:1px solid var(--bdr);padding-top:6px;margin-bottom:5px">IK-Lösungen:</div>

@@ -641,3 +641,8 @@ body.bg-matrix #code-input { color: #a0ffa0 !important; }
 .fmt-item:hover{background:var(--bg3)}
 .fmt-item.active{color:var(--acc)}
 
+
+/* ── Edit-Panel Navigation ── */
+.ep-nav{display:flex;align-items:center;gap:4px;margin-top:8px;border-top:1px solid var(--bdr);padding-top:8px}
+.ep-nav-btn{flex:0 0 auto;padding:4px 10px;font-size:.9em;min-width:0}
+.ep-nav-info{flex:1;text-align:center;color:var(--txt2);font-size:.88em;font-variant-numeric:tabular-nums}

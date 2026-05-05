@@ -1864,7 +1864,7 @@ let selectedPosIdx=null,currentDragMode='translate';
 function setDragMode(mode){currentDragMode=mode;document.getElementById('ep-translate').classList.toggle('active',mode==='translate');document.getElementById('ep-tz').classList.toggle('active',mode==='tz');}
 
 function selectPosition(idx){
-  selectedPosIdx=idx;const pos=parsedData.positions[idx];
+  selectedPosIdx=idx;_epNavUpdateInfo();const pos=parsedData.positions[idx];
   // Wenn Formular aktiv: zugehörige Karte öffnen + scrollen
   if (typeof FormatRegistry !== 'undefined' && FormatRegistry.getActiveId() === 'kuka-form') {
     if (typeof fvBuild === 'function' && pos.lineNum !== undefined) {
@@ -1901,8 +1901,19 @@ function selectPosition(idx){
   }
 }
 
+function epNavFirst(){ if(parsedData.positions.length) selectPosition(0); }
+function epNavLast() { const N=parsedData.positions.length; if(N) selectPosition(N-1); }
+function epNavPrev() { if(selectedPosIdx===null||!parsedData.positions.length) return; selectPosition(Math.max(0,selectedPosIdx-1)); }
+function epNavNext() { if(selectedPosIdx===null||!parsedData.positions.length) return; selectPosition(Math.min(parsedData.positions.length-1,selectedPosIdx+1)); }
+function _epNavUpdateInfo() {
+  const el=document.getElementById('ep-nav-info'); if(!el) return;
+  const N=parsedData.positions.length;
+  if(selectedPosIdx===null||!N){ el.textContent='—'; return; }
+  el.textContent=(selectedPosIdx+1)+' / '+N;
+}
+
 function deselectPosition(){
-  selectedPosIdx=null;selSphere.visible=false;
+  selectedPosIdx=null;_epNavUpdateInfo();selSphere.visible=false;
   document.getElementById('edit-panel').style.display='none';
   document.querySelectorAll('.pc').forEach(el=>el.classList.remove('selected'));
 }
