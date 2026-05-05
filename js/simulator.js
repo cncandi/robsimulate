@@ -391,7 +391,7 @@ const canvas=document.getElementById('c3d');
 const renderer=new THREE.WebGLRenderer({canvas,antialias:true});
 renderer.setPixelRatio(window.devicePixelRatio);
 const scene=new THREE.Scene();
-scene.background=new THREE.Color(0x070d1a);
+scene.background=new THREE.Color(0x1e1e1e); // bg-pro default
 
 const perspCam=new THREE.PerspectiveCamera(50,1,1,80000);
 perspCam.up.set(0,0,1);
@@ -1442,7 +1442,7 @@ function toggleGrid(){
   document.getElementById('btn-grid').classList.toggle('on', grid.visible);
 }
 
-var _themeIndex = 0;
+var _themeIndex = 1; // Default: bg-pro
 var _themes = ['dark','bg-pro','bg-white','bg-minimal','bg-win11','bg-deep','bg-vivid','bg-matrix'];
 var _themeBg  = [0x070d1a, 0x1e1e1e, 0xf0f0eb, 0xf4f4f4, 0xf3f6fc, 0x000408, 0x1a0a2e, 0x000800];
 var _themeGrid= [0x0e1e30, 0x2d2d30, 0xbbbbaa, 0xcccccc, 0xc8d8e8, 0x0a1020, 0x2a1040, 0x001400];
@@ -4356,6 +4356,9 @@ window.addEventListener('load', function() {
   splashProgress(95, 'Einstellungen werden geladen…');
   initSettings();
   bindSettingsEvents();
+  // Theme beim Start anwenden
+  document.body.classList.add('bg-pro');
+  setGridColor(0x2d2d30);
   splashProgress(100, 'Bereit.');
   setTimeout(function() {
     splashHide();
@@ -4363,18 +4366,9 @@ window.addEventListener('load', function() {
     // autoLoadSTLFiles();
   }, 400);
 
-  // Map button — direkte Bindung nach DOM-Load
+  // Map-Button nutzt toggleAPlot() (enthält _aPlotFitWidth)
   var _abtn = document.getElementById('btn-aplot');
-  if (_abtn) {
-    _abtn.onclick = function() {
-      var p = document.getElementById('aplot-panel');
-      if (!p) return;
-      var show = p.style.display === 'none';
-      p.style.display = show ? 'block' : 'none';
-      _abtn.classList.toggle('on', show);
-      if (show) { try { aPlotDraw(); } catch(e) { console.error('aPlotDraw:', e); } }
-    };
-  }
+  if (_abtn) _abtn.onclick = toggleAPlot;
 
   // Versionsnummer setzen
   ['ver-header','ver-help','ver-splash'].forEach(function(id) {
