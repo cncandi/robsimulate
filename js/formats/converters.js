@@ -144,132 +144,266 @@
   var IMPLS = {};
 
   // ── ABB RAPID / IRC5 / OmniCore ─────────────────────────────────────────
+  // ABB RAPID — MIXED_MODULE
+  // Struktur: MODULE → VAR-Deklarationen → CONST robtargets → PROC main() → Bewegungen → ENDPROC → ENDMODULE
   IMPLS.abb = {
     _generate: function (pd) {
-      return generate(pd, {
-        _formatId: 'abb',
-        header: function (t, b, vars) {
-          var h = ['MODULE Main_Prog'];
-          vars.forEach(function (v) {
-            var typ = (v.varType === 'BOOL') ? 'bool' : 'num';
-            var val = v.val || (v.varType === 'BOOL' ? 'FALSE' : v.varType === 'REAL' ? '0.0' : '0');
-            h.push('VAR ' + typ + ' ' + v.name + ' := ' + val + ';');
-          });
-          h.push('PROC main()');
-          return h;
-        },
-        footer: function () { return ['ENDPROC', 'ENDMODULE']; },
-        moveL:   function (p, vel) { return '  MoveL [[' + p.X + ',' + p.Y + ',' + p.Z + '],[1,0,0,0],[0,0,0,0],[9E9,9E9,9E9,9E9,9E9,9E9]], v' + velMmS(vel) + ', fine, tool1\\WObj:=wobj1;'; },
-        moveJ:   function (p, vel) { return '  MoveJ [[' + p.X + ',' + p.Y + ',' + p.Z + '],[1,0,0,0],[0,0,0,0],[9E9,9E9,9E9,9E9,9E9,9E9]], v' + velMmS(vel) + ', z10, tool1\\WObj:=wobj1;'; },
-        moveC:   function (pv, pt, vel) { return '  MoveC [[' + pv.X + ',' + pv.Y + ',' + pv.Z + '],[1,0,0,0],[0,0,0,0],[9E9,9E9,9E9,9E9,9E9,9E9]],\n        [[' + pt.X + ',' + pt.Y + ',' + pt.Z + '],[1,0,0,0],[0,0,0,0],[9E9,9E9,9E9,9E9,9E9,9E9]], v' + velMmS(vel) + ', fine, tool1\\WObj:=wobj1;'; },
-        halt:    function ()        { return '  Stop;'; },
-        dout:    function (n, v)    { return '  SetDO do' + n + ', ' + (v ? '1' : '0') + ';'; },
-        dinWait: function (n)       { return '  WaitDI di' + n + ', 1;'; },
-        aout:    function (n, v)    { return '  SetAO ao' + n + ', ' + parseFloat(v).toFixed(2) + ';'; },
-        ainRead: function (n)       { return '  r := AInput(ai' + n + ');'; },
-        waitSec: function (t)       { return '  WaitTime ' + parseFloat(t).toFixed(1) + ';'; },
-        tool:    function (n)       { return '  ! Tool: tool' + n; },
-        base:    function (n)       { return '  ! WObj: wobj' + n; },
-        comment: function (t)       { return '  ! ' + t; },
-        varDecl: function (tp, nm, v) { var t2 = tp === 'BOOL' ? 'bool' : 'num'; return 'VAR ' + t2 + ' ' + nm + ' := ' + (v || '0') + ';'; },
+      if (!pd) return '';
+      var positions = pd.positions || [];
+      var steps = pd.steps || [];
+      var lines = [];
+      var hf = (typeof fmtHfLoad === 'function') ? fmtHfLoad('abb') : null;
+      var toolN = 1, baseN = 1, vars = [];
+      steps.forEach(function(s) {
+        if (s.type === 'tool') toolN = s.n;
+        if (s.type === 'base') baseN = s.n;
+        if (s.type === 'var') vars.push(s);
       });
-    },
-    _parse: function (text) {
-      return parsePositions(text, [
-        { rx: /MoveL\s+\[\[(?<X>[\d.\-+]+),(?<Y>[\d.\-+]+),(?<Z>[\d.\-+]+)/, ptp: false },
-        { rx: /MoveJ\s+\[\[(?<X>[\d.\-+]+),(?<Y>[\d.\-+]+),(?<Z>[\d.\-+]+)/, ptp: true  },
-      ]);
+
+      // Programmkopf (Settings oder Default)
+      var hdr = (hf && hf.header) ? hf.header : 'MODULE PP_MAIN';
+      hdr.split('\n').forEach(function(l) { lines.push(l); });
+
+      // VAR-Deklarationen
+      vars.forEach(function(v) {
+        var typ = v.varType === 'BOOL' ? 'bool' : 'num';
+        var val = v.val || (v.varType === 'BOOL' ? 'FALSE' : v.varType === 'REAL' ? '0.0' : '0');
+        lines.push('  VAR ' + typ + ' ' + v.name + ' := ' + val + ';');
+      });
+
+      // CONST robtarget — alle Positionen vorab deklarieren (MIXED_MODULE)
+      positions.forEach(function(pos, i) {
+        var name = 'p' + (i + 1);
+        lines.push('  CONST robtarget ' + name + ' := [[' +
+          parseFloat(pos.X).toFixed(3) + ',' + parseFloat(pos.Y).toFixed(3) + ',' + parseFloat(pos.Z).toFixed(3) +
+          '],[1,0,0,0],[0,0,0,0],[9E9,9E9,9E9,9E9,9E9,9E9]];');
+      });
+
+      lines.push('  PROC main()');
+      if (toolN) lines.push('    ! Tool: tool' + toolN);
+      if (baseN) lines.push('    ! WObj: wobj' + baseN);
+
+      // Bewegungs-Block
+      var curVel = 0.167;
+      steps.forEach(function(s) {
+        switch (s.type) {
+          case 'comment':  lines.push('    ! ' + (s.text || '')); break;
+          case 'velcp':    curVel = s.v || 0.167; break;
+          case 'halt':     lines.push('    Stop;'); break;
+          case 'dout':     lines.push('    SetDO do' + s.n + ', ' + ((s.v === 'TRUE' || s.v === '1') ? '1' : '0') + ';'); break;
+          case 'din':      lines.push('    WaitDI di' + s.n + ', 1;'); break;
+          case 'aout':     lines.push('    SetAO ao' + s.n + ', ' + parseFloat(s.v || 0).toFixed(2) + ';'); break;
+          case 'ain':      lines.push('    r := AInput(ai' + s.n + ');'); break;
+          case 'wait':     lines.push('    WaitTime ' + parseFloat(s.t || 0).toFixed(1) + ';'); break;
+          case 'waitFor':  lines.push('    WaitUntil ' + (s.cond || 'di1 = 1') + ';'); break;
+          case 'move': {
+            var pos = positions[s.posIdx]; if (!pos) break;
+            var nm = 'p' + (s.posIdx + 1);
+            var v = velMmS(curVel);
+            if (s.moveType === 'LIN' || s.moveType === 'SLIN')
+              lines.push('    MoveL ' + nm + ', v' + v + ', fine, tool' + toolN + '\\WObj:=wobj' + baseN + ';');
+            else
+              lines.push('    MoveJ ' + nm + ', v' + v + ', z10, tool' + toolN + '\\WObj:=wobj' + baseN + ';');
+            break;
+          }
+          case 'circ': {
+            var pv = positions[s.viaIdx], pt = positions[s.posIdx]; if (!pv || !pt) break;
+            lines.push('    MoveC p' + (s.viaIdx+1) + ', p' + (s.posIdx+1) + ', v' + velMmS(curVel) + ', fine, tool' + toolN + '\\WObj:=wobj' + baseN + ';');
+            break;
+          }
+        }
+      });
+
+      lines.push('  ENDPROC');
+      var ftr = (hf && hf.footer) ? hf.footer : 'ENDMODULE';
+      ftr.split('\n').forEach(function(l) { lines.push(l); });
+      return lines.join('\n');
     }
   };
 
-  // ── FANUC TP / KAREL ────────────────────────────────────────────────────
+  // FANUC TP — POINT_SECTION_THEN_INSTRUCTIONS
+  // Struktur: /PROG → /MN (Instruktionen mit P[n]-Referenzen) → /POS (Koordinaten) → /END
   IMPLS.fanuc = {
     _generate: function (pd) {
-      var ln = 1;
-      return generate(pd, {
-        header: function (t, b, vars) {
-          var h = ['/PROG MAIN_PROG', '/MN'];
-          if (t) h.push(' ' + (ln++) + ': UTOOL_NUM=' + t + ' ;');
-          if (b) h.push(' ' + (ln++) + ': UFRAME_NUM=' + b + ' ;');
-          vars.forEach(function (v) {
-            if (v.varType === 'BOOL') h.push(' ' + (ln++) + ': F[1]=(OFF) ;');
-            else h.push(' ' + (ln++) + ': R[' + (ln - 1) + ']=' + (v.val || '0') + ' ;');
-          });
-          return h;
-        },
-        footer: function () { return ['/END']; },
-        moveL:   function (p, vel, idx) { return ' ' + (ln++) + ':L P[' + idx + '] ' + velMmS(vel) + 'mm/sec FINE ;'; },
-        moveJ:   function (p, vel, idx) { return ' ' + (ln++) + ':J P[' + idx + '] ' + velPct(vel) + '% FINE ;'; },
-        moveC:   function (pv, pt, vel, idx) { return ' ' + (ln++) + ':C P[' + idx + ']\n   P[' + (idx + 1) + '] ' + velMmS(vel) + 'mm/sec FINE ;'; },
-        halt:    function ()        { return ' ' + (ln++) + ': PAUSE ;'; },
-        dout:    function (n, v)    { return ' ' + (ln++) + ': DO[' + n + ']=' + (v ? 'ON' : 'OFF') + ' ;'; },
-        dinWait: function (n)       { return ' ' + (ln++) + ': WAIT DI[' + n + ']=ON ;'; },
-        aout:    function (n, v)    { return ' ' + (ln++) + ': AO[' + n + ']=' + parseFloat(v).toFixed(2) + ' ;'; },
-        ainRead: function (n)       { return ' ' + (ln++) + ': R[1]=AI[' + n + '] ;'; },
-        waitSec: function (t)       { return ' ' + (ln++) + ': WAIT ' + parseFloat(t).toFixed(1) + ' ;'; },
-        tool:    function (n)       { return ' ' + (ln++) + ': UTOOL_NUM=' + n + ' ;'; },
-        base:    function (n)       { return ' ' + (ln++) + ': UFRAME_NUM=' + n + ' ;'; },
-        comment: function (t)       { return ' ' + (ln++) + ': ! ' + t + ' ;'; },
-        ptpSection: function (positions) {
-          var h = ['/POS'];
-          positions.forEach(function (pos, i) {
-            h.push('P[' + (i + 1) + ']{');
-            h.push('   GP1:');
-            h.push('    UF : 1, UT : 1,        CONFIG : \'N U T, 0, 0, 0\',');
-            h.push('    X =' + parseFloat(pos.X).toFixed(3) + '  mm, Y =' + parseFloat(pos.Y).toFixed(3) + '  mm, Z =' + parseFloat(pos.Z).toFixed(3) + '  mm,');
-            h.push('    W =' + parseFloat(pos.A).toFixed(3) + '  deg, P =' + parseFloat(pos.B).toFixed(3) + '  deg, R =' + parseFloat(pos.C).toFixed(3) + '  deg');
-            h.push('};');
-          });
-          return h;
-        },
+      if (!pd) return '';
+      var positions = pd.positions || [];
+      var steps = pd.steps || [];
+      var lines = [];
+      var hf = (typeof fmtHfLoad === 'function') ? fmtHfLoad('fanuc') : null;
+      var toolN = 1, baseN = 1, ln = 1;
+      steps.forEach(function(s) {
+        if (s.type === 'tool') toolN = s.n;
+        if (s.type === 'base') baseN = s.n;
       });
-    },
-    _parse: function (text) {
-      return parsePositions(text, [
-        { rx: /:L\s+P\[/, ptp: false },
-        { rx: /:J\s+P\[/, ptp: true  },
-      ]);
+
+      // Programmkopf
+      var hdr = (hf && hf.header) ? hf.header : '/PROG PP_MAIN\n/ATTR\nOWNER = MNEDITOR;\n/MN';
+      hdr.split('\n').forEach(function(l) { lines.push(l); });
+      lines.push(' ' + (ln++) + ': UTOOL_NUM=' + toolN + ' ;');
+      lines.push(' ' + (ln++) + ': UFRAME_NUM=' + baseN + ' ;');
+
+      // Instruktionen (referenzieren P[n])
+      var posCounter = {};  // posIdx → P[n] Nummer
+      var pNum = 1;
+      var curVel = 0.167;
+      steps.forEach(function(s) {
+        switch (s.type) {
+          case 'velcp':    curVel = s.v || 0.167; break;
+          case 'comment':  lines.push(' ' + (ln++) + ': ! ' + (s.text||'') + ' ;'); break;
+          case 'halt':     lines.push(' ' + (ln++) + ': PAUSE ;'); break;
+          case 'dout':     lines.push(' ' + (ln++) + ': DO[' + s.n + ']=' + ((s.v==='TRUE'||s.v==='1')?'ON':'OFF') + ' ;'); break;
+          case 'din':      lines.push(' ' + (ln++) + ': WAIT DI[' + s.n + ']=ON ;'); break;
+          case 'aout':     lines.push(' ' + (ln++) + ': AO[' + s.n + ']=' + parseFloat(s.v||0).toFixed(2) + ' ;'); break;
+          case 'wait':     lines.push(' ' + (ln++) + ': WAIT ' + parseFloat(s.t||0).toFixed(2) + '(sec) ;'); break;
+          case 'move': {
+            if (posCounter[s.posIdx] === undefined) posCounter[s.posIdx] = pNum++;
+            var pn = posCounter[s.posIdx];
+            if (s.moveType === 'LIN' || s.moveType === 'SLIN')
+              lines.push(' ' + (ln++) + ':L P[' + pn + '] ' + velMmS(curVel) + 'mm/sec FINE ;');
+            else
+              lines.push(' ' + (ln++) + ':J P[' + pn + '] ' + velPct(curVel) + '% FINE ;');
+            break;
+          }
+          case 'circ': {
+            if (posCounter[s.viaIdx] === undefined) posCounter[s.viaIdx] = pNum++;
+            if (posCounter[s.posIdx] === undefined) posCounter[s.posIdx] = pNum++;
+            lines.push(' ' + (ln++) + ':C P[' + posCounter[s.viaIdx] + ']');
+            lines.push('   P[' + posCounter[s.posIdx] + '] ' + velMmS(curVel) + 'mm/sec FINE ;');
+            break;
+          }
+        }
+      });
+
+      // /POS Sektion — Koordinaten der referenzierten Punkte
+      lines.push('/POS');
+      Object.keys(posCounter).forEach(function(posIdx) {
+        var pos = positions[parseInt(posIdx)]; if (!pos) return;
+        var n = posCounter[posIdx];
+        lines.push('P[' + n + ']{');
+        lines.push('   GP1:');
+        lines.push("    UF : " + baseN + ", UT : " + toolN + ",        CONFIG : 'N U T, 0, 0, 0',");
+        lines.push('    X =' + parseFloat(pos.X).toFixed(3) + '  mm, Y =' + parseFloat(pos.Y).toFixed(3) + '  mm, Z =' + parseFloat(pos.Z).toFixed(3) + '  mm,');
+        lines.push('    W =' + parseFloat(pos.A).toFixed(3) + '  deg, P =' + parseFloat(pos.B).toFixed(3) + '  deg, R =' + parseFloat(pos.C).toFixed(3) + '  deg');
+        lines.push('};');
+      });
+
+      // Programmfuß
+      var ftr = (hf && hf.footer) ? hf.footer : '/END';
+      ftr.split('\n').forEach(function(l) { lines.push(l); });
+      return lines.join('\n');
     }
   };
 
-  // ── Yaskawa INFORM / DX,YRC ─────────────────────────────────────────────
+  // Yaskawa INFORM JBI — POINT_TABLE_THEN_INST
+  // Struktur: /JOB Header → //POS (C00000 mit Koordinaten) → //INST (NOP + MOVJ/MOVL/MOVC + END)
   IMPLS.yaskawa = {
     _generate: function (pd) {
-      return generate(pd, {
-        _formatId: 'yaskawa',
-        header: function (t, b, vars) {
-          var h = ['/JOB', '//NAME MAIN_PROG', 'NOP'];
-          vars.forEach(function (v) {
-            var pfx = v.varType === 'INT' ? 'I' : v.varType === 'REAL' ? 'R' : 'B';
-            h.push('SET ' + pfx + '000 ' + (v.val || '0'));
-          });
-          if (t) h.push('TOOL ' + t);
-          return h;
-        },
-        footer: function () { return ['END']; },
-        moveL:   function (p, vel) { return 'MOVL C00000 V=' + velMmS(vel) + '.0'; },
-        moveJ:   function (p, vel) { return 'MOVJ C00000 VJ=' + velPct(vel) + '.00'; },
-        moveC:   function (pv, pt, vel) { return 'MOVC C00000 V=' + velMmS(vel) + '.0'; },
-        halt:    function ()     { return 'PAUSE'; },
-        dout:    function (n, v) { return 'DOUT OT#(' + n + ') ' + (v ? 'ON' : 'OFF'); },
-        dinWait: function (n)    { return 'WAIT IN#(' + n + ')=ON'; },
-        aout:    function (n, v) { return 'AOUT AO#(' + n + ') ' + parseFloat(v).toFixed(2); },
-        ainRead: function (n)    { return 'AIN AI#(' + n + ') R000'; },
-        waitSec: function (t)    { return 'TIMER T=' + parseFloat(t).toFixed(1); },
-        tool:    function (n)    { return 'TOOL ' + n; },
-        comment: function (t)    { return "'" + t; },
+      if (!pd) return '';
+      var positions = pd.positions || [];
+      var steps = pd.steps || [];
+      var lines = [];
+      var hf = (typeof fmtHfLoad === 'function') ? fmtHfLoad('yaskawa') : null;
+      var toolN = 1, baseN = 1, vars = [];
+      steps.forEach(function(s) {
+        if (s.type === 'tool') toolN = s.n;
+        if (s.type === 'base') baseN = s.n;
+        if (s.type === 'var') vars.push(s);
       });
-    },
-    _parse: function (text) {
-      return parsePositions(text, [
-        { rx: /MOVL\s+C\d+/, ptp: false },
-        { rx: /MOVJ\s+C\d+/, ptp: true  },
-        { rx: /MOVC\s+C\d+/, ptp: false },
-      ]);
+
+      // Phase 1: alle Positionen aus steps sammeln (in Reihenfolge, mit Index)
+      var usedPositions = []; // [{posIdx, cName}]
+      var posMap = {};        // posIdx → C-Name
+      var cCounter = 0;
+      steps.forEach(function(s) {
+        if (s.type === 'move' && posMap[s.posIdx] === undefined) {
+          var cName = 'C' + String(cCounter).padStart(5, '0');
+          posMap[s.posIdx] = cName;
+          usedPositions.push({ posIdx: s.posIdx, cName: cName });
+          cCounter++;
+        }
+        if (s.type === 'circ') {
+          [s.viaIdx, s.posIdx].forEach(function(idx) {
+            if (posMap[idx] === undefined) {
+              var cName = 'C' + String(cCounter).padStart(5, '0');
+              posMap[idx] = cName;
+              usedPositions.push({ posIdx: idx, cName: cName });
+              cCounter++;
+            }
+          });
+        }
+      });
+
+      // /JOB Header
+      var hdr = (hf && hf.header) ? hf.header
+        : '/JOB\n//NAME PP_MAIN';
+      hdr.split('\n').forEach(function(l) { lines.push(l); });
+
+      // //POS Sektion mit echten Koordinaten
+      lines.push('//POS');
+      lines.push('///NPOS ' + usedPositions.length + ',0,0,0,0,0');
+      lines.push('///TOOL ' + toolN);
+      lines.push('///POSTYPE ROBOT');
+      lines.push('///RECTAN');
+      lines.push('///UNIT MM,RAD,SEC,CM/MIN,DEG/SEC,PERCENT');
+      usedPositions.forEach(function(entry) {
+        var pos = positions[entry.posIdx];
+        if (!pos) return;
+        lines.push(entry.cName + '=' +
+          parseFloat(pos.X).toFixed(3) + ',' +
+          parseFloat(pos.Y).toFixed(3) + ',' +
+          parseFloat(pos.Z).toFixed(3) + ',' +
+          parseFloat(pos.A * Math.PI / 180).toFixed(6) + ',' +
+          parseFloat(pos.B * Math.PI / 180).toFixed(6) + ',' +
+          parseFloat(pos.C * Math.PI / 180).toFixed(6));
+      });
+
+      // //INST Sektion
+      lines.push('//INST');
+      lines.push('///ATTR SC,RW');
+      lines.push('NOP');
+
+      // Variablen
+      vars.forEach(function(v) {
+        var pfx = v.varType === 'INT' ? 'I' : v.varType === 'REAL' ? 'R' : 'B';
+        lines.push('SET ' + pfx + '000 ' + (v.val || '0'));
+      });
+
+      // Befehle
+      var curVel = 0.167;
+      steps.forEach(function(s) {
+        switch (s.type) {
+          case 'velcp':    curVel = s.v || 0.167; break;
+          case 'comment':  lines.push("'" + (s.text || '')); break;
+          case 'halt':     lines.push('PAUSE'); break;
+          case 'dout':     lines.push('DOUT OT#(' + s.n + ') ' + ((s.v==='TRUE'||s.v==='1')?'ON':'OFF')); break;
+          case 'din':      lines.push('WAIT IN#(' + s.n + ')=ON'); break;
+          case 'aout':     lines.push('AOUT AO#(' + s.n + ') ' + parseFloat(s.v||0).toFixed(2)); break;
+          case 'wait':     lines.push('TIMER T=' + parseFloat(s.t||0).toFixed(2)); break;
+          case 'move': {
+            var cName = posMap[s.posIdx]; if (!cName) break;
+            if (s.moveType === 'LIN' || s.moveType === 'SLIN')
+              lines.push('MOVL ' + cName + ' V=' + velMmS(curVel) + '.0 PL=0');
+            else
+              lines.push('MOVJ ' + cName + ' VJ=' + velPct(curVel) + '.00');
+            break;
+          }
+          case 'circ': {
+            var cv = posMap[s.viaIdx], ct = posMap[s.posIdx]; if (!cv||!ct) break;
+            lines.push('MOVC ' + cv + ' V=' + velMmS(curVel) + '.0');
+            lines.push('MOVC ' + ct + ' V=' + velMmS(curVel) + '.0');
+            break;
+          }
+        }
+      });
+
+      // Programmfuß
+      var ftr = (hf && hf.footer) ? hf.footer : 'END';
+      ftr.split('\n').forEach(function(l) { lines.push(l); });
+      return lines.join('\n');
     }
   };
 
-  // ── Kawasaki AS Language ─────────────────────────────────────────────────
+  // ── Kawasaki AS Language  // ── Kawasaki AS Language ─────────────────────────────────────────────────
   IMPLS.kawasaki = {
     _generate: function (pd) {
       return generate(pd, {
@@ -496,47 +630,77 @@
   };
 
   // ── Comau PDL2 / C5G ───────────────────────────────────────────────────
+  // Comau PDL2 — DIRECT/MIXED
+  // Struktur: PROGRAM → VAR-Block (Variablen + Positionen) → BEGIN → Bewegungen → END
   IMPLS.comau = {
     _generate: function (pd) {
-      return generate(pd, {
-        _formatId: 'comau',
-        header: function (t, b, vars) {
-          var h = ['PROGRAM main'];
-          if (vars.length) {
-            h.push('VAR');
-            vars.forEach(function (v) {
-              h.push('  ' + v.name + ' : ' + (v.varType === 'INT' ? 'INTEGER' : v.varType === 'REAL' ? 'REAL' : 'BOOLEAN'));
-            });
-          }
-          h.push('BEGIN');
-          if (t) h.push('  $TOOL := tool' + t);
-          if (b) h.push('  $BASE := base' + b);
-          return h;
-        },
-        footer: function () { return ['END main']; },
-        moveL:   function (p, vel, idx) { return '  MOVE LINEAR TO p' + idx; },
-        moveJ:   function (p, vel, idx) { return '  MOVE JOINT TO p' + idx; },
-        moveC:   function (pv, pt, vel, idx) { return '  MOVE CIRCULAR TO p' + idx + ' VIA p' + (idx - 1); },
-        halt:    function ()     { return '  PAUSE'; },
-        dout:    function (n, v) { return '  $DOUT[' + n + '] := ' + (v ? 'TRUE' : 'FALSE'); },
-        dinWait: function (n)    { return '  WAIT FOR $DIN[' + n + '] = TRUE'; },
-        aout:    function (n, v) { return '  $AOUT[' + n + '] := ' + parseFloat(v).toFixed(2); },
-        ainRead: function (n)    { return '  r := $AIN[' + n + ']'; },
-        waitSec: function (t)    { return '  DELAY ' + parseFloat(t).toFixed(1); },
-        tool:    function (n)    { return '  $TOOL := tool' + n; },
-        base:    function (n)    { return '  $BASE := base' + n; },
-        comment: function (t)    { return '  -- ' + t; },
+      if (!pd) return '';
+      var positions = pd.positions || [];
+      var steps = pd.steps || [];
+      var lines = [];
+      var hf = (typeof fmtHfLoad === 'function') ? fmtHfLoad('comau') : null;
+      var toolN = 1, baseN = 1, vars = [];
+      steps.forEach(function(s) {
+        if (s.type === 'tool') toolN = s.n;
+        if (s.type === 'base') baseN = s.n;
+        if (s.type === 'var') vars.push(s);
       });
-    },
-    _parse: function (text) {
-      return parsePositions(text, [
-        { rx: /MOVE LINEAR TO/, ptp: false },
-        { rx: /MOVE JOINT TO/,  ptp: true  },
-      ]);
+
+      // Programmkopf
+      var hdr = (hf && hf.header) ? hf.header : 'PROGRAM PP_MAIN';
+      hdr.split('\n').forEach(function(l) { lines.push(l); });
+
+      // VAR-Block: Variablen + alle Positionen vorab deklarieren (MIXED)
+      lines.push('VAR');
+      vars.forEach(function(v) {
+        var typ = v.varType === 'INT' ? 'INTEGER' : v.varType === 'REAL' ? 'REAL' : 'BOOLEAN';
+        lines.push('  ' + v.name + ' : ' + typ);
+      });
+      // Positionen als POSITION-Typ
+      positions.forEach(function(pos, i) {
+        lines.push('  p' + (i+1) + ' : POSITION := POS(' +
+          parseFloat(pos.X).toFixed(3) + ', ' + parseFloat(pos.Y).toFixed(3) + ', ' + parseFloat(pos.Z).toFixed(3) + ', ' +
+          parseFloat(pos.A).toFixed(3) + ', ' + parseFloat(pos.B).toFixed(3) + ', ' + parseFloat(pos.C).toFixed(3) +
+          ', \'' + (toolN) + '\')');
+      });
+
+      lines.push('BEGIN');
+      lines.push('  $TOOL := tool' + toolN);
+      lines.push('  $BASE := base' + baseN);
+
+      var curVel = 0.167;
+      steps.forEach(function(s) {
+        switch (s.type) {
+          case 'velcp':    curVel = s.v || 0.167; break;
+          case 'comment':  lines.push('  -- ' + (s.text||'')); break;
+          case 'halt':     lines.push('  PAUSE'); break;
+          case 'dout':     lines.push('  $DOUT[' + s.n + '] := ' + ((s.v==='TRUE'||s.v==='1')?'TRUE':'FALSE')); break;
+          case 'din':      lines.push('  WAIT FOR $DIN[' + s.n + '] = TRUE'); break;
+          case 'aout':     lines.push('  $AOUT[' + s.n + '] := ' + parseFloat(s.v||0).toFixed(2)); break;
+          case 'ain':      lines.push('  r := $AIN[' + s.n + ']'); break;
+          case 'wait':     lines.push('  DELAY ' + parseFloat(s.t||0).toFixed(1)); break;
+          case 'move': {
+            var nm = 'p' + (s.posIdx + 1);
+            if (s.moveType === 'LIN' || s.moveType === 'SLIN')
+              lines.push('  MOVE LINEAR TO ' + nm + ' WITH $SPD_OPT:=SPD_MM_SEC,$SPD_LIN:=' + velMmS(curVel));
+            else
+              lines.push('  MOVE JOINT TO ' + nm);
+            break;
+          }
+          case 'circ': {
+            lines.push('  MOVE CIRCULAR TO p' + (s.posIdx+1) + ' VIA p' + (s.viaIdx+1));
+            break;
+          }
+        }
+      });
+
+      var ftr = (hf && hf.footer) ? hf.footer : 'END PP_MAIN';
+      ftr.split('\n').forEach(function(l) { lines.push(l); });
+      return lines.join('\n');
     }
   };
 
-  // ── AUBO Script / Teach Pendant ─────────────────────────────────────────
+  // ── AUBO Script / Teach Pendant  // ── AUBO Script / Teach Pendant ─────────────────────────────────────────
   IMPLS.aubo = {
     _generate: function (pd) {
       return generate(pd, {
