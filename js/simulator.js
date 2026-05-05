@@ -3661,18 +3661,14 @@ var _aPlotAMIN = -360, _aPlotAMAX = 360;
 
 // aPlot-Panel auf Breite des Editor-Panels (.ep) ausrichten
 function _aPlotFitWidth() {
-  var ep    = document.querySelector('.ep');
-  var ip    = document.getElementById('info-panel');
+  var vp    = document.querySelector('.vp');
   var panel = document.getElementById('aplot-panel');
-  if (!ep || !panel) return;
-  var epR   = ep.getBoundingClientRect();
-  // Breite: von linker Kante .ep bis rechter Kante #info-panel (oder Viewport-Ende)
-  var right = ip ? ip.getBoundingClientRect().right : window.innerWidth;
-  var w     = Math.max(300, right - epR.left);
-  panel.style.left  = epR.left + 'px';
-  panel.style.width = w + 'px';
+  if (!vp || !panel) return;
+  var r = vp.getBoundingClientRect();
+  panel.style.left  = r.left + 'px';
+  panel.style.width = r.width + 'px';
   var canvas = document.getElementById('aplot-canvas');
-  if (canvas) { canvas.width = Math.max(300, Math.round(w) - 14); }
+  if (canvas) canvas.width = Math.max(300, Math.round(r.width) - 14);
 }
 
 function toggleAPlot() {
