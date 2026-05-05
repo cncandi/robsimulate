@@ -578,91 +578,82 @@ function updatePivotRotations(angles) {
   }
 }
 
+// 3×3 Matrix → THREE.Quaternion
+function _mat3ToQuat(R) {
+  const m4 = new THREE.Matrix4();
+  m4.set(R[0][0],R[0][1],R[0][2],0,
+         R[1][0],R[1][1],R[1][2],0,
+         R[2][0],R[2][1],R[2][2],0,
+         0,0,0,1);
+  return new THREE.Quaternion().setFromRotationMatrix(m4);
+}
+
+// Achsen-STL Posen aus FK aktualisieren
+function _applySTLMeshPoses(angles) {
+  const ref  = fkAll(stlRefAngles);
+  const curr = fkAll(angles);
+  for (let i = 0; i < 6; i++) {
+    const mesh = axisSTLMeshes[i];
+    if (!mesh) continue;
+    mesh.visible = showSTLRobot && showRobot3D;
+    if (!mesh.visible) continue;
+    const R  = mMul(curr.rots[i+1], mT(ref.rots[i+1]));
+    const rp = mVec(R, ref.pts[i]);
+    mesh.quaternion.copy(_mat3ToQuat(R));
+    mesh.position.set(curr.pts[i][0]-rp[0], curr.pts[i][1]-rp[1], curr.pts[i][2]-rp[2]);
+  }
+}
+
+// Werkzeug-STL Pose aus FK (Flansch A6 + Rz180°-Offset)
+function _applyToolMeshPose(angles) {
+  if (!toolMesh) return;
+  toolMesh.visible = showRobot3D && showToolMesh;
+  if (!toolMesh.visible) return;
+  const fkC  = fkAll(angles);
+  const Rt   = mMul(fkC.rots[6], [[-1,0,0],[0,-1,0],[0,0,1]]); // × Rz(180°)
+  toolMesh.quaternion.copy(_mat3ToQuat(Rt));
+  toolMesh.position.set(fkC.pts[6][0], fkC.pts[6][1], fkC.pts[6][2]);
+}
+
+// Skelett-Visualisierung aufbauen
+function _buildSkeleton(angles) {
+  if (!showSkeleton || !showRobot3D) return;
+  const fk   = fkAll(angles);
+  const pts  = fk.pts;
+  const linkR = [28,20,16,12,8,6];
+  const jntR  = [40,38,30,24,20,16];
+  for (let i = 0; i < 7; i++) {
+    if (!pts[i] || !pts[i+1]) continue;
+    const cyl = buildCylinder(pts[i], pts[i+1], linkR[i] || 5, robotColor);
+    if (cyl) robotGrp.add(cyl);
+  }
+  for (let i = 1; i <= 6; i++) {
+    const s = new THREE.Mesh(
+      new THREE.SphereGeometry(jntR[i-1] || 10, 12, 8),
+      new THREE.MeshPhongMaterial({color:jointColor, shininess:120, specular:0x666666})
+    );
+    s.position.set(pts[i][0], pts[i][1], pts[i][2]);
+    robotGrp.add(s);
+  }
+  if (pts[7]) {
+    const tcp = pts[7], R = fk.tcp_rot, aLen = 150;
+    for (const [[cx,cy,cz], col] of [[[1,0,0],0xff4444],[[0,1,0],0x44ff44],[[0,0,1],0x4488ff]]) {
+      robotGrp.add(new THREE.ArrowHelper(
+        new THREE.Vector3(...mVec(R,[cx,cy,cz])).normalize(),
+        new THREE.Vector3(...tcp), aLen, col, aLen*.2, aLen*.1
+      ));
+    }
+  }
+}
+
 function buildRobotModel(angles) {
-  // Ensure pivot chain exists
   if (!axisPivots.length) buildPivotChain();
-
-  // Clear non-pivot children of robotGrp (skeleton primitives only)
-  const _toRemove = robotGrp.children.filter(ch => !axisPivots.includes(ch));
-  _toRemove.forEach(ch => robotGrp.remove(ch));
-
-  // Update pivot rotations (moves STL meshes with joints)
+  robotGrp.children.filter(ch => !axisPivots.includes(ch)).forEach(ch => robotGrp.remove(ch));
   updatePivotRotations(angles);
-
-  // STL: visibility + world transform from FK
-  {
-    const ref  = fkAll(stlRefAngles);
-    const curr = fkAll(angles);
-    const _m4  = new THREE.Matrix4();
-    const _q   = new THREE.Quaternion();
-    for (let i = 0; i < 6; i++) {
-      const mesh = axisSTLMeshes[i];
-      if (!mesh) continue;
-      mesh.visible = showSTLRobot && showRobot3D;
-      if (!mesh.visible) continue;
-      // R_delta = curRot[i+1] × refRot[i+1]^T
-      const R = mMul(curr.rots[i+1], mT(ref.rots[i+1]));
-      _m4.set(R[0][0],R[0][1],R[0][2],0,
-              R[1][0],R[1][1],R[1][2],0,
-              R[2][0],R[2][1],R[2][2],0,
-              0,0,0,1);
-      _q.setFromRotationMatrix(_m4);
-      mesh.quaternion.copy(_q);
-      // translation = curPivot - R × refPivot
-      const rp = mVec(R, ref.pts[i]);
-      mesh.position.set(
-        curr.pts[i][0] - rp[0],
-        curr.pts[i][1] - rp[1],
-        curr.pts[i][2] - rp[2]
-      );
-    }
-  }
-
-
-  // Tool STL: origin at A6 flange center — follow A6 pose
-  if (toolMesh) {
-    toolMesh.visible = showRobot3D && showToolMesh;
-    if (toolMesh.visible) {
-      const fkC = fkAll(angles);
-      const Rt0 = fkC.rots[6];
-      // Tool KS: Rz(180°) so X zeigt nach unten
-      const Rz180 = [[-1,0,0],[0,-1,0],[0,0,1]];
-      const Rt = [
-        [Rt0[0][0]*Rz180[0][0]+Rt0[0][1]*Rz180[1][0]+Rt0[0][2]*Rz180[2][0],
-         Rt0[0][0]*Rz180[0][1]+Rt0[0][1]*Rz180[1][1]+Rt0[0][2]*Rz180[2][1],
-         Rt0[0][0]*Rz180[0][2]+Rt0[0][1]*Rz180[1][2]+Rt0[0][2]*Rz180[2][2]],
-        [Rt0[1][0]*Rz180[0][0]+Rt0[1][1]*Rz180[1][0]+Rt0[1][2]*Rz180[2][0],
-         Rt0[1][0]*Rz180[0][1]+Rt0[1][1]*Rz180[1][1]+Rt0[1][2]*Rz180[2][1],
-         Rt0[1][0]*Rz180[0][2]+Rt0[1][1]*Rz180[1][2]+Rt0[1][2]*Rz180[2][2]],
-        [Rt0[2][0]*Rz180[0][0]+Rt0[2][1]*Rz180[1][0]+Rt0[2][2]*Rz180[2][0],
-         Rt0[2][0]*Rz180[0][1]+Rt0[2][1]*Rz180[1][1]+Rt0[2][2]*Rz180[2][1],
-         Rt0[2][0]*Rz180[0][2]+Rt0[2][1]*Rz180[1][2]+Rt0[2][2]*Rz180[2][2]],
-      ];
-      const _m4t = new THREE.Matrix4();
-      _m4t.set(Rt[0][0],Rt[0][1],Rt[0][2],0,
-               Rt[1][0],Rt[1][1],Rt[1][2],0,
-               Rt[2][0],Rt[2][1],Rt[2][2],0,
-               0,0,0,1);
-      const _qt = new THREE.Quaternion();
-      _qt.setFromRotationMatrix(_m4t);
-      toolMesh.quaternion.copy(_qt);
-      toolMesh.position.set(fkC.pts[6][0], fkC.pts[6][1], fkC.pts[6][2]);
-    }
-  }
-
-  // Pedestal visibility
+  _applySTLMeshPoses(angles);
+  _applyToolMeshPose(angles);
   if (pedestalMesh) pedestalMesh.visible = showPedestalMesh;
-
-  // ── Skeleton ──
-  if (showSkeleton && showRobot3D) {
-    const fk = fkAll(angles);
-    const pts = fk.pts;
-    const radii=[40,38,30,24,20,16], linkRadii=[28,20,16,12,8,6];
-    for(let i=0;i<7;i++){const f=pts[i],t=pts[i+1];if(!f||!t)continue;const cyl=buildCylinder(f,t,i<linkRadii.length?linkRadii[i]:5,robotColor);if(cyl)robotGrp.add(cyl);}
-    for(let i=1;i<=6;i++){const p=pts[i],r=radii[i-1]||10;const s=new THREE.Mesh(new THREE.SphereGeometry(r,12,8),new THREE.MeshPhongMaterial({color:jointColor,shininess:120,specular:0x666666}));s.position.set(p[0],p[1],p[2]);robotGrp.add(s);}
-    const tcp=pts[7];
-    if(tcp){const R=fk.tcp_rot,aLen=150;for(const[[cx,cy,cz],col] of [[[1,0,0],0xff4444],[[0,1,0],0x44ff44],[[0,0,1],0x4488ff]]){const wd=mVec(R,[cx,cy,cz]);robotGrp.add(new THREE.ArrowHelper(new THREE.Vector3(...wd).normalize(),new THREE.Vector3(...tcp),aLen,col,aLen*.2,aLen*.1));}}
-  }
+  _buildSkeleton(angles);
 }
 
 // ── STL loading for axes ──────────────────────────────────────
@@ -897,7 +888,7 @@ function getKinematicData() {
     stlRefAngles: stlRefAngles,
     stlFiles: {}
   };
-  for (var i = 0; i < 6; i++) {
+  for (let i = 0; i < 6; i++) {
     var name = (document.getElementById('asl-name'+i)&&document.getElementById('asl-name'+i).textContent) || '';
     var off = axisSTLOffsets[i];
     data.stlFiles['A'+(i+1)] = {
@@ -936,7 +927,7 @@ function saveKinematic() {
 
   // Axis STLs — direkt aus ArrayBuffer (kein Base64-Umweg)
   var axisAdded = 0;
-  for (var i = 0; i < 6; i++) {
+  for (let i = 0; i < 6; i++) {
     var buf = window['_axisSTLBuffer'+i];
     if (!buf) buf = window._axisSTLBuffers && window._axisSTLBuffers[i];
     if (buf) {
@@ -951,7 +942,7 @@ function saveKinematic() {
       try {
         var bin = atob(axisSTLBase64[i]);
         var arr = new Uint8Array(bin.length);
-        for (var k = 0; k < bin.length; k++) arr[k] = bin.charCodeAt(k);
+        for (let k = 0; k < bin.length; k++) arr[k] = bin.charCodeAt(k);
         zip.file(stlName2, arr);
         axisAdded++;
       } catch(ex) { console.warn('ZIP: STL base64 error A'+(i+1), ex); }
@@ -974,7 +965,7 @@ function saveKinematic() {
   // Szenen-STLs (manuell geladen)
   if (typeof stlObjects !== 'undefined') {
     var sceneAdded = 0;
-    for (var si = 0; si < stlObjects.length; si++) {
+    for (let si = 0; si < stlObjects.length; si++) {
       var so = stlObjects[si];
       if (!so || !so.buf) continue;
       var sName = so.name || ('scene_'+si+'.stl');
@@ -1504,7 +1495,7 @@ function computeManipulability(angles_deg) {
   var dt = 0.5;
   var e0 = fkTCP_full(angles_deg);
   var J = [];
-  for (var i = 0; i < 6; i++) {
+  for (let i = 0; i < 6; i++) {
     var q1 = angles_deg.slice(); q1[i] += dt;
     var e1 = fkTCP_full(q1);
     J.push([
@@ -1513,8 +1504,8 @@ function computeManipulability(angles_deg) {
     ]);
   }
   var JtJ_diag = Array(6).fill(0);
-  for (var i = 0; i < 6; i++)
-    for (var r = 0; r < 6; r++) JtJ_diag[i] += J[i][r]*J[i][r];
+  for (let i = 0; i < 6; i++)
+    for (let r = 0; r < 6; r++) JtJ_diag[i] += J[i][r]*J[i][r];
   var minEig = Math.min.apply(null, JtJ_diag);
   var maxEig = Math.max.apply(null, JtJ_diag);
   return { manipulability: minEig, condition: maxEig / Math.max(minEig, 1e-9) };
@@ -1561,12 +1552,12 @@ function ikCost(from, to) {
   if (!from || !to) return 1e9;
   var W = [1, 1, 1, 8, 8, 1];  // A4/A5 hoch gewichten
   var cost = 0;
-  for (var i = 0; i < 6; i++) {
+  for (let i = 0; i < 6; i++) {
     var d = shortestAngleDiff(from[i], to[i]);
     cost += W[i] * Math.abs(d);
   }
   // Limit-Penalty: Strafe bei Nähe zu Achsgrenzen
-  for (var j = 0; j < 6; j++) {
+  for (let j = 0; j < 6; j++) {
     var lim = JOINTS_DEF[j];
     var margin = Math.min(to[j] - lim.min, lim.max - to[j]);
     if (margin < 10) cost += (10 - margin) * 5;
@@ -1594,8 +1585,8 @@ function ikCandidates(pos, prevAngles) {
     planStartN360,  // A6 - 360
   ];
   var seen = [];
-  for (var oi = 0; oi < a6Offsets.length; oi++) {
-    for (var si = 0; si < baseStarts.length; si++) {
+  for (let oi = 0; oi < a6Offsets.length; oi++) {
+    for (let si = 0; si < baseStarts.length; si++) {
       var start = baseStarts[si].slice();
       start[5] += a6Offsets[oi];  // A6 kacheln
       var res = solveIKFast(pos.X, pos.Y, pos.Z, pos.A, pos.B, pos.C, start);
@@ -1625,7 +1616,7 @@ function ikCandidates(pos, prevAngles) {
 function _ikGetStartQ() {
   var q = jointAngles.slice();
   if (!parsedData.steps) return q;
-  for (var i = 0; i < parsedData.steps.length; i++) {
+  for (let i = 0; i < parsedData.steps.length; i++) {
     var s = parsedData.steps[i];
     if (s.type === 'ptpAxis' && s.angles) q = s.angles.slice();
     if (s.type === 'move') break;
@@ -1637,7 +1628,7 @@ function _ikGetStartQ() {
 function _ikTableWarmStart(positions, N) {
   splashProgress && splashProgress(50, N + ' Punkte — Schnell-IK wird berechnet…');
   var prevQ = _ikGetStartQ();
-  for (var i = 0; i < N; i++) {
+  for (let i = 0; i < N; i++) {
     var p = positions[i];
     var res = solveIKFast(p.X, p.Y, p.Z, p.A, p.B, p.C, prevQ);
     var angles = (res.ok ? res.angles : prevQ)
@@ -1650,7 +1641,7 @@ function _ikTableWarmStart(positions, N) {
 // Pfad 2: DPSolver (kompakter globaler Optimierer)
 function _ikTableDPSolver(positions, N) {
   var arcS = [0];
-  for (var i = 1; i < N; i++) {
+  for (let i = 1; i < N; i++) {
     var p0 = positions[i-1], p1 = positions[i];
     var dx = p1.X-p0.X, dy = p1.Y-p0.Y, dz = p1.Z-p0.Z;
     arcS.push(arcS[i-1] + Math.sqrt(dx*dx+dy*dy+dz*dz));
@@ -1659,7 +1650,7 @@ function _ikTableDPSolver(positions, N) {
     return {s:arcS[i], X:p.X, Y:p.Y, Z:p.Z, A:p.A, B:p.B, C:p.C};
   });
   var result = DPSolver.plan(targetPts, _ikGetStartQ());
-  for (var i = 0; i < N; i++) {
+  for (let i = 0; i < N; i++) {
     var rp = result.rawPath[i] || result.rawPath[result.rawPath.length-1];
     ikTable.push({ angles: rp.q.slice(), ok: true, score: 0 });
   }
@@ -1670,7 +1661,7 @@ function _ikTableFallbackDP(positions, N) {
   // Kandidaten pro Position erzeugen
   var allCands = [];
   var prevQ = jointAngles.slice();
-  for (var i = 0; i < N; i++) {
+  for (let i = 0; i < N; i++) {
     var p = positions[i];
     var cands = ikCandidates(p, prevQ);
     if (!cands.length) {
@@ -1686,12 +1677,12 @@ function _ikTableFallbackDP(positions, N) {
   var dp = allCands.map(function(c) {
     return c.map(function() { return { cost: INF, prevJ: -1 }; });
   });
-  for (var j = 0; j < allCands[0].length; j++) {
+  for (let j = 0; j < allCands[0].length; j++) {
     dp[0][j].cost = ikCost(jointAngles, allCands[0][j].angles);
   }
-  for (var i = 1; i < N; i++) {
-    for (var j = 0; j < allCands[i].length; j++) {
-      for (var k = 0; k < allCands[i-1].length; k++) {
+  for (let i = 1; i < N; i++) {
+    for (let j = 0; j < allCands[i].length; j++) {
+      for (let k = 0; k < allCands[i-1].length; k++) {
         var c = dp[i-1][k].cost + ikCost(allCands[i-1][k].angles, allCands[i][j].angles);
         if (c < dp[i][j].cost) { dp[i][j].cost = c; dp[i][j].prevJ = k; }
       }
@@ -1700,18 +1691,18 @@ function _ikTableFallbackDP(positions, N) {
 
   // Besten Endknoten wählen + Pfad zurückverfolgen
   var bestJ = 0, bestCost = INF;
-  for (var j = 0; j < allCands[N-1].length; j++) {
+  for (let j = 0; j < allCands[N-1].length; j++) {
     if (dp[N-1][j].cost < bestCost) { bestCost = dp[N-1][j].cost; bestJ = j; }
   }
   var path = new Array(N);
   var cur = bestJ;
-  for (var i = N-1; i >= 0; i--) {
+  for (let i = N-1; i >= 0; i--) {
     path[i] = cur;
     cur = dp[i][cur].prevJ;
     if (cur < 0) cur = 0;
   }
 
-  for (var i = 0; i < N; i++) {
+  for (let i = 0; i < N; i++) {
     var cand = allCands[i][path[i]];
     ikTable.push({ angles: cand.angles, score: cand.score, ok: cand.score < 20 });
   }
@@ -2294,7 +2285,7 @@ function buildTrajectory(positions, ikTab) {
   // Startwinkel: letzter PTP-Achsbefehl vor den LIN-Positionen
   var _buildStart = (ikTab[0]&&ikTab[0].angles) || [0,-90,90,0,0,0];
   if (parsedData && parsedData.steps) {
-    for (var _si=0; _si<parsedData.steps.length; _si++) {
+    for (let _si=0; _si<parsedData.steps.length; _si++) {
       var _st=parsedData.steps[_si];
       if (_st.type==='ptpAxis'&&_st.angles) _buildStart=_st.angles.slice();
       if (_st.type==='move') break;
@@ -2589,51 +2580,59 @@ function updateTween(dt) {
 
 
 let lastTs=null;
-function frame(ts){
-  requestAnimationFrame(frame);
-  const dt=lastTs!==null?Math.min((ts-lastTs)/1000,.1):0;lastTs=ts;
-  updateTween(dt);
-  const N=parsedData.positions.length;
-  // Sim nicht vorrücken während Tween läuft
-  if(N>0&&(sim.playing||sim.stepTarget!==null)&&!_tween){
-    // Geschwindigkeit: Echtzeit oder prozentual
-    var speed;
-    var pos = parsedData.positions;
-    var curPosIdx = Math.min(Math.floor(sim.t), pos.length-1);
-    var nextPosIdx = Math.min(curPosIdx + 1, pos.length - 1);
-    // VEL.CP gilt für den jeweiligen Satz = pos[curPosIdx].velCP
-    var curVelCP = (pos[curPosIdx] && pos[curPosIdx].velCP) ? pos[curPosIdx].velCP : 0.167;
-    if (_realtimeMode) {
-      var velMmS = curVelCP * 1000; // m/s → mm/s
-      var p0 = pos[curPosIdx], p1 = pos[nextPosIdx];
-      var segDist = (p0 && p1 && nextPosIdx !== curPosIdx)
-        ? Math.sqrt(Math.pow(p1.X-p0.X,2)+Math.pow(p1.Y-p0.Y,2)+Math.pow(p1.Z-p0.Z,2))
-        : 0;
-      speed = segDist > 1 ? velMmS / segDist : (N > 1 ? velMmS / 100 : simSpeed());
-      speed = Math.max(0.01, speed);
-    } else {
-      speed = simSpeed();
+// Simulationsgeschwindigkeit für aktuellen Satz berechnen
+function _simCalcSpeed(pos, curPosIdx, nextPosIdx) {
+  const curVelCP = (pos[curPosIdx] && pos[curPosIdx].velCP) ? pos[curPosIdx].velCP : 0.167;
+  if (!_realtimeMode) return { speed: simSpeed(), velCP: curVelCP };
+  const p0 = pos[curPosIdx], p1 = pos[nextPosIdx];
+  const segDist = (p0 && p1 && nextPosIdx !== curPosIdx)
+    ? Math.sqrt((p1.X-p0.X)**2+(p1.Y-p0.Y)**2+(p1.Z-p0.Z)**2) : 0;
+  const velMmS = curVelCP * 1000;
+  const N = pos.length;
+  const speed = Math.max(0.01, segDist > 1 ? velMmS/segDist : (N > 1 ? velMmS/100 : simSpeed()));
+  return { speed, velCP: curVelCP };
+}
+
+// Simulationszeit um dt vorrücken; rendert selbst und gibt false zurück wenn frame() nicht weiterrendern soll
+function _simAdvance(N, dt, speed, velCP) {
+  const prevT = sim.t;
+  let newT;
+  if (sim.stepTarget !== null) {
+    const sd = sim.stepTarget > sim.t ? 1 : -1;
+    newT = sim.t + sd * speed * dt;
+    if ((sd > 0 && newT >= sim.stepTarget) || (sd < 0 && newT <= sim.stepTarget)) {
+      newT = sim.stepTarget; sim.stepTarget = null;
+      applySimT(newT); setStatus('paused','PAUSED'); renderer.render(scene, activeCam);
+      return false;
     }
-    // Aktuelle Geschwindigkeit anzeigen
-    // velCP ist in m/s → * 60000 = mm/min
-    var velMmMin = Math.round(curVelCP * 60000);
-    var velEl = document.getElementById('tcp-vel-v');
-    if (velEl) velEl.textContent = velMmMin + ' mm/min';
-    const prevT=sim.t;let newT;
-    if(sim.stepTarget!==null){
-      const sd=sim.stepTarget>sim.t?1:-1;newT=sim.t+sd*speed*dt;
-      if((sd>0&&newT>=sim.stepTarget)||(sd<0&&newT<=sim.stepTarget)){newT=sim.stepTarget;sim.stepTarget=null;applySimT(newT);setStatus('paused','PAUSED');renderer.render(scene,activeCam);return;}
-    }else{
-      newT=sim.t+sim.dir*speed*dt;
-      const bp=checkBP(prevT,newT,sim.dir);
-      if(bp!==null){newT=bp;pauseSim();applySimT(newT);setStatus('bp','● BREAKPOINT');renderer.render(scene,activeCam);return;}
-      if(newT>=N-1){newT=N-1;pauseSim();setStatus('end','END ✓');}
-      else if(newT<=0){newT=0;pauseSim();setStatus('paused','START');}
-      else { setStatus('playing', (sim.dir>0?'▶':'◀') + '  ' + Math.round(curVelCP*60000) + ' mm/min'); }
-    }
-    applySimT(newT);
+  } else {
+    newT = sim.t + sim.dir * speed * dt;
+    const bp = checkBP(prevT, newT, sim.dir);
+    if (bp !== null) { pauseSim(); applySimT(bp); setStatus('bp','● BREAKPOINT'); renderer.render(scene, activeCam); return false; }
+    if      (newT >= N-1) { newT = N-1; pauseSim(); setStatus('end','END ✓'); }
+    else if (newT <= 0)   { newT = 0;   pauseSim(); setStatus('paused','START'); }
+    else { setStatus('playing', (sim.dir>0?'▶':'◀') + '  ' + Math.round(velCP*60000) + ' mm/min'); }
   }
-  renderer.render(scene,activeCam);
+  applySimT(newT);
+  return true;
+}
+
+function frame(ts) {
+  requestAnimationFrame(frame);
+  const dt = lastTs !== null ? Math.min((ts-lastTs)/1000, .1) : 0;
+  lastTs = ts;
+  updateTween(dt);
+  const N = parsedData.positions.length;
+  if (N > 0 && (sim.playing || sim.stepTarget !== null) && !_tween) {
+    const pos = parsedData.positions;
+    const i0  = Math.min(Math.floor(sim.t), pos.length-1);
+    const i1  = Math.min(i0+1, pos.length-1);
+    const { speed, velCP } = _simCalcSpeed(pos, i0, i1);
+    const velEl = document.getElementById('tcp-vel-v');
+    if (velEl) velEl.textContent = Math.round(velCP*60000) + ' mm/min';
+    _simAdvance(N, dt, speed, velCP);
+  }
+  renderer.render(scene, activeCam);
 }
 requestAnimationFrame(frame);
 
@@ -3593,7 +3592,7 @@ function dpSolverApplySettings() {
 
   // A6-Kopien: copies=1 → [-1,0,1], copies=2 → [-2,-1,0,1,2] etc.
   var a6 = [0];
-  for (var k = 1; k <= copies; k++) { a6.push(k); a6.push(-k); }
+  for (let k = 1; k <= copies; k++) { a6.push(k); a6.push(-k); }
   DPSolver.settings.a6Copies = a6;
 
   // Sofort neu berechnen
@@ -3675,7 +3674,7 @@ function toggleAPlot() {
 
 function _aPlotCalcDists(pos) {
   _aPlotDists = [0];
-  for (var i = 1; i < pos.length; i++) {
+  for (let i = 1; i < pos.length; i++) {
     var dx = pos[i].X - pos[i-1].X, dy = pos[i].Y - pos[i-1].Y, dz = pos[i].Z - pos[i-1].Z;
     _aPlotDists.push(_aPlotDists[i-1] + Math.sqrt(dx*dx + dy*dy + dz*dz));
   }
@@ -3708,7 +3707,7 @@ function _aPlotDrawBackground(ctx, ML, MT, CW, CH, W, H) {
 
 function _aPlotDrawVerticalGrid(ctx, ML, MT, CW, CH, pos, total) {
   var xSteps = Math.max(1, Math.min(8, pos.length - 1));
-  for (var xs = 0; xs <= xSteps; xs++) {
+  for (let xs = 0; xs <= xSteps; xs++) {
     var xf  = xs / xSteps;
     var xpx = ML + xf * CW;
     ctx.strokeStyle = '#0d2030'; ctx.lineWidth = 0.5;
@@ -3724,14 +3723,14 @@ function _aPlotDrawReachBands(ctx, ML, MT, CW, CH, pos, total) {
   if (!_aPlotReach || !_aPlotReach.length) return;
   const AMIN = -360, ARNG = 720, ASTEP = 6, NSTEPS = Math.round(720 / ASTEP);
   var reachN = Math.min(_aPlotReach.length, pos.length);
-  for (var ri = 0; ri < reachN; ri++) {
+  for (let ri = 0; ri < reachN; ri++) {
     var reach = _aPlotReach[ri]; if (!reach) continue;
     var xMid = ML + (_aPlotDists[ri] / total) * CW;
     var xL = ri === 0 ? ML : (ML + (_aPlotDists[ri-1] / total) * CW + xMid) / 2;
     var xR = ri === pos.length-1 ? ML+CW : (xMid + ML + (_aPlotDists[ri+1] / total) * CW) / 2;
     ctx.save();
     ctx.beginPath(); ctx.rect(xL, MT, xR - xL, CH); ctx.clip();
-    for (var si = 0; si < NSTEPS; si++) {
+    for (let si = 0; si < NSTEPS; si++) {
       if (reach[si]) continue;
       var yTop = MT + (1 - (-360 + (si+1)*ASTEP - AMIN) / ARNG) * CH;
       var yBot = MT + (1 - (-360 + si*ASTEP   - AMIN) / ARNG) * CH;
@@ -3782,11 +3781,11 @@ function _aPlotDrawSingMarkers(ctx, ML, MT, CW, CH, pos, total) {
   if (_aPlotReach && _aPlotReach.length === pos.length &&
       typeof _aPlotReachAngles !== 'undefined' && _aPlotReachAngles) {
     var ASTEP = 6, NSTEPS = Math.round(720 / ASTEP);
-    for (var ri = 0; ri < pos.length; ri++) {
+    for (let ri = 0; ri < pos.length; ri++) {
       var xMid = ML + (_aPlotDists[ri] / total) * CW;
       var xL = ri===0 ? ML : (ML+(_aPlotDists[ri-1]/total)*CW + xMid)/2;
       var xR = ri===pos.length-1 ? ML+CW : (xMid + ML+(_aPlotDists[ri+1]/total)*CW)/2;
-      for (var si = 0; si < NSTEPS; si++) {
+      for (let si = 0; si < NSTEPS; si++) {
         if (!_aPlotReach[ri][si]) continue;
         var ang = _aPlotReachAngles[ri] && _aPlotReachAngles[ri][si];
         if (!ang) continue;
@@ -3806,7 +3805,7 @@ function _aPlotDrawSingMarkers(ctx, ML, MT, CW, CH, pos, total) {
   // Aktueller Pfad (ikTable): Raute-Symbole
   if (typeof ikTable !== 'undefined' && ikTable.length > 0) {
     var singN = Math.min(ikTable.length, pos.length);
-    for (var i = 0; i < singN; i++) {
+    for (let i = 0; i < singN; i++) {
       var ik = ikTable[i]; if (!ik || !ik.angles) continue;
       var stypes = classifySingTypes(ik.angles);
       if (!stypes.length) continue;
@@ -3964,7 +3963,7 @@ function aPlotLivePreview(idx, newA) {
   // Warm-Start per segIdx
   var warmQ = jointAngles.slice();
   if (trajectory && trajectory.length) {
-    for (var ti = trajectory.length-1; ti >= 0; ti--) {
+    for (let ti = trajectory.length-1; ti >= 0; ti--) {
       if (trajectory[ti].segIdx === idx) { warmQ = trajectory[ti].angles; break; }
     }
   }
@@ -3998,7 +3997,7 @@ function aPlotScanReachability() {
 
   // Scan-Positionen: wp0, mid01, wp1, mid12, …, wp[N-1]
   var scanList = [];
-  for (var i = 0; i < pos.length; i++) {
+  for (let i = 0; i < pos.length; i++) {
     scanList.push({ type:'wp', idx:i, p: pos[i] });
     if (i < pos.length - 1) {
       var p0 = pos[i], p1 = pos[i+1];
@@ -4037,7 +4036,7 @@ function aPlotScanReachability() {
     var reach  = new Array(NSTEPS);
     var angles = (item.type === 'wp') ? new Array(NSTEPS) : null;
     var sing   = (item.type === 'wp') ? new Array(NSTEPS) : null;
-    for (var s = 0; s < NSTEPS; s++) {
+    for (let s = 0; s < NSTEPS; s++) {
       var aTest = -360 + s * ASTEP;
       var res = solveIKPrecise(p.X, p.Y, p.Z, aTest, p.B, p.C, initQ);
       reach[s] = !!(res && res.ok);
@@ -4080,7 +4079,7 @@ function aPlotAutoSolve() {
   // nodes[k] = { type:'wp'|'mid', idx, subIdx, reach[NSTEPS] }
   // NSUB Zwischenpunkte pro Segment (t=1/(NSUB+1) … NSUB/(NSUB+1))
   var nodes = [];
-  for (var i = 0; i < N; i++) {
+  for (let i = 0; i < N; i++) {
     nodes.push({ type:'wp', idx:i, reach:_aPlotReach[i] });
     if (i < N-1)
       nodes.push({ type:'mid', idx:i, subIdx:0, reach:(_aPlotReachMid[i] || _aPlotReach[i]) });
@@ -4091,10 +4090,10 @@ function aPlotAutoSolve() {
   // Für Mittelpunkte: Zustand NSTEPS = "Bypass" (kein Hilfspunkt)
   var BYPASS = NSTEPS; // extra Zustand
   var dp = [];
-  for (var k = 0; k < M; k++) {
+  for (let k = 0; k < M; k++) {
     var states = (nodes[k].type === 'mid') ? NSTEPS + 1 : NSTEPS;
     dp.push(new Array(states));
-    for (var s = 0; s < states; s++) dp[k][s] = { cost: INF, pk: -1, ps: -1 };
+    for (let s = 0; s < states; s++) dp[k][s] = { cost: INF, pk: -1, ps: -1 };
   }
 
   // Hilfsfunktionen für DP-Filterung
@@ -4111,7 +4110,7 @@ function aPlotAutoSolve() {
   // Pufferkosten: Abstand zu nicht-erreichbaren Nachbarn
   function bufferCost(reach, stepIdx) {
     if (!reach) return 0;
-    for (var b = 1; b <= BUFFER_WIDTH; b++) {
+    for (let b = 1; b <= BUFFER_WIDTH; b++) {
       var lo = stepIdx-b, hi = stepIdx+b;
       if ((lo>=0 && !reach[lo]) || (hi<reach.length && !reach[hi]))
         return BUFFER_PENALTY / b;
@@ -4126,27 +4125,27 @@ function aPlotAutoSolve() {
 
   // Startpunkt wp[0]
   var startA = pos[0].A;
-  for (var s = 0; s < NSTEPS; s++) {
+  for (let s = 0; s < NSTEPS; s++) {
     if (!nodes[0].reach[s]) continue;
     if (isSingStep(0, s)) continue;
     dp[0][s].cost = Math.abs((-360 + s*ASTEP) - startA) + bufferCost(nodes[0].reach, s);
   }
 
   // DP vorwärts
-  for (var k = 1; k < M; k++) {
+  for (let k = 1; k < M; k++) {
     var nd  = nodes[k];
     var pkv = k - 1;
 
     if (nd.type === 'wp') {
       // Von Mittelpunkt (k-1) zu Wegpunkt (k)
       var midNd = nodes[pkv];
-      for (var s = 0; s < NSTEPS; s++) {          // Ziel wp
+      for (let s = 0; s < NSTEPS; s++) {          // Ziel wp
         if (!nd.reach[s]) continue;
         if (isSingStep(nd.idx, s)) continue;       // singuläre Schritte sperren
         var aTo = -360 + s*ASTEP;
         var sCost = bufferCost(nd.reach, s);
         // Aus realen Mittelpunkt-Zuständen
-        for (var ps = 0; ps < NSTEPS; ps++) {
+        for (let ps = 0; ps < NSTEPS; ps++) {
           if (dp[pkv][ps].cost >= INF) continue;
           if (!midNd.reach[ps]) continue;
           var cost = dp[pkv][ps].cost + Math.abs(aTo - (-360+ps*ASTEP)) + sCost;
@@ -4161,12 +4160,12 @@ function aPlotAutoSolve() {
     } else {
       // Von Wegpunkt (k-1) zu Mittelpunkt (k)
       var wpNd = nodes[pkv];
-      for (var ps = 0; ps < NSTEPS; ps++) {       // Quell wp
+      for (let ps = 0; ps < NSTEPS; ps++) {       // Quell wp
         if (dp[pkv][ps].cost >= INF) continue;
         if (!wpNd.reach[ps]) continue;
         var aFrom = -360 + ps*ASTEP;
         // → reale Mittelpunkt-Zustände
-        for (var s = 0; s < NSTEPS; s++) {
+        for (let s = 0; s < NSTEPS; s++) {
           if (!nd.reach[s]) continue;
           var aTo   = -360 + s*ASTEP;
           var cost  = dp[pkv][ps].cost + Math.abs(aTo - aFrom);
@@ -4179,7 +4178,7 @@ function aPlotAutoSolve() {
         var bypOk = nd.reach[midStep]; // erreichbar am Mittelpunkt?
         // Puffer-Check für Bypass
         var bypBuf = 0;
-        for (var _b = 1; _b <= BUFFER_WIDTH; _b++) {
+        for (let _b = 1; _b <= BUFFER_WIDTH; _b++) {
           var _lo = midStep-_b, _hi = midStep+_b;
           if ((_lo>=0 && !nd.reach[_lo])||(_hi<nd.reach.length&&!nd.reach[_hi])) { bypBuf=BUFFER_PENALTY/_b; break; }
         }
@@ -4194,16 +4193,16 @@ function aPlotAutoSolve() {
   // Bestes Ende (letzter Wegpunkt)
   var lastK = M - 1;
   var best = -1, bestCost = INF;
-  for (var s = 0; s < NSTEPS; s++) {
+  for (let s = 0; s < NSTEPS; s++) {
     if (dp[lastK][s].cost < bestCost) { bestCost = dp[lastK][s].cost; best = s; }
   }
   if (best < 0) {
     // Fallback: ohne Singularitätssperre nochmal versuchen
-    for (var s = 0; s < NSTEPS; s++) {
+    for (let s = 0; s < NSTEPS; s++) {
       if (!nodes[0].reach[s]) continue;
       dp[0][s].cost = Math.abs((-360+s*ASTEP)-startA);
     }
-    for (var k = 1; k < M; k++) { /* reset */ for(var s2=0;s2<dp[k].length;s2++) dp[k][s2]={cost:INF,pk:-1,ps:-1}; }
+    for (let k = 1; k < M; k++) { /* reset */ for (let s2=0;s2<dp[k].length;s2++) dp[k][s2]={cost:INF,pk:-1,ps:-1}; }
     if (infoEl) infoEl.textContent = '⚠ Keine singularitätsfreie Lösung — zeige beste verfügbare Bahn';
     return;
   }
@@ -4211,7 +4210,7 @@ function aPlotAutoSolve() {
   // ── Pfad zurückverfolgen ──────────────────────────────
   var path = new Array(M);
   path[lastK] = best;
-  for (var k = M-2; k >= 0; k--) {
+  for (let k = M-2; k >= 0; k--) {
     var nxt = path[k+1];
     path[k] = dp[k+1][nxt].ps;
   }
@@ -4220,7 +4219,7 @@ function aPlotAutoSolve() {
   _aPlotEdits = {};
   _aPlotAutoInserts = [];
 
-  for (var k = 0; k < M; k++) {
+  for (let k = 0; k < M; k++) {
     var nd = nodes[k];
     if (nd.type === 'wp') {
       var aNew = -360 + path[k] * ASTEP;
@@ -4259,7 +4258,7 @@ function aPlotApply() {
   // Baue Index: Wegpunkt[i] → Zeilennummer (nur LIN/CIRC/SLIN/PTP)
   var wpLineMap = {};
   var linCount = 0;
-  for (var li = 0; li < lines.length; li++) {
+  for (let li = 0; li < lines.length; li++) {
     if (lines[li].match(/^\s*(LIN|SLIN|CIRC)\s*[{]/i)) {
       wpLineMap[linCount] = li;
       linCount++;
