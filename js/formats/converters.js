@@ -960,53 +960,48 @@ function fmtHfRemoveKey(id) {
   try { localStorage.removeItem('robsimul_hf_' + id); } catch(e) {}
 }
 
-// Format in der Bearbeitungs-UI auswählen
-function fmtHfSelect(id, label) {
-  _fmtHfCurrentId = id;
-  var lbl = document.getElementById('fmt-hf-label');
-  if (lbl) lbl.textContent = label;
-  var hf = fmtHfLoad(id);
+// Popup für aktives Format öffnen
+function fmtHfOpenEditor() {
+  var activeId = FormatRegistry.getActiveId ? FormatRegistry.getActiveId() : null;
+  if (!activeId || activeId === 'kuka-form') {
+    alert('Bitte zuerst ein Ausgabeformat wählen (nicht Formular).');
+    return;
+  }
+  _fmtHfCurrentId = activeId;
+  var fmt = FormatRegistry._allFormats().find(function(f){ return f.id === activeId; });
+  var title = document.getElementById('fmt-hf-popup-title');
+  if (title) title.textContent = (fmt ? fmt.label : activeId) + ' — Kopf / Fuß';
+  var hf = fmtHfLoad(activeId);
   var hEl = document.getElementById('fmt-hf-header');
   var fEl = document.getElementById('fmt-hf-footer');
   if (hEl) hEl.value = hf.header;
   if (fEl) fEl.value = hf.footer;
-  var menu = document.getElementById('fmt-hf-menu');
-  if (menu) menu.style.display = 'none';
+  // Popup neben ✎ Button positionieren
+  var popup = document.getElementById('fmt-hf-popup');
+  if (!popup) return;
+  var btn = document.getElementById('fmt-edit-btn');
+  if (btn) {
+    var r = btn.getBoundingClientRect();
+    popup.style.top  = (r.bottom + 6) + 'px';
+    popup.style.left = Math.max(8, r.right - 340) + 'px';
+  }
+  popup.style.display = 'block';
 }
 
-// Dropdown öffnen
-function fmtHfOpenMenu(e) {
-  e.stopPropagation();
-  var menu = document.getElementById('fmt-hf-menu');
-  if (!menu) return;
-  if (menu.style.display === 'block') { menu.style.display = 'none'; return; }
-  menu.innerHTML = '';
-  var fmts = FormatRegistry._allFormats ? FormatRegistry._allFormats() : [];
-  fmts.forEach(function(f) {
-    if (f.id === 'kuka-form') return; // Formular hat keinen Kopf/Fuß
-    var item = document.createElement('div');
-    item.className = 'fmt-item' + (f.id === _fmtHfCurrentId ? ' active' : '');
-    item.innerHTML = (f.icon || '') + '<span>' + f.label + '</span>';
-    item.onclick = function() { fmtHfSelect(f.id, f.label); };
-    menu.appendChild(item);
-  });
-  menu.style.display = 'block';
-  document.addEventListener('click', function h() {
-    menu.style.display = 'none';
-    document.removeEventListener('click', h);
-  });
-}
-
-// Speichern
+// Speichern + Code-Output sofort neu generieren
 function fmtHfSave() {
   if (!_fmtHfCurrentId) return;
   var h = (document.getElementById('fmt-hf-header') || {}).value || '';
   var f = (document.getElementById('fmt-hf-footer') || {}).value || '';
   fmtHfSaveKey(_fmtHfCurrentId, h, f);
-  var btn = document.getElementById('fmt-hf-menu');
-  // Kurzes Feedback
-  var saveBtn = event && event.target;
-  if (saveBtn) { var old = saveBtn.textContent; saveBtn.textContent = '✓ Gespeichert'; setTimeout(function(){ saveBtn.textContent = old; }, 1200); }
+  document.getElementById('fmt-hf-popup').style.display = 'none';
+  // Code-Output neu generieren (aktives Format)
+  var fmt = FormatRegistry._allFormats && FormatRegistry._allFormats().find(function(f){ return f.id === _fmtHfCurrentId; });
+  var ci  = document.getElementById('code-input');
+  if (fmt && fmt._generate && ci && typeof parsedData !== 'undefined') {
+    ci.value = fmt._generate(parsedData);
+    if (typeof rebuildGutter === 'function') rebuildGutter();
+  }
 }
 
 // Auf Standard zurücksetzen
