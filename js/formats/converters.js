@@ -1170,6 +1170,9 @@
   });
 
 
+})();
+
+// Globale PP-Einstellungsfunktionen
 // ══════════════════════════════════════════════════════════════════════════
 // EINSTELLUNGEN — Programmkopf/-fuß + Befehlsvorlagen je Format
 // ══════════════════════════════════════════════════════════════════════════
@@ -1380,5 +1383,3 @@ function fmtHfReset() {
     if (el) el.value = defCmd[k] || '';
   });
 }
-
-})();
