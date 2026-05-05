@@ -42,6 +42,21 @@ var FormatRegistry = (function () {
 
     setActive: function (id) {
       if (id === _activeId) return;
+      // Wenn von einem Konverter direkt auf einen anderen Konverter gewechselt wird:
+      // erst automatisch Formular aktivieren, dann das Zielformat
+      var FORM_ID = 'kuka-form';
+      if (_activeId !== FORM_ID && id !== FORM_ID) {
+        // Zwischenschritt: Formular
+        var form = _find(FORM_ID);
+        var prev = _find(_activeId);
+        if (prev && prev.deactivate) prev.deactivate();
+        _activeId = FORM_ID;
+        if (form && form.activate) form.activate();
+        // Kurze Pause damit DOM-Update sauber ist, dann Zielformat
+        var self = this;
+        setTimeout(function () { self.setActive(id); }, 0);
+        return;
+      }
       var prev = _find(_activeId);
       if (prev && prev.deactivate) prev.deactivate();
       _activeId = id;
