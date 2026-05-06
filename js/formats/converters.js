@@ -1098,36 +1098,102 @@
   // ── MABI Steuerung ──────────────────────────────────────────────────────
   IMPLS.mabi = {
     _generate: function (pd) {
-      return generate(pd, {
-        _formatId: 'mabi',
-        header: function (t, b, vars) {
-          var h = ['// MABI Robot'];
-          vars.forEach(function (v) {
-            h.push(v.varType + ' ' + v.name + ' = ' + (v.val || (v.varType === 'BOOL' ? 'FALSE' : v.varType === 'REAL' ? '1.0' : '1')));
-          });
-          if (t) h.push('SetTool(' + t + ')');
-          if (b) h.push('SetBase(' + b + ')');
-          return h;
-        },
-        footer: function () { return ['Stop()']; },
-        moveL:   function (p, vel, idx) { return 'MoveL(P' + idx + ')'; },
-        moveJ:   function (p, vel, idx) { return 'MoveJ(P' + idx + ')'; },
-        moveC:   function (pv, pt, vel, idx) { return 'MoveC(P' + (idx - 1) + ', P' + idx + ')'; },
-        halt:    function ()     { return 'Stop()'; },
-        dout:    function (n, v) { return 'SetDO(' + n + ', ' + (v ? 'TRUE' : 'FALSE') + ')'; },
-        dinWait: function (n)    { return 'WaitDI(' + n + ', TRUE)'; },
-        aout:    function (n, v) { return 'SetAO(' + n + ', ' + parseFloat(v).toFixed(2) + ')'; },
-        ainRead: function (n)    { return 'r = ReadAI(' + n + ')'; },
-        waitSec: function (t)    { return 'Wait(' + parseFloat(t).toFixed(1) + ')'; },
-        tool:    function (n)    { return 'SetTool(' + n + ')'; },
-        base:    function (n)    { return 'SetBase(' + n + ')'; },
-        comment: function (t)    { return '// ' + t; },
+      var positions = pd.positions || [];
+      var steps     = pd.steps     || [];
+      var hf = (typeof fmtHfLoad === 'function') ? fmtHfLoad('mabi') : null;
+      var lines = [];
+      var ln = 10;
+
+      // Kopfzeilen (ohne N-Nummern)
+      var hdr = (hf && hf.header) ? hf.header : '%_N_PP_MAIN_MPF\n; MABI / SINUMERIK ONE\nN10 G90 G54\nN20 TRAORI';
+      hdr.split('\n').forEach(function(l) { lines.push(l); });
+      ln = 30; // nach TRAORI weiter ab N30
+
+      function pushN(code) {
+        if (code == null || code === '') return;
+        lines.push('N' + ln + ' ' + code); ln += 10;
+      }
+
+      var curVel = 2000; // mm/min
+
+      steps.forEach(function(s) {
+        var pos, mv;
+        switch (s.type) {
+          case 'comment': lines.push('; ' + (s.text || '')); break;
+          case 'velcp':   curVel = Math.round((s.v || 0.167) * 60000); break;
+          case 'velptp':  break; // ignorieren
+          case 'advance': break;
+          case 'tool':
+            pushN(_t('mabi','tool',{N:s.n}, 'T="TOOL_' + s.n + '" D1')); break;
+          case 'base':
+            pushN(_t('mabi','base',{N:s.n}, '; Base: G54 (Nullpunkt ' + s.n + ')')); break;
+          case 'halt':
+            pushN(_t('mabi','halt',{}, 'M30')); break;
+          case 'wait':
+            pushN(_t('mabi','wait',{T:parseFloat(s.t||0).toFixed(1),T_MS:Math.round(parseFloat(s.t||0)*1000)},
+              'G4 F' + parseFloat(s.t||0).toFixed(1))); break;
+          case 'dout': {
+            var dv = s.v==='TRUE'||s.v==='ON'||s.v==='1';
+            pushN(_t('mabi','dout',{CH:s.n,VAL:dv?'TRUE':'FALSE'},
+              'M' + (dv?'10':'11') + ' ; DO[' + s.n + ']=' + (dv?'AN':'AUS'))); break;
+          }
+          case 'din':
+            pushN(_t('mabi','din',{CH:s.n}, '; WAIT DI[' + s.n + ']')); break;
+          case 'aout':
+            pushN(_t('mabi','aout',{CH:s.n,VAL_F:parseFloat(s.v||0).toFixed(2)},
+              'AOUT[' + s.n + ']=' + parseFloat(s.v||0).toFixed(2))); break;
+          case 'ain':
+            pushN(_t('mabi','ain',{CH:s.n}, '; AIN[' + s.n + ']')); break;
+          case 'var': {
+            var vt = s.varType||'REAL', vv = s.val||(vt==='INT'?'0':vt==='BOOL'?'FALSE':'0.0');
+            var vk = vt==='INT'?'varInt':vt==='BOOL'?'varBool':'varReal';
+            pushN(_t('mabi',vk,{NAME:s.name||'v',INITVAL:vv,TYPE:vt},
+              (s.name||'v') + '=' + vv + ' ; ' + vt)); break;
+          }
+          case 'calc':
+            pushN(_t('mabi','calc',{TARGET:s.target||'v',EXPR:s.expr||'0'},
+              (s.target||'v') + '=' + (s.expr||'0'))); break;
+          case 'waitFor':
+            pushN('; WAIT FOR ' + (s.cond||'DI[1]')); break;
+          case 'move': {
+            pos = positions[s.posIdx]; if (!pos) break;
+            mv = {N:s.posIdx+1,
+              X:pos.X.toFixed(3),Y:pos.Y.toFixed(3),Z:pos.Z.toFixed(3),
+              A:pos.A.toFixed(3),B:pos.B.toFixed(3),C:pos.C.toFixed(3),
+              VEL_MMS:curVel};
+            var coord = 'X'+pos.X.toFixed(3)+' Y'+pos.Y.toFixed(3)+' Z'+pos.Z.toFixed(3)+
+                        ' A'+pos.A.toFixed(3)+' B'+pos.B.toFixed(3)+' C'+pos.C.toFixed(3);
+            if (s.moveType==='PTP')
+              pushN(_t('mabi','moveJ',mv, 'G0 '+coord));
+            else
+              pushN(_t('mabi','moveL',mv, 'G1 '+coord+' F'+curVel));
+            break;
+          }
+          case 'circ': {
+            var pv=positions[s.viaIdx], pt=positions[s.posIdx]; if(!pv||!pt) break;
+            mv = {N:s.posIdx+1,VN:s.viaIdx+1,
+              X:pt.X.toFixed(3),Y:pt.Y.toFixed(3),Z:pt.Z.toFixed(3),
+              VX:pv.X.toFixed(3),VY:pv.Y.toFixed(3),VZ:pv.Z.toFixed(3),VEL_MMS:curVel};
+            pushN(_t('mabi','moveC',mv,
+              'CIP X'+pt.X.toFixed(3)+' Y'+pt.Y.toFixed(3)+' Z'+pt.Z.toFixed(3)+
+              ' I1='+pv.X.toFixed(3)+' J1='+pv.Y.toFixed(3)+' K1='+pv.Z.toFixed(3)+' F'+curVel));
+            break;
+          }
+        }
       });
+
+      // Fußzeile mit N-Nummer
+      var ftr = (hf && hf.footer) ? hf.footer : 'M30';
+      ftr.split('\n').forEach(function(l){ lines.push('N'+ln+' '+l); ln+=10; });
+
+      return lines.join('\n');
     },
     _parse: function (text) {
       return parsePositions(text, [
-        { rx: /MoveL\(P(\d+)\)/, ptp: false },
-        { rx: /MoveJ\(P(\d+)\)/, ptp: true  },
+        { rx: /G0\s+X([\d.\-+]+)\s+Y([\d.\-+]+)\s+Z([\d.\-+]+)\s+A([\d.\-+]+)\s+B([\d.\-+]+)\s+C([\d.\-+]+)/i,
+          fields:['X','Y','Z','A','B','C'], ptp: true },
+        { rx: /G1\s+X([\d.\-+]+)\s+Y([\d.\-+]+)\s+Z([\d.\-+]+)\s+A([\d.\-+]+)\s+B([\d.\-+]+)\s+C([\d.\-+]+)/i,
+          fields:['X','Y','Z','A','B','C'], ptp: false },
       ]);
     }
   };
@@ -1199,7 +1265,7 @@ var FMT_HF_DEFAULTS = {
   igus:     { header: '<Program name="PP_MAIN">', footer: '</Program>' },
   estun:    { header: 'PROGRAM PP_MAIN', footer: 'END' },
   neura:    { header: 'def pp_main():', footer: 'end' },
-  mabi:     { header: 'PROGRAM PP_MAIN ; nach MABI-Handbuch anpassen', footer: 'END' },
+  mabi:     { header: '%_N_PP_MAIN_MPF\n; MABI / SINUMERIK ONE\nN10 G90 G54\nN20 TRAORI', footer: 'M30' },
 };
 
 var FMT_CMD_DEFAULTS = {
@@ -1222,7 +1288,7 @@ var FMT_CMD_DEFAULTS = {
   igus:     { moveJ:'JointMotion(P{N})', moveL:'LinearMotion(P{N})', moveC:'; arc not standard in iRC', halt:'StopProgram()', dout:'SetDOUT(DOUT{CH}, {VAL})', din:'WaitForSignal(DIN{CH}, true)', aout:'SetAOUT({CH}, {VAL_F})', ain:'r = ReadAIN({CH})', wait:'WaitTime({T_MS} ms)', tool:'SetTool({N})', base:'SetBase({N})', varInt:'VAR {NAME} : INT = {INITVAL}', varReal:'VAR {NAME} : REAL = {INITVAL}', varBool:'VAR {NAME} : BOOL = {INITVAL}', call:'<Call program="{PROG}" arg="{ARGS}"/>', calc:'{TARGET} = {EXPR}' },
   estun:    { moveJ:'  MOVJ P{N}, VJ={VEL_PCT}', moveL:'  MOVL P{N}, V={VEL_MMS}', moveC:'  MOVC P{VN}, P{N}, V={VEL_MMS}', halt:'  PAUSE', dout:'  DO[{CH}]={VAL}', din:'  WAIT DI[{CH}]=ON', aout:'  AO[{CH}]={VAL_F}', ain:'  r = AI[{CH}]', wait:'  WAIT {T}', tool:'  TOOL {N}', base:'  USER {N}', varInt:'  INT {NAME}', varReal:'  REAL {NAME}', varBool:'  BOOL {NAME}', call:'  CALL {PROG}({ARGS})', calc:'  {TARGET} = {EXPR}' },
   neura:    { moveJ:'robot.moveJ({X}, {Y}, {Z}, {A}, {B}, {C});', moveL:'robot.moveL({X}, {Y}, {Z}, {A}, {B}, {C});', moveC:'robot.moveC(p{VN}, p{N});', halt:'robot.stop();', dout:'robot.setDigitalOutput({CH}, {VAL});', din:'robot.waitUntil(robot.digitalInput({CH}));', aout:'robot.setAnalogOutput({CH}, {VAL_F});', ain:'r = robot.analogInput({CH});', wait:'robot.sleep({T});', tool:'robot.setTool("tool{N}");', base:'robot.setBase("base{N}");', varInt:'int {NAME} = {INITVAL};', varReal:'double {NAME} = {INITVAL};', varBool:'bool {NAME} = {INITVAL};', call:'{PROG}({ARGS});', calc:'{TARGET} = {EXPR};' },
-  mabi:     { moveJ:'MoveJ(P{N})', moveL:'MoveL(P{N})', moveC:'MoveC(P{VN}, P{N})', halt:'Stop()', dout:'SetDO({CH}, {VAL})', din:'WaitDI({CH}, TRUE)', aout:'SetAO({CH}, {VAL_F})', ain:'r = ReadAI({CH})', wait:'Wait({T})', tool:'SetTool({N})', base:'SetBase({N})', varInt:'INT {NAME} = {INITVAL}', varReal:'REAL {NAME} = {INITVAL}', varBool:'BOOL {NAME} = {INITVAL}', call:'CALL {PROG}({ARGS})', calc:'{TARGET} = {EXPR}' },
+  mabi:     { moveJ:'G0 X{X} Y{Y} Z{Z} A{A} B{B} C{C}', moveL:'G1 X{X} Y{Y} Z{Z} A{A} B{B} C{C} F{VEL_MMS}', moveC:'CIP X{X} Y{Y} Z{Z} I1={VX} J1={VY} K1={VZ} F{VEL_MMS}', halt:'M30', dout:'M{CH} ; DO={VAL}', din:'; WAIT DI[{CH}]', aout:'AOUT[{CH}]={VAL_F}', ain:'; AIN[{CH}]', wait:'G4 F{T}', tool:'T="TOOL_{N}" D1', base:'; Base G5{N}', varInt:'{NAME}={INITVAL} ; INT', varReal:'{NAME}={INITVAL} ; REAL', varBool:'{NAME}={INITVAL} ; BOOL', call:'L{PROG}', calc:'{TARGET}={EXPR}' },
 };
 
 // Platzhalter-Substitution
