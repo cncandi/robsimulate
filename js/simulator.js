@@ -402,7 +402,7 @@ function generateKRL(pd) {
   return lines.join('\n');
 }
 function parseKRL(code){
-  const lines=code.split(/\r?\n/);const steps=[],positions=[],vars={},din={},dout={},anout={};
+  const lines=code.split(/\r?\n/);const steps=[],positions=[],vars={},din={},dout={},anout={},anin={};
   let _velCP = 0.167; // m/s aktuelle Geschwindigkeit
   function snap(){return{variables:{...vars},digitalIn:{...din},digitalOut:{...dout},analogOut:{...anout},analogIn:{...anin}};}
   function pushStep(ln,type,extra){steps.push({lineNum:ln,type,...extra,snapshot:snap()});}
