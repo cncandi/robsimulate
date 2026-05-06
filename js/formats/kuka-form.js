@@ -196,7 +196,7 @@ function fvSVFormHTML(sv, value, i) {
     }
     if (ioT === 'ain') {
       html += '<span class="fv-coord-lbl" style="min-width:auto">-10</span>';
-      html += '<input class="fv-slider" id="fv-sv-v-'+i+'" type="range" min="-10" max="10" step="0.1" value="'+(io.v||0)+'" oninput="document.getElementById('fv-sv-vn-'+i+'').textContent=parseFloat(this.value).toFixed(1)+' V'" style="flex:1;accent-color:#8888cc">';
+      html += '<input class="fv-slider" id="fv-sv-v-'+i+'" type="range" min="-10" max="10" step="0.1" value="'+(io.v||0)+'" oninput="document.getElementById(\'fv-sv-vn-'+i+'\').textContent=parseFloat(this.value).toFixed(1)+\' V\'" style="flex:1;accent-color:#8888cc">';
       html += '<span id="fv-sv-vn-'+i+'" style="min-width:48px;color:#aac;font-size:.9em;text-align:right">'+(io.v||0)+' V</span>';
       html += '<span class="fv-coord-lbl" style="min-width:auto">+10</span>';
     }
