@@ -121,6 +121,12 @@ var FV_SYSVARS = [
     getVal: function(t){ var m=t.match(/^(INT|REAL|BOOL|CHAR)\s+(\w+)\s*(?:=\s*(.+))?/i); return m?{type:m[1],name:m[2],val:m[3]||''}:{type:'INT',name:'myVar',val:'0'}; },
     toKRL: function(type,name,val){ return val?type+' '+name+'='+val:type+' '+name; },
     ioType:'var' },
+  // CALC: Zuweisung/Berechnung von INT- oder REAL-Variablen
+  // Regex: Bezeichner = Ausdruck (kein $, kein Typ-Schlüsselwort vorne)
+  { rx: /^([a-zA-Z_][a-zA-Z0-9_]*)\s*=\s*(.+)$/, id:'calc', label:'Berechnung', color:'#aa7700',
+    getVal: function(t){ var m=t.match(/^([a-zA-Z_][a-zA-Z0-9_]*)\s*=\s*(.+)$/); return m?{target:m[1],expr:m[2].trim()}:{target:'myVar',expr:'0.0'}; },
+    toKRL: function(target,expr){ return target+' = '+expr; },
+    ioType:'calc' },
 ];
 
 function fvParseSysVar(raw) {
@@ -187,6 +193,27 @@ function fvSVFormHTML(sv, value, i) {
       html += '<span class="fv-coord-lbl" style="margin-left:8px">= </span>';
       html += '<input class="fv-inp" id="fv-sv-val-'+i+'" type="text" value="'+fvEsc(io2.val||'')+'" style="max-width:90px">';
       html += '</div>';
+    }
+    if (ioT === 'calc') {
+      var io3 = sv.sysvar.getVal(value);
+      // Verfügbare INT/REAL Variablen aus vorherigen Zeilen sammeln
+      var declVars = fvGetCalcVars(i);
+      html += '<div class="fv-ctrl-row">';
+      html += '<span class="fv-coord-lbl" style="min-width:auto">Variable</span>';
+      html += '<select class="fv-sel" id="fv-sv-target-'+i+'">';
+      if (declVars.length === 0) html += '<option value="'+fvEsc(io3.target)+'">'+fvEsc(io3.target)+'</option>';
+      declVars.forEach(function(v){
+        html += '<option value="'+v+'"'+(v===io3.target?' selected':'')+'>'+v+'</option>';
+      });
+      html += '</select>';
+      html += '<span class="fv-coord-lbl" style="margin-left:8px">=</span>';
+      html += '<input class="fv-inp" id="fv-sv-expr-'+i+'" type="text" value="'+fvEsc(io3.expr||'')+'" style="flex:1;min-width:120px" placeholder="Ausdruck: z.B. myVar * 2.0 + 1">';
+      html += '</div>';
+      if (declVars.length > 0) {
+        html += '<div style="color:var(--txt3);font-size:.78em;margin-top:4px">Verfügbare Variablen: '+declVars.join(", ")+'</div>';
+      } else {
+        html += '<div style="color:#cc6600;font-size:.78em;margin-top:4px">⚠ Keine INT/REAL Variable davor deklariert</div>';
+      }
     }
   } else if (sv.sysvar.min !== null) {
     // Slider + Nummer
@@ -717,6 +744,19 @@ function fvTakeRobotPos(mode, lineIdx) {
   if (btn) { btn.style.background='rgba(0,200,100,.3)'; setTimeout(function(){ btn.style.background=''; }, 600); }
 }
 
+// Liefert die bis lineIdx deklarierten INT/REAL Variablen
+function fvGetCalcVars(lineIdx) {
+  var ta = document.getElementById('code-input');
+  if (!ta) return [];
+  var vars = [];
+  var lines = ta.value.split(/\r?\n/);
+  for (var j = 0; j < lineIdx && j < lines.length; j++) {
+    var m = lines[j].trim().match(/^(INT|REAL)\s+(\w+)/i);
+    if (m) vars.push(m[2]);
+  }
+  return vars;
+}
+
 function fvApplySV(lineIdx) {
   var ta    = document.getElementById('code-input');
   var lines = ta.value.split(/\r?\n/);
@@ -742,6 +782,10 @@ function fvApplySV(lineIdx) {
     var name = document.getElementById('fv-sv-name-'+lineIdx);
     var val  = document.getElementById('fv-sv-val-'+lineIdx);
     newLine = sv.sysvar.toKRL(type?type.value:'INT', name?name.value:'myVar', val?val.value:'');
+  } else if (ioT === 'calc') {
+    var tgt  = document.getElementById('fv-sv-target-'+lineIdx);
+    var expr = document.getElementById('fv-sv-expr-'+lineIdx);
+    newLine = sv.sysvar.toKRL(tgt?tgt.value:'myVar', expr?expr.value.trim():'0.0');
   } else {
     var inp = document.getElementById('fv-sv-'+lineIdx);
     if (!inp) return;
@@ -855,6 +899,7 @@ function fvToolbarInit() {
         { label:'INT',   badge:'INT',  bc:'#8844cc', bcolor:'#fff', insert: 'INT myVar=0' },
         { label:'REAL',  badge:'REAL', bc:'#8844cc', bcolor:'#fff', insert: 'REAL myVal=0.0' },
         { label:'BOOL',  badge:'BOOL', bc:'#8844cc', bcolor:'#fff', insert: 'BOOL myFlag=FALSE' },
+        { label:'CALC',  badge:'CALC', bc:'#aa7700', bcolor:'#fff', insert: 'myVar = myVar + 1.0' },
       ]
     },
   ];

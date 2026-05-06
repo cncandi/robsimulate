@@ -50,6 +50,7 @@ function _kukaGenerate(pd) {
           lines.push(tpl(vk, {TYPE:vt,NAME:s.name||'v',INITVAL:vv}, 'DECL '+vt+' '+(s.name||'v')+'='+vv));
           break;
         }
+        case 'calc':     lines.push(tpl('calc',{TARGET:s.target||'v',EXPR:s.expr||'0'}, (s.target||'v')+' = '+(s.expr||'0'))); break;
         case 'ptpAxis':
           if (s.angles) lines.push('PTP {A1 '+s.angles[0].toFixed(3)+',A2 '+s.angles[1].toFixed(3)+',A3 '+s.angles[2].toFixed(3)+',A4 '+s.angles[3].toFixed(3)+',A5 '+s.angles[4].toFixed(3)+',A6 '+s.angles[5].toFixed(3)+'}');
           break;

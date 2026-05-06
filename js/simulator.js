@@ -370,6 +370,7 @@ function generateKRL(pd) {
       case 'aout':     lines.push('$ANOUT[' + s.n + ']=' + parseFloat(s.v || 0).toFixed(2)); break;
       case 'ain':      lines.push('$ANIN[' + s.n + ']'); break;
       case 'waitFor':  lines.push('WAIT FOR ' + (s.cond || '$IN[1]')); break;
+      case 'calc': lines.push((s.target||'v') + ' = ' + (s.expr||'0')); break;
       case 'var': {
         var vt = s.varType || 'REAL';
         var vv = s.val != null ? s.val : (vt === 'BOOL' ? 'FALSE' : vt === 'INT' ? '0' : '0.0');
@@ -443,7 +444,7 @@ function parseKRL(code){
     if((m=line.match(/^\$OUT\s*\[(\d+)\]\s*=\s*(.+)/i))){dout[+m[1]]=parseVal(m[2]);pushStep(ln,'signal',{});continue;}
     if((m=line.match(/^\$ANOUT\s*\[(\d+)\]\s*=\s*(.+)/i))){const v=parseFloat(m[2]);anout[+m[1]]=isNaN(v)?0:Math.max(-10,Math.min(10,v));pushStep(ln,'signal',{});continue;}
     if((m=line.match(/^DECL\s+\S+\s+([A-Za-z_]\w*)\s*=\s*(.+)/i))){vars[m[1]]=parseVal(m[2]);pushStep(ln,'var',{});continue;}
-    if((m=line.match(/^([A-Za-z_]\w*)\s*=\s*(.+)/))){if(!KW.has(m[1].toUpperCase())){vars[m[1]]=parseVal(m[2]);pushStep(ln,'var',{});continue;}}
+    if((m=line.match(/^([A-Za-z_]\w*)\s*=\s*(.+)/))){if(!KW.has(m[1].toUpperCase())){var _target=m[1],_expr=m[2].trim();vars[_target]=parseVal(_expr);pushStep(ln,'calc',{target:_target,expr:_expr});continue;}}
     pushStep(ln,'other',{});
   }
   return{steps,positions,finalState:{variables:{...vars},digitalIn:{...din},digitalOut:{...dout},analogOut:{...anout}}};
