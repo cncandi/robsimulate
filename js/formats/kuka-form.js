@@ -587,6 +587,8 @@ function fvInsertMenu(afterLine, e) {
       { badge:'INT',  bc:'#8844cc', bcolor:'#fff', key:'data_2' },
       { badge:'REAL', bc:'#8844cc', bcolor:'#fff', key:'data_3' },
       { badge:'BOOL', bc:'#8844cc', bcolor:'#fff', key:'data_4' },
+      { badge:'CALC', bc:'#aa7700', bcolor:'#fff', key:'data_5' },
+      { badge:';',    bc:'#666666', bcolor:'#fff', key:'data_6' },
     ]},
     { label:'Gruppe',   color:'#449966', items:[
       { badge:'GRP',  bc:'#336644', bcolor:'#aaffcc', key:'group_0' },
@@ -1154,6 +1156,8 @@ var fvTbTemplates = {
   data_2:    'INT myVar=0',
   data_3:    'REAL myVal=0.0',
   data_4:    'BOOL myFlag=FALSE',
+  data_5:    'myVar = myVar + 1.0',
+  data_6:    '; Kommentar',
   group_0:   '; #GROUP Gruppenname',
   group_1:   '; #ENDGROUP',
 };
