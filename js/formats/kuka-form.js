@@ -97,7 +97,7 @@ var FV_SYSVARS = [
   { rx: /^\$TOOL\s*=\s*TOOL_DATA\[(\d+)\]/i,  id:'tool',    label:'TCP / Werkzeug',    unit:'#',    color:'#4488cc', min:1, max:30,  step:1,    toKRL:function(v){ return '$TOOL=TOOL_DATA['+Math.round(v)+']'; } },
   { rx: /^\$advance\s*=\s*([\d.]+)/i,          id:'advance', label:'Vorlauf',           unit:'Pkt',  color:'#4488cc', min:0, max:5,   step:1,    toKRL:function(v){ return '$advance='+Math.round(v); } },
   // Geschwindigkeit
-  { rx: /^\$VEL\.CP\s*=\s*([\d.]+)/i, id:'velcp', label:'RobSpeed', unit:'mm/min', color:'#f05500', min:1, max:10020, step:1,
+  { rx: /^\$VEL\.CP\s*=\s*([\d.]+)/i, id:'velcp', badge:'SPEED', label:'Geschwindigkeit', unit:'mm/min', color:'#f05500', min:1, max:10020, step:1,
     getVal: function(t){ var m=t.match(/[\d.]+$/); return m ? Math.round(parseFloat(m[0])*60000) : 10020; },
     toKRL: function(v){ return '$VEL.CP='+Math.max(0.0001,(parseFloat(v)||1)/60000).toFixed(4); },
     displayVal: function(v){ return Math.round(parseFloat(v)*60000)+' mm/min'; } },
@@ -171,19 +171,26 @@ function fvSVFormHTML(sv, value, i) {
       html += '<input class="fv-inp" id="fv-sv-n-'+i+'" type="number" min="1" max="100" step="1" value="'+(io.n||1)+'" style="max-width:70px">';
     }
     if (ioT === 'dout') {
-      html += '<span class="fv-coord-lbl" style="min-width:auto;margin-left:10px">Wert</span>';
+      html += '<span class="fv-coord-lbl" style="min-width:auto;margin-left:10px">Status</span>';
+      var doutOn = io.v==='TRUE'||io.v==='ON'||io.v==='1';
       html += '<select class="fv-sel" id="fv-sv-v-'+i+'">'
-            + '<option value="TRUE"'+(io.v==='TRUE'?' selected':'')+'>TRUE</option>'
-            + '<option value="FALSE"'+(io.v==='FALSE'?' selected':'')+'>FALSE</option>'
+            + '<option value="TRUE"'+(doutOn?' selected':'')+'>AN</option>'
+            + '<option value="FALSE"'+(!doutOn?' selected':'')+'>AUS</option>'
             + '</select>';
     }
     if (ioT === 'aout') {
-      html += '<span class="fv-coord-lbl" style="min-width:auto;margin-left:10px">Volt</span>';
-      html += '<input class="fv-inp" id="fv-sv-v-'+i+'" type="number" min="-10" max="10" step="0.1" value="'+(io.v||0)+'" style="max-width:90px">';
-      html += '<span class="fv-coord-unit">V</span>';
+      html += '<span class="fv-coord-lbl" style="min-width:auto;margin-left:10px">-10</span>';
+      html += '<input class="fv-slider" id="fv-sv-v-'+i+'" type="range" min="-10" max="10" step="0.1" value="'+(io.v||0)+'" oninput="document.getElementById(\'fv-sv-vn-'+i+'\').textContent=parseFloat(this.value).toFixed(1)+\' V\'" style="flex:1;accent-color:#cc8800">';
+      html += '<span id="fv-sv-vn-'+i+'" style="min-width:48px;color:var(--acc);font-size:.9em;text-align:right">'+(io.v||0)+' V</span>';
+      html += '<span class="fv-coord-lbl" style="min-width:auto">+10</span>';
     }
-    if (ioT === 'din' || ioT === 'ain') {
-      html += '<span class="fv-coord-unit" style="margin-left:8px">nur Lesen</span>';
+    if (ioT === 'din') {
+      html += '<span class="fv-coord-unit" style="margin-left:8px;padding:2px 8px;border-radius:3px;background:rgba(136,136,204,.15);color:#aac">Status: nur Lesen</span>';
+    }
+    if (ioT === 'ain') {
+      html += '<span class="fv-coord-lbl" style="margin-left:8px;min-width:auto">Wert</span>';
+      html += '<input class="fv-inp" id="fv-sv-v-'+i+'" type="number" min="-10" max="10" step="0.1" value="0" style="max-width:70px">';
+      html += '<span class="fv-coord-unit">V</span>';
     }
     html += '<input type="hidden" id="fv-sv-'+i+'" value="'+fvEsc(value)+'">';
     html += '</div>';
@@ -396,14 +403,18 @@ function fvBuild(expandLine) {
         html += '<div class="fv-head" onclick="fvSetCursor('+i+');fvToggle('+i+')">';
         html += '<span class="fv-dh" title="Verschieben (Drag)">⠿</span>';
         html += '<span class="fv-num">'+(i+1)+'</span>';
-        html += '<span class="fv-badge fv-badge-sv" style="background:'+svColor+'40;color:'+svColor+'">'+sv.sysvar.id.toUpperCase()+'</span>';
+        html += '<span class="fv-badge fv-badge-sv" style="background:'+svColor+'40;color:'+svColor+'">'+(sv.sysvar.badge||sv.sysvar.id.toUpperCase())+'</span>';
         html += '<span class="fv-sv-label">'+sv.sysvar.label+'</span>';
         if (!sv.sysvar.noValue) {
           var dispVal = sv.value;
           if (sv.sysvar.ioType && sv.io) {
-            var io = sv.io;
+            var io = sv.io; var ioT2 = sv.sysvar.ioType;
             if (io.n !== undefined) dispVal = '['+io.n+']';
-            if (io.v !== undefined) dispVal += ' = '+io.v;
+            if (io.v !== undefined) {
+              var isDig = ioT2==='dout'||ioT2==='din';
+              var vOn = io.v==='TRUE'||io.v==='ON'||io.v==='1';
+              dispVal += ' = '+(isDig?(vOn?'AN':'AUS'):io.v);
+            }
           }
           html += '<span class="fv-sv-val">'+fvEsc(dispVal)+'</span>';
         }
@@ -926,9 +937,12 @@ function fvApplySV(lineIdx) {
     var n = document.getElementById('fv-sv-n-'+lineIdx);
     var v = document.getElementById('fv-sv-v-'+lineIdx);
     newLine = sv.sysvar.toKRL(n?n.value:1, v?v.value:0);
-  } else if (ioT === 'din' || ioT === 'ain') {
+  } else if (ioT === 'din') {
     var n = document.getElementById('fv-sv-n-'+lineIdx);
     newLine = sv.sysvar.toKRL(n?n.value:1);
+  } else if (ioT === 'ain') {
+    var n = document.getElementById('fv-sv-n-'+lineIdx);
+    newLine = sv.sysvar.toKRL(n?n.value:1);  // Volt-Wert ist Simulation, nicht im KRL
   } else if (ioT === 'var') {
     var type = document.getElementById('fv-sv-type-'+lineIdx);
     var name = document.getElementById('fv-sv-name-'+lineIdx);
