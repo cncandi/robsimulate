@@ -9,7 +9,7 @@
 <body>
 <header>
   <h1>⚙ RobSimul <span id="ver-header" class="ver-tag"></span><span style="font-size:.55em;color:#7aa0bb;font-weight:normal;margin-left:8px">© CAD/CAM Systeme Datentechnik Reitz</span></h1>
-  <span class="htag">KRL</span><span class="htag">6-DOF IK</span><span class="htag">3D Robot</span>
+  <span class="htag">6-DOF IK</span><span class="htag">3D Robot</span>
   <div class="hright">
     <div class="dot"></div>
     <span style="font-size:.72em;color:var(--txt3)">cnc-technik.de</span>
@@ -349,7 +349,7 @@
         <div id="axis-stl-ui"></div>
         <input type="file" id="axis-stl-file" accept=".stl" style="display:none">
         <div style="display:flex;gap:4px;margin-top:5px">
-          <button class="sbtn" onclick="loadPedestalSTL()" style="flex:1">+ Podest STL</button>
+          <button class="sbtn" onclick="loadPedestalSTL()" style="flex:1">+ Umgebung STL</button>
           <button class="stl-vis-btn" id="vis-pedestal" onclick="cycleSTLMode('pedestal')" title="Sichtbarkeit wechseln"></button>
           <span id="pedestal-name" style="font-size:.7em;color:var(--txt3);align-self:center;overflow:hidden;white-space:nowrap;flex:2"></span>
           <input type="file" id="pedestal-stl-file" accept=".stl" style="display:none">
@@ -522,7 +522,7 @@
     <div class="sp-axis-row"><span style="flex:1;color:#c8d8e8;font-size:1em">BASE Koordinatensystem</span><input type="checkbox" id="cfg-show-baseframe" checked style="width:18px;height:18px;accent-color:var(--acc)"></div>
     <div class="sp-axis-row"><span style="flex:1;color:#c8d8e8;font-size:1em">TCP Frame</span><input type="checkbox" id="cfg-show-tcpmarker" checked style="width:18px;height:18px;accent-color:var(--acc)"></div>
     <div class="sp-axis-row"><span style="flex:1;color:#c8d8e8;font-size:1em">Werkzeug STL</span><input type="checkbox" id="cfg-show-tool" checked style="width:18px;height:18px;accent-color:var(--acc)"></div>
-    <div class="sp-axis-row"><span style="flex:1;color:#c8d8e8;font-size:1em">Podest STL</span><input type="checkbox" id="cfg-show-pedestal" checked style="width:18px;height:18px;accent-color:var(--acc)"></div>
+    <div class="sp-axis-row"><span style="flex:1;color:#c8d8e8;font-size:1em">Umgebung STL</span><input type="checkbox" id="cfg-show-pedestal" checked style="width:18px;height:18px;accent-color:var(--acc)"></div>
     <hr class="sp-divider">
     <div class="sp-axis-row">
       <span style="flex:1;color:#c8d8e8;font-size:1em" data-i18n="lang_label">Sprache:</span>
