@@ -322,7 +322,7 @@ function solveIKFixedA6(tx, ty, tz, ta, tb, tc, a6fixed, initAngles) {
 // ═══════════════════════════════════════════════════
 const KW=new Set(['LIN','PTP','SLIN','CIRC','DECL','IF','ELSE','ENDIF','FOR','ENDFOR',
   'WHILE','ENDWHILE','LOOP','ENDLOOP','DEF','END','DEFFCT','ENDFCT','RETURN','WAIT','HALT']);
-let parsedData={positions:[],finalState:{variables:{},digitalIn:{},digitalOut:{},analogOut:{}}};
+let parsedData={positions:[],finalState:{variables:{},digitalIn:{},digitalOut:{},analogOut:{},analogIn:{}}};
 
 function parsePos(str){
   const p={X:0,Y:0,Z:0,A:0,B:0,C:0,S:null,T:null};
@@ -404,7 +404,7 @@ function generateKRL(pd) {
 function parseKRL(code){
   const lines=code.split(/\r?\n/);const steps=[],positions=[],vars={},din={},dout={},anout={};
   let _velCP = 0.167; // m/s aktuelle Geschwindigkeit
-  function snap(){return{variables:{...vars},digitalIn:{...din},digitalOut:{...dout},analogOut:{...anout}};}
+  function snap(){return{variables:{...vars},digitalIn:{...din},digitalOut:{...dout},analogOut:{...anout},analogIn:{...anin}};}
   function pushStep(ln,type,extra){steps.push({lineNum:ln,type,...extra,snapshot:snap()});}
   for(let ln=0;ln<lines.length;ln++){
     let raw=lines[ln];const ci=raw.indexOf(';');if(ci===0)continue;
@@ -447,7 +447,7 @@ function parseKRL(code){
     if((m=line.match(/^([A-Za-z_]\w*)\s*=\s*(.+)/))){if(!KW.has(m[1].toUpperCase())){var _target=m[1],_expr=m[2].trim();vars[_target]=parseVal(_expr);pushStep(ln,'calc',{target:_target,expr:_expr});continue;}}
     pushStep(ln,'other',{});
   }
-  return{steps,positions,finalState:{variables:{...vars},digitalIn:{...din},digitalOut:{...dout},analogOut:{...anout}}};
+  return{steps,positions,finalState:{variables:{...vars},digitalIn:{...din},digitalOut:{...dout},analogOut:{...anout},analogIn:{...anin}}};
 }
 
 // ═══════════════════════════════════════════════════
@@ -2898,7 +2898,8 @@ function renderPositions(positions){
 function updatePosCards(activeIdx){document.querySelectorAll('.pc').forEach((el,i)=>el.classList.toggle('sim-cur',i===activeIdx));(function(){var _e=document.getElementById('pcard-'+activeIdx);if(_e)_e.scrollIntoView({block:'nearest',behavior:'smooth'});})();;}
 function renderVariables(vars){const el=document.getElementById('var-list');const entries=Object.entries(vars);if(!entries.length){el.innerHTML='<div class="empty">' + t('no_vars') + '</div>';return;}el.innerHTML=entries.map(([n,v])=>{const d=typeof v==='boolean'?(v?'TRUE':'FALSE'):String(v);return`<div class="vr"><span class="vn">${n}</span><span class="vv">${d}</span></div>`;}).join('');}
 function renderDigital(sigs,prefix,elId){const el=document.getElementById(elId);const entries=Object.entries(sigs).sort((a,b)=>+a[0]-+b[0]);if(!entries.length){el.innerHTML=`<div class="empty">Kein ${prefix}</div>`;return;}el.innerHTML=entries.map(([idx,val])=>{const on=val===true||val==='TRUE'||val===1;return`<div class="sr"><div class="led ${on?'on':'off'}"></div><span class="sn">${prefix}[${idx}]</span><span class="sv ${on?'on':'off'}">${on?'TRUE':'FALSE'}</span></div>`;}).join('');}
-function renderAnalog(sigs){const el=document.getElementById('anout-list');const entries=Object.entries(sigs).sort((a,b)=>+a[0]-+b[0]);if(!entries.length){el.innerHTML='<div class="empty">Kein $ANOUT</div>';return;}el.innerHTML=entries.map(([idx,v])=>{const pct=Math.abs(v)/10*50;const fill=v>=0?`width:${pct}%;left:50%`:`width:${pct}%;left:${50-pct}%`;return`<div class="ar"><div class="ah"><span class="an">$ANOUT[${idx}]</span><span class="av">${v>=0?'+':''}${v.toFixed(2)} V</span></div><div class="atrack"><div class="amid"></div><div class="afill ${v>=0?'pos':'neg'}" style="${fill}"></div></div></div>`;}).join('');}
+function renderAnalog(sigs){const el=document.getElementById('anout-list');if(!el)return;const entries=Object.entries(sigs||{}).sort((a,b)=>+a[0]-+b[0]);if(!entries.length){el.innerHTML='<div class="empty">Kein $ANOUT</div>';return;}el.innerHTML=entries.map(([idx,v])=>{const pct=Math.abs(v)/10*50;const fill=v>=0?`width:${pct}%;left:50%`:`width:${pct}%;left:${50-pct}%`;return`<div class="ar"><div class="ah"><span class="an">$ANOUT[${idx}]</span><span class="av">${v>=0?'+':''}${v.toFixed(2)} V</span></div><div class="atrack"><div class="amid"></div><div class="afill ${v>=0?'pos':'neg'}" style="${fill}"></div></div></div>`;}).join('');}
+function renderAnalogIn(sigs){const el=document.getElementById('ain-list');if(!el)return;const entries=Object.entries(sigs||{}).sort((a,b)=>+a[0]-+b[0]);if(!entries.length){el.innerHTML='<div class="empty">Kein $ANIN</div>';return;}el.innerHTML=entries.map(([idx,v])=>{const pct=Math.abs(v)/10*50;const fill=v>=0?`width:${pct}%;left:50%`:`width:${pct}%;left:${50-pct}%`;return`<div class="ar"><div class="ah"><span class="an">$ANIN[${idx}]</span><span class="av">${typeof v==='number'?((v>=0?'+':'')+v.toFixed(2)+' V'):v}</span></div><div class="atrack"><div class="amid"></div><div class="afill ${v>=0?'pos':'neg'}" style="${fill}"></div></div></div>`;}).join('');}
 
 // ── Live update when editing position coordinates ──────────
 function liveEditUpdate() {

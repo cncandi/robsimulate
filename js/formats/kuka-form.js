@@ -87,6 +87,11 @@ function fvN(n) { return parseFloat(n||0).toFixed(3); }
 
 // ── Systemvariablen + Sonderbefehle ──────────────────
 var FV_SYSVARS = [
+  // Kommentar (muss als erstes stehen damit ; zuerst erkannt wird)
+  { rx: /^;\s*(.*)$/, id:'comment', label:'Kommentar', color:'#666666',
+    getVal: function(t){ var m=t.match(/^;\s*(.*)/); return {text:m?m[1]:''}; },
+    toKRL:  function(text){ return '; ' + text; },
+    ioType: 'comment' },
   // Konfiguration
   { rx: /^\$BASE\s*=\s*BASE_DATA\[(\d+)\]/i,  id:'base',    label:'Koordinatensystem', unit:'#',    color:'#4488cc', min:1, max:30,  step:1,    toKRL:function(v){ return '$BASE = BASE_DATA['+Math.round(v)+']'; } },
   { rx: /^\$TOOL\s*=\s*TOOL_DATA\[(\d+)\]/i,  id:'tool',    label:'TCP / Werkzeug',    unit:'#',    color:'#4488cc', min:1, max:30,  step:1,    toKRL:function(v){ return '$TOOL=TOOL_DATA['+Math.round(v)+']'; } },
@@ -192,6 +197,12 @@ function fvSVFormHTML(sv, value, i) {
       html += '<input class="fv-inp" id="fv-sv-name-'+i+'" type="text" value="'+fvEsc(io2.name||'')+'" style="max-width:120px">';
       html += '<span class="fv-coord-lbl" style="margin-left:8px">= </span>';
       html += '<input class="fv-inp" id="fv-sv-val-'+i+'" type="text" value="'+fvEsc(io2.val||'')+'" style="max-width:90px">';
+      html += '</div>';
+    }
+    if (ioT === 'comment') {
+      var io0 = sv.sysvar.getVal(value);
+      html += '<div class="fv-ctrl-row">';
+      html += '<input class="fv-inp" id="fv-sv-txt-'+i+'" type="text" value="'+fvEsc(io0.text||'')+'" style="flex:1" placeholder="Kommentartext...">';
       html += '</div>';
     }
     if (ioT === 'calc') {
@@ -346,9 +357,10 @@ function fvBuild(expandLine) {
         mv.subtype = fvPTPSubtypeOverride[i];
 
       var isExp = (expandLine === i);
-      html += '<div class="fv-card'+(isExp?' fv-open':'')+'" data-line="'+i+'">';
+      html += '<div class="fv-card'+(isExp?' fv-open':'')+'" data-line="'+i+'" draggable="true" ondragstart="fvDragStart(event,'+i+')" ondragover="fvDragOver(event)" ondrop="fvDrop(event,'+i+')" ondragleave="fvDragLeave(event)">';
       // Kopfzeile
       html += '<div class="fv-head" onclick="fvSetCursor('+i+');fvToggle('+i+')">';
+      html += '<span class="fv-drag-handle" title="Verschieben" onmousedown="event.stopPropagation()">⠿</span>';
       html += '<span class="fv-num">'+(i+1)+'</span>';
       html += '<span class="fv-badge fv-badge-'+mv.moveType.toLowerCase()+'">'+mv.moveType+'</span>';
       html += fvPreviewHTML(mv);
@@ -377,8 +389,9 @@ function fvBuild(expandLine) {
       if (sv) {
         var isExpSv = (expandLine === i);
         var svColor = sv.sysvar.color || '#4488cc';
-        html += '<div class="fv-card fv-sv-card'+(isExpSv?' fv-open':'')+'" data-line="'+i+'" style="border-left-color:'+svColor+'">';
+        html += '<div class="fv-card fv-sv-card'+(isExpSv?' fv-open':'')+'" data-line="'+i+'" style="border-left-color:'+svColor+'" draggable="true" ondragstart="fvDragStart(event,'+i+')" ondragover="fvDragOver(event)" ondrop="fvDrop(event,'+i+')" ondragleave="fvDragLeave(event)">';
         html += '<div class="fv-head" onclick="fvSetCursor('+i+');fvToggle('+i+')">';
+        html += '<span class="fv-drag-handle" title="Verschieben">⠿</span>';
         html += '<span class="fv-num">'+(i+1)+'</span>';
         html += '<span class="fv-badge fv-badge-sv" style="background:'+svColor+'40;color:'+svColor+'">'+sv.sysvar.id.toUpperCase()+'</span>';
         html += '<span class="fv-sv-label">'+sv.sysvar.label+'</span>';
@@ -601,6 +614,38 @@ function fvTbInsertAt(key, afterLine) {
   fvBuild(fvExpandedLine);
 }
 
+// Drag & Drop state
+var _fvDragSrc = -1;
+function fvDragStart(e, idx) {
+  _fvDragSrc = idx;
+  e.dataTransfer.effectAllowed = 'move';
+  e.currentTarget.style.opacity = '0.4';
+}
+function fvDragOver(e) {
+  e.preventDefault();
+  e.dataTransfer.dropEffect = 'move';
+  e.currentTarget.style.outline = '2px solid var(--acc)';
+}
+function fvDragLeave(e) {
+  e.currentTarget.style.outline = '';
+}
+function fvDrop(e, targetIdx) {
+  e.preventDefault();
+  e.currentTarget.style.outline = '';
+  document.querySelectorAll('[draggable]').forEach(function(el){ el.style.opacity=''; });
+  if (_fvDragSrc < 0 || _fvDragSrc === targetIdx) return;
+  var ta = document.getElementById('code-input');
+  var lines = ta.value.split(/\r?\n/);
+  var src = lines.splice(_fvDragSrc, 1)[0];
+  var dst = targetIdx > _fvDragSrc ? targetIdx - 1 : targetIdx;
+  lines.splice(dst, 0, src);
+  ta.value = lines.join('
+');
+  _fvDragSrc = -1;
+  if (typeof parseAndLoad === 'function') parseAndLoad();
+  fvBuild(dst);
+}
+
 function fvMoveRow(lineIdx, dir) {
   var ta = document.getElementById('code-input');
   var lines = ta.value.split(/\r?\n/);
@@ -781,7 +826,23 @@ function fvApplySV(lineIdx) {
     var type = document.getElementById('fv-sv-type-'+lineIdx);
     var name = document.getElementById('fv-sv-name-'+lineIdx);
     var val  = document.getElementById('fv-sv-val-'+lineIdx);
-    newLine = sv.sysvar.toKRL(type?type.value:'INT', name?name.value:'myVar', val?val.value:'');
+    // Doppelte Deklaration verhindern
+    var newName = name ? name.value.trim() : 'myVar';
+    var dupLines = ta.value.split(/
+?
+/);
+    for (var di = 0; di < dupLines.length; di++) {
+      if (di === lineIdx) continue;
+      var dm = dupLines[di].trim().match(/^(INT|REAL|BOOL|CHAR)\s+(\w+)/i);
+      if (dm && dm[2] === newName) {
+        alert('Variable "' + newName + '" ist bereits in Zeile ' + (di+1) + ' deklariert.');
+        return;
+      }
+    }
+    newLine = sv.sysvar.toKRL(type?type.value:'INT', newName, val?val.value:'');
+  } else if (ioT === 'comment') {
+    var txt = document.getElementById('fv-sv-txt-'+lineIdx);
+    newLine = sv.sysvar.toKRL(txt ? txt.value : '');
   } else if (ioT === 'calc') {
     var tgt  = document.getElementById('fv-sv-target-'+lineIdx);
     var expr = document.getElementById('fv-sv-expr-'+lineIdx);
@@ -900,6 +961,7 @@ function fvToolbarInit() {
         { label:'REAL',  badge:'REAL', bc:'#8844cc', bcolor:'#fff', insert: 'REAL myVal=0.0' },
         { label:'BOOL',  badge:'BOOL', bc:'#8844cc', bcolor:'#fff', insert: 'BOOL myFlag=FALSE' },
         { label:'CALC',  badge:'CALC', bc:'#aa7700', bcolor:'#fff', insert: 'myVar = myVar + 1.0' },
+        { label:'KOM.', badge:';', bc:'#666666', bcolor:'#fff', insert: '; Kommentar' },
       ]
     },
   ];
