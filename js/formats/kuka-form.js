@@ -97,7 +97,10 @@ var FV_SYSVARS = [
   { rx: /^\$TOOL\s*=\s*TOOL_DATA\[(\d+)\]/i,  id:'tool',    label:'TCP / Werkzeug',    unit:'#',    color:'#4488cc', min:1, max:30,  step:1,    toKRL:function(v){ return '$TOOL=TOOL_DATA['+Math.round(v)+']'; } },
   { rx: /^\$advance\s*=\s*([\d.]+)/i,          id:'advance', label:'Vorlauf',           unit:'Pkt',  color:'#4488cc', min:0, max:5,   step:1,    toKRL:function(v){ return '$advance='+Math.round(v); } },
   // Geschwindigkeit
-  { rx: /^\$VEL\.CP\s*=\s*([\d.]+)/i,          id:'velcp',   label:'Geschwindigkeit',   unit:'m/s',  color:'#f05500', min:0.001, max:0.167, step:0.001, toKRL:function(v){ return '$VEL.CP='+parseFloat(v).toFixed(3); } },
+  { rx: /^\$VEL\.CP\s*=\s*([\d.]+)/i, id:'velcp', label:'RobSpeed', unit:'mm/min', color:'#f05500', min:1, max:10020, step:1,
+    getVal: function(t){ var m=t.match(/[\d.]+$/); return m ? Math.round(parseFloat(m[0])*60000) : 10020; },
+    toKRL: function(v){ return '$VEL.CP='+Math.max(0.0001,(parseFloat(v)||1)/60000).toFixed(4); },
+    displayVal: function(v){ return Math.round(parseFloat(v)*60000)+' mm/min'; } },
   { rx: /^\$VEL\.PTP\s*=\s*([\d.]+)/i,         id:'velptp',  label:'PTP-Geschwindigkeit', unit:'%',  color:'#f05500', min:1, max:100, step:1,    toKRL:function(v){ return '$VEL.PTP='+Math.round(v); } },
   { rx: /^\$ACC\.CP\s*=\s*([\d.]+)/i,          id:'acccp',   label:'Beschleunigung',    unit:'m/s²', color:'#f05500', min:0.1, max:10, step:0.1,  toKRL:function(v){ return '$ACC.CP='+parseFloat(v).toFixed(1); } },
   // Warten / Stopp
@@ -611,7 +614,7 @@ function fvTbInsertAt(key, afterLine) {
   var lines = ta.value.split(/\r?\n/);
   var after = afterLine;
   lines.splice(after + 1, 0, krl);
-  ta.value = lines.join('\\n');
+  ta.value = lines.join('\n');
   fvExpandedLine = after + 1;
   fvBuild(fvExpandedLine);
 }
@@ -641,7 +644,7 @@ function fvDrop(e, targetIdx) {
   var src = lines.splice(_fvDragSrc, 1)[0];
   var dst = targetIdx > _fvDragSrc ? targetIdx - 1 : targetIdx;
   lines.splice(dst, 0, src);
-  ta.value = lines.join('\\n');
+  ta.value = lines.join('\n');
   _fvDragSrc = -1;
   if (typeof parseAndLoad === 'function') parseAndLoad();
   fvBuild(dst);
@@ -758,7 +761,7 @@ function fvMoveRow(lineIdx, dir) {
   var tmp = lines[lineIdx];
   lines[lineIdx] = lines[target];
   lines[target] = tmp;
-  ta.value = lines.join('\\n');
+  ta.value = lines.join('\n');
   // Expanded line mitbewegen
   if (fvExpandedLine === lineIdx) fvExpandedLine = target;
   else if (fvExpandedLine === target) fvExpandedLine = lineIdx;
@@ -955,7 +958,7 @@ function fvApplySV(lineIdx) {
     newLine = sv.sysvar.toKRL(inp.value.trim());
   }
   lines[lineIdx] = newLine;
-  ta.value = lines.join('\\n');
+  ta.value = lines.join('\n');
   fvExpandedLine = -1;
   // Neu parsen damit velCP und andere Systemvariablen sofort wirken
   if (typeof parseAndLoad === 'function') parseAndLoad();
@@ -967,7 +970,7 @@ function fvApply(lineIdx) {
   var ta=document.getElementById('code-input');
   var lines=ta.value.split(/\r?\n/);
   lines[lineIdx]=fvToKRL(data);
-  ta.value=lines.join('\\n');
+  ta.value=lines.join('\n');
   delete fvPTPSubtypeOverride[lineIdx];
   // Neu parsen damit IK-Tabelle aktuell ist
   if (typeof parseAndLoad === 'function') parseAndLoad();
@@ -979,7 +982,7 @@ function fvApply(lineIdx) {
 function fvDelete(lineIdx) {
   var ta=document.getElementById('code-input');
   var lines=ta.value.split(/\r?\n/);
-  lines.splice(lineIdx,1); ta.value=lines.join('\\n');
+  lines.splice(lineIdx,1); ta.value=lines.join('\n');
   delete fvPTPSubtypeOverride[lineIdx];
   fvExpandedLine=-1; fvBuild(-1);
 }
@@ -988,7 +991,7 @@ function fvInsertNew(afterLineIdx) {
   var ta=document.getElementById('code-input');
   var lines=ta.value.split(/\r?\n/);
   lines.splice(afterLineIdx+1,0,'LIN {X 0.000, Y 0.000, Z 0.000, A 0.000, B 0.000, C 0.000}');
-  ta.value=lines.join('\\n');
+  ta.value=lines.join('\n');
   fvExpandedLine=afterLineIdx+1; fvBuild(fvExpandedLine);
 }
 
@@ -1137,7 +1140,7 @@ function fvTbInsert(key, e) {
   // Vor END einfügen
   while (after >= 0 && lines[after] && lines[after].trim().toUpperCase() === 'END') after--;
   lines.splice(after + 1, 0, krl);
-  ta.value = lines.join('\\n');
+  ta.value = lines.join('\n');
   fvExpandedLine = after + 1;
   fvBuild(fvExpandedLine);
 }
@@ -1165,7 +1168,7 @@ function fvMoveGroup(lineIdx, dir) {
   var target = lineIdx + dir;
   var ins = Math.max(0, Math.min(lines.length, dir < 0 ? 0 : target));
   for (var bi = 0; bi < block.length; bi++) lines.splice(ins + bi, 0, block[bi]);
-  ta.value = lines.join('\\n');
+  ta.value = lines.join('\n');
   // Collapsed-State aktualisieren
   var newStart = dir < 0 ? Math.max(0, target) : target;
   if (fvGroupCollapsed[lineIdx] !== undefined) {
@@ -1186,7 +1189,7 @@ function fvDeleteGroup(lineIdx) {
     if (gp && gp.type === 'endgroup') { depth--; if (depth === 0) { endLine = j; break; } }
   }
   lines.splice(lineIdx, endLine - lineIdx + 1);
-  ta.value = lines.join('\\n');
+  ta.value = lines.join('\n');
   delete fvGroupCollapsed[lineIdx];
   fvExpandedLine = -1;
   fvBuild(-1);
@@ -1218,7 +1221,7 @@ function fvGroupRename(lineIdx, el) {
     var ta = document.getElementById('code-input');
     var lines = ta.value.split(/\r?\n/);
     lines[lineIdx] = '; #GROUP ' + newName;
-    ta.value = lines.join('\\n');
+    ta.value = lines.join('\n');
     fvBuild(fvExpandedLine);
   }
   inp.addEventListener('blur', save);
