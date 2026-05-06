@@ -437,15 +437,39 @@ function parseKRL(code){
       positions.push({type:moveType,...parsedMove,lineNum:ln,velCP:_velCP,snapshot:snap()});
       pushStep(ln,'move',{posIdx:pi,label:moveType});continue;}
     let m;
-    // VEL.CP tracken — VOR move-Verarbeitung damit es sofort greift
-    const velM = line.match(/^\$VEL\.CP\s*=\s*([\d.]+)/i);
-    if (velM) { _velCP = parseFloat(velM[1]) || 0.167; pushStep(ln,'other',{}); continue; }
-    if((m=line.match(/^\$IN\s*\[(\d+)\]\s*=\s*(.+)/i))){din[+m[1]]=parseVal(m[2]);pushStep(ln,'signal',{});continue;}
-    if((m=line.match(/^\$OUT\s*\[(\d+)\]\s*=\s*(.+)/i))){dout[+m[1]]=parseVal(m[2]);pushStep(ln,'signal',{});continue;}
-    if((m=line.match(/^\$ANOUT\s*\[(\d+)\]\s*=\s*(.+)/i))){const v=parseFloat(m[2]);anout[+m[1]]=isNaN(v)?0:Math.max(-10,Math.min(10,v));pushStep(ln,'signal',{});continue;}
-    if((m=line.match(/^DECL\s+\S+\s+([A-Za-z_]\w*)\s*=\s*(.+)/i))){vars[m[1]]=parseVal(m[2]);pushStep(ln,'var',{});continue;}
-    if((m=line.match(/^([A-Za-z_]\w*)\s*=\s*(.+)/))){if(!KW.has(m[1].toUpperCase())){var _target=m[1],_expr=m[2].trim();vars[_target]=parseVal(_expr);pushStep(ln,'calc',{target:_target,expr:_expr});continue;}}
-    pushStep(ln,'other',{});
+    // ── Systemvariablen mit vollständigen Daten ──────────────────────────
+    if((m=line.match(/^\$TOOL\s*=\s*TOOL_DATA\[(\d+)\]/i))){pushStep(ln,'tool',{n:+m[1]});continue;}
+    if((m=line.match(/^\$BASE\s*=\s*BASE_DATA\[(\d+)\]/i))){pushStep(ln,'base',{n:+m[1]});continue;}
+    if((m=line.match(/^\$VEL\.CP\s*=\s*([\d.]+)/i))){_velCP=parseFloat(m[1])||0.167;pushStep(ln,'velcp',{v:_velCP});continue;}
+    if((m=line.match(/^\$VEL\.PTP\s*=\s*([\d.]+)/i))){pushStep(ln,'velptp',{v:parseFloat(m[1])});continue;}
+    if((m=line.match(/^\$ACC\.CP\s*=\s*([\d.]+)/i))){pushStep(ln,'acccp',{v:parseFloat(m[1])});continue;}
+    if((m=line.match(/^\$advance\s*=\s*([\d.]+)/i))){pushStep(ln,'advance',{v:parseFloat(m[1])});continue;}
+    if(/^HALT$/i.test(line)){pushStep(ln,'halt',{});continue;}
+    if(/^BRAKE$/i.test(line)){pushStep(ln,'brake',{});continue;}
+    if((m=line.match(/^WAIT\s+SEC\s+([\d.]+)/i))){pushStep(ln,'wait',{t:parseFloat(m[1])});continue;}
+    if((m=line.match(/^WAIT\s+FOR\s+(.+)/i))){
+      const dinM=m[1].match(/^\$IN\[(\d+)\]/i);
+      if(dinM){din[+dinM[1]]=false;pushStep(ln,'din',{n:+dinM[1]});}
+      else{pushStep(ln,'waitFor',{cond:m[1].trim()});}
+      continue;}
+    // ── I/O ──────────────────────────────────────────────────────────────
+    if((m=line.match(/^\$OUT\s*\[(\d+)\]\s*=\s*(TRUE|FALSE|ON|OFF|1|0)/i))){
+      const v=m[2].toUpperCase();dout[+m[1]]=v==='TRUE'||v==='ON'||v==='1';
+      pushStep(ln,'dout',{n:+m[1],v:v});continue;}
+    if((m=line.match(/^\$IN\s*\[(\d+)\]/i))){din[+m[1]]=false;pushStep(ln,'din',{n:+m[1]});continue;}
+    if((m=line.match(/^\$ANOUT\s*\[(\d+)\]\s*=\s*([\d.\-+]+)/i))){
+      const v=parseFloat(m[2]);anout[+m[1]]=isNaN(v)?0:Math.max(-10,Math.min(10,v));
+      pushStep(ln,'aout',{n:+m[1],v:v});continue;}
+    if((m=line.match(/^\$ANIN\s*\[(\d+)\]/i))){anin[+m[1]]=0;pushStep(ln,'ain',{n:+m[1]});continue;}
+    // ── Variablen ─────────────────────────────────────────────────────────
+    if((m=line.match(/^DECL\s+(INT|REAL|BOOL|CHAR)\s+(\w+)(?:\s*=\s*(.+))?/i))){
+      const vt=m[1].toUpperCase(),vn=m[2],vv=m[3]?m[3].trim():'';
+      vars[vn]=parseVal(vv||'0');pushStep(ln,'var',{varType:vt,name:vn,val:vv});continue;}
+    if((m=line.match(/^([A-Za-z_]\w*)\s*=\s*(.+)/))){
+      if(!KW.has(m[1].toUpperCase())){
+        const _target=m[1],_expr=m[2].trim();
+        vars[_target]=parseVal(_expr);pushStep(ln,'calc',{target:_target,expr:_expr});continue;}}
+    pushStep(ln,'other',{raw:line});
   }
   return{steps,positions,finalState:{variables:{...vars},digitalIn:{...din},digitalOut:{...dout},analogOut:{...anout},analogIn:{...anin}}};
 }
