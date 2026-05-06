@@ -1119,9 +1119,20 @@ function fvToolbarInit() {
 function fvTbToggle(id) {
   var btn = document.getElementById('fvtb-'+id);
   if (!btn) return;
+  var menu = document.getElementById('fvtb-menu-'+id);
   var wasOpen = btn.classList.contains('open');
   document.querySelectorAll('.fvtb-btn.open').forEach(function(b){ b.classList.remove('open'); });
-  if (!wasOpen) btn.classList.add('open');
+  // Alle Menus zurücksetzen
+  document.querySelectorAll('.fvtb-menu').forEach(function(m){ m.style.left=''; m.style.top=''; });
+  if (!wasOpen && menu) {
+    btn.classList.add('open');
+    // position: fixed am Button — nicht durch overflow:hidden geclippt
+    var r = btn.getBoundingClientRect();
+    var menuH = Math.min(menu.scrollHeight, window.innerHeight * 0.8);
+    var top = (r.bottom + 4 + menuH > window.innerHeight) ? Math.max(4, r.top - menuH - 4) : r.bottom + 4;
+    menu.style.left = r.left + 'px';
+    menu.style.top  = top + 'px';
+  }
 }
 
 var fvTbTemplates = {
