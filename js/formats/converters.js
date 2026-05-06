@@ -537,31 +537,100 @@
   // ── Stäubli VAL3 / CS8 / CS9 ────────────────────────────────────────────
   IMPLS.staubli = {
     _generate: function (pd) {
-      return generate(pd, {
-        _formatId: 'staubli',
-        header: function (t, b, vars) {
-          var h = ['begin'];
-          vars.forEach(function (v) {
-            var typ = v.varType === 'BOOL' ? 'bool' : 'num';
-            var val = v.val || (v.varType === 'BOOL' ? 'false' : v.varType === 'REAL' ? '1.0' : '1');
-            h.push('  ' + typ + ' ' + v.name + ' := ' + val);
-          });
-          return h;
-        },
-        footer: function () { return ['end']; },
-        moveL:   function (p, vel, idx) { return '  movel(p' + idx + ', tTool, mNomSpeed)'; },
-        moveJ:   function (p, vel, idx) { return '  movej(p' + idx + ', tTool, mNomSpeed)'; },
-        moveC:   function (pv, pt, vel, idx) { return '  movec(p' + (idx - 1) + ', p' + idx + ', tTool, mNomSpeed)'; },
-        halt:    function ()     { return '  stopMove()'; },
-        dout:    function (n, v) { return '  dout' + n + ' := ' + (v ? 'true' : 'false'); },
-        dinWait: function (n)    { return '  wait(din' + n + ' == true)'; },
-        aout:    function (n, v) { return '  aout' + n + ' := ' + parseFloat(v).toFixed(2); },
-        ainRead: function (n)    { return '  r := ain' + n; },
-        waitSec: function (t)    { return '  delay(' + parseFloat(t).toFixed(1) + ')'; },
-        tool:    function (n)    { return '  // Tool: tTool' + n; },
-        base:    function (n)    { return '  // Frame: fBase' + n; },
-        comment: function (t)    { return '  // ' + t; },
+      var positions = pd.positions || [];
+      var steps     = pd.steps     || [];
+      var hf = (typeof fmtHfLoad === 'function') ? fmtHfLoad('staubli') : null;
+      var ind = '      '; // indent für codeSection
+      var lines = [];
+
+      // XML-Header
+      var hdr = (hf && hf.header) ? hf.header
+        : '<?xml version="1.0" encoding="utf-8"?>\n' +
+          '<programList xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"\n' +
+          '  xmlns="http://www.staubli.com/robotics/VAL3/Program/2">\n' +
+          '  <program name="pp_main">\n' +
+          '    <description/>\n' +
+          '    <paramSection/>';
+      hdr.split('\n').forEach(function(l){ lines.push(l); });
+
+      // localSection (Variablen)
+      var varSteps = steps.filter(function(s){ return s.type==='var'; });
+      lines.push('    <localSection>');
+      varSteps.forEach(function(s){
+        var xtype = s.varType==='BOOL'?'bool':s.varType==='INT'?'num':'num';
+        lines.push('      <local name="'+s.name+'" type="'+xtype+'" xsi:type="array" size="1"/>');
       });
+      // Roboterpunkte
+      positions.forEach(function(p,i){
+        lines.push('      <local name="p'+(i+1)+'" type="pointRobot" xsi:type="array" size="1"/>');
+      });
+      lines.push('    </localSection>');
+      lines.push('    <codeSection>');
+
+      var curVel = 0.167;
+
+      steps.forEach(function(s) {
+        var pos, cmd;
+        function pushCmd(c){ lines.push(ind+'<cmd>'+c+'</cmd>'); }
+
+        switch(s.type) {
+          case 'comment': lines.push(ind+'<!-- '+(s.text||'')+' -->'); break;
+          case 'velcp':   curVel = s.v||0.167; break;
+          case 'tool':    pushCmd(_t('staubli','tool',{N:s.n},'// tTool'+s.n)); break;
+          case 'base':    pushCmd(_t('staubli','base',{N:s.n},'// fBase'+s.n)); break;
+          case 'halt':    pushCmd(_t('staubli','halt',{},'stopMove()')); break;
+          case 'wait':
+            pushCmd(_t('staubli','wait',{T:parseFloat(s.t||0).toFixed(1),T_MS:Math.round(parseFloat(s.t||0)*1000)},
+              'delay('+parseFloat(s.t||0).toFixed(1)+')')); break;
+          case 'dout': {
+            var dv=s.v==='TRUE'||s.v==='ON'||s.v==='1';
+            pushCmd(_t('staubli','dout',{CH:s.n,VAL:dv?'true':'false'},
+              'setDio(dout'+s.n+', '+(dv?'true':'false')+')')); break;
+          }
+          case 'din':
+            pushCmd(_t('staubli','din',{CH:s.n},'waitDio(din'+s.n+', true)')); break;
+          case 'aout':
+            pushCmd(_t('staubli','aout',{CH:s.n,VAL_F:parseFloat(s.v||0).toFixed(2)},
+              'setAio(aout'+s.n+', '+parseFloat(s.v||0).toFixed(2)+')')); break;
+          case 'ain':
+            pushCmd(_t('staubli','ain',{CH:s.n},'getAio(ain'+s.n+')')); break;
+          case 'var': {
+            var vt=s.varType||'REAL', vv=s.val||(vt==='INT'?'0':vt==='BOOL'?'false':'0.0');
+            var vk=vt==='INT'?'varInt':vt==='BOOL'?'varBool':'varReal';
+            pushCmd(_t('staubli',vk,{NAME:s.name||'v',INITVAL:vv,TYPE:vt},
+              (s.name||'v')+' = '+vv)); break;
+          }
+          case 'calc':
+            pushCmd(_t('staubli','calc',{TARGET:s.target||'v',EXPR:s.expr||'0'},
+              (s.target||'v')+' = '+( s.expr||'0'))); break;
+          case 'move': {
+            pos=positions[s.posIdx]; if(!pos) break;
+            var nm='p'+(s.posIdx+1);
+            var mv={N:s.posIdx+1,VEL_MMS:Math.round((curVel||0.167)*1000),TOOL:1};
+            if(s.moveType==='PTP'||s.moveType==='LIN') {
+              var fn = s.moveType==='PTP'?'movej':'movel';
+              pushCmd(_t('staubli',s.moveType==='PTP'?'moveJ':'moveL',mv,
+                fn+'('+nm+', tNominalTool, mNomSpeed, mNomBlend)'));
+            } else {
+              pushCmd(_t('staubli','moveL',mv,'movel('+nm+', tNominalTool, mNomSpeed, mNomBlend)'));
+            }
+            break;
+          }
+          case 'circ': {
+            var pv=positions[s.viaIdx],pt=positions[s.posIdx]; if(!pv||!pt) break;
+            var mv2={N:s.posIdx+1,VN:s.viaIdx+1,VEL_MMS:Math.round((curVel||0.167)*1000)};
+            pushCmd(_t('staubli','moveC',mv2,
+              'movec(p'+(s.viaIdx+1)+', p'+(s.posIdx+1)+', tNominalTool, mNomSpeed, mNomBlend)'));
+            break;
+          }
+        }
+      });
+
+      lines.push('    </codeSection>');
+      lines.push('  </program>');
+      var ftr = (hf && hf.footer) ? hf.footer : '</programList>';
+      ftr.split('\n').forEach(function(l){ lines.push(l); });
+      return lines.join('\n');
     },
     _parse: function (text) {
       return parsePositions(text, [
@@ -1251,7 +1320,7 @@ var FMT_HF_DEFAULTS = {
   fanuc:    { header: '/PROG PP_MAIN\n/ATTR\nOWNER = MNEDITOR;\n/MN', footer: '/END' },
   yaskawa:  { header: '/JOB\n//NAME PP_MAIN', footer: 'END' },
   kawasaki: { header: '.PROGRAM pp_main()', footer: '.END' },
-  staubli:  { header: 'program pp_main()\nbegin', footer: 'end' },
+  staubli:  { header: '<?xml version="1.0" encoding="utf-8"?>\n<programList xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"\n  xmlns="http://www.staubli.com/robotics/VAL3/Program/2">\n  <program name="pp_main">\n    <description/>\n    <paramSection/>', footer: '</programList>' },
   ur:       { header: 'def pp_main():', footer: 'end' },
   adept:    { header: '.PROGRAM pp_main()', footer: '.END' },
   omron:    { header: '.PROGRAM pp_main()', footer: '.END' },
@@ -1274,7 +1343,7 @@ var FMT_CMD_DEFAULTS = {
   fanuc:    { moveJ:' {LN}:J P[{N}] {VEL_PCT}% FINE ;', moveL:' {LN}:L P[{N}] {VEL_MMS}mm/sec FINE ;', moveC:' {LN}:C P[{VN}]\n   P[{N}] {VEL_MMS}mm/sec FINE ;', halt:' {LN}: PAUSE ;', dout:' {LN}: DO[{CH}]={VAL} ;', din:' {LN}: WAIT DI[{CH}]=ON ;', aout:' {LN}: AO[{CH}]={VAL_F} ;', ain:' {LN}: R[1]=AI[{CH}] ;', wait:' {LN}: WAIT {T}(sec) ;', tool:' {LN}: UTOOL_NUM={N} ;', base:' {LN}: UFRAME_NUM={N} ;', varInt:' {LN}: R[{N}]={INITVAL} ;', varReal:' {LN}: R[{N}]={INITVAL} ;', varBool:' {LN}: F[{N}]=(OFF) ;', call:' {LN}: CALL {PROG}({ARGS}) ;', calc:' {LN}: R[1] = ({EXPR}) ;  ! {TARGET}' },
   yaskawa:  { moveJ:'MOVJ {CNAME} VJ={VEL_PCT}.00', moveL:'MOVL {CNAME} V={VEL_MMS}.0 PL=0', moveC:'MOVC {VCNAME} V={VEL_MMS}.0\nMOVC {CNAME} V={VEL_MMS}.0', halt:'PAUSE', dout:'DOUT OT#({CH}) {VAL}', din:'WAIT IN#({CH})=ON', aout:'AOUT AO#({CH}) {VAL_F}', ain:'AIN AI#({CH}) R000', wait:'TIMER T={T}', tool:'TOOL {N}', base:'\' BASE: {N}', varInt:'SET I000 {INITVAL}', varReal:'SET R000 {INITVAL}', varBool:'SET B000 {INITVAL}', call:'CALL JOB:{PROG} ARGF"{ARGS}"', calc:'SET R000 {EXPR}  ; {TARGET}' },
   kawasaki: { moveJ:'  JMOVE p{N}', moveL:'  LMOVE p{N}', moveC:'  C1MOVE p{VN}\n  C2MOVE p{N}', halt:'  HALT', dout:'  SIGNAL {CH}', din:'  WAIT SIG({CH})', aout:'  AOUT {CH}, {VAL_F}', ain:'  r = AIN({CH})', wait:'  TWAIT {T}', tool:'  TOOL tool{N}', base:'  BASE base{N}', varInt:'  {NAME} = {INITVAL}', varReal:'  {NAME} = {INITVAL}', varBool:'  {NAME} = {INITVAL}', call:'  CALL {PROG}({ARGS})', calc:'  {TARGET} = {EXPR}' },
-  staubli:  { moveJ:'  movej(p{N}, tTool, mNomSpeed)', moveL:'  movel(p{N}, tTool, mNomSpeed)', moveC:'  movec(p{VN}, p{N}, tTool, mNomSpeed)', halt:'  stopMove()', dout:'  dout{CH} := {VAL}', din:'  wait(din{CH} == true)', aout:'  aout{CH} := {VAL_F}', ain:'  r := ain{CH}', wait:'  delay({T})', tool:'  ! Tool: tTool{N}', base:'  ! Frame: fBase{N}', varInt:'  num {NAME} := {INITVAL}', varReal:'  num {NAME} := {INITVAL}', varBool:'  bool {NAME} := {INITVAL}', call:'  {PROG}({ARGS})', calc:'  {TARGET} := {EXPR}' },
+  staubli:  { moveJ:'movej(p{N}, tNominalTool, mNomSpeed, mNomBlend)', moveL:'movel(p{N}, tNominalTool, mNomSpeed, mNomBlend)', moveC:'movec(p{VN}, p{N}, tNominalTool, mNomSpeed, mNomBlend)', halt:'stopMove()', dout:'setDio(dout{CH}, {VAL})', din:'waitDio(din{CH}, true)', aout:'setAio(aout{CH}, {VAL_F})', ain:'getAio(ain{CH})', wait:'delay({T})', tool:'// tTool{N}', base:'// fBase{N}', varInt:'{NAME} = {INITVAL}', varReal:'{NAME} = {INITVAL}', varBool:'{NAME} = {INITVAL}', call:'{PROG}({ARGS})', calc:'{TARGET} = {EXPR}' },
   ur:       { moveJ:'  movej(p[{X},{Y},{Z},0,0,0], a=1.2, v={VEL_MS})', moveL:'  movel(p[{X},{Y},{Z},0,0,0], a=1.2, v={VEL_MS})', moveC:'  movec(p[{VX},{VY},{VZ},0,0,0], p[{X},{Y},{Z},0,0,0], a=1.2, v={VEL_MS})', halt:'  stopl(1.0)', dout:'  set_standard_digital_out({CH}, {VAL})', din:'  while not get_standard_digital_in({CH}):\n    sleep(0.01)\n  end', aout:'  set_standard_analog_out({CH}, {VAL_F})', ain:'  r = get_standard_analog_in({CH})', wait:'  sleep({T})', tool:'  set_tcp(p[0,0,0.120,0,0,0])  # tool{N}', base:'  # base: {N}', varInt:'  {NAME} = {INITVAL}', varReal:'  {NAME} = {INITVAL}', varBool:'  {NAME} = {INITVAL}', call:'  {PROG}({ARGS})', calc:'  {TARGET} = {EXPR}' },
   adept:    { moveJ:'  MOVE p{N}', moveL:'  MOVES p{N}', moveC:'  MOVEC p{VN}, p{N}', halt:'  HALT', dout:'  SIGNAL {CH}', din:'  WAIT SIG({CH})', aout:'  AOUT {CH} = {VAL_F}', ain:'  r = AIN({CH})', wait:'  WAIT {T}', tool:'  TOOL tool{N}', base:'  BASE base{N}', varInt:'  LOCAL {NAME}\n  {NAME} = {INITVAL}', varReal:'  LOCAL {NAME}\n  {NAME} = {INITVAL}', varBool:'  LOCAL {NAME}\n  {NAME} = {INITVAL}', call:'  CALL {PROG}({ARGS})', calc:'  {TARGET} = {EXPR}' },
   omron:    { moveJ:'  JMOVE p{N}', moveL:'  MOVES p{N}', moveC:'  MOVEC p{VN}, p{N}', halt:'  HALT', dout:'  SIGNAL {CH}', din:'  WAIT SIG({CH})', aout:'  AOUT {CH} = {VAL_F}', ain:'  r = AIN({CH})', wait:'  TWAIT {T}', tool:'  TOOL tool{N}', base:'  BASE base{N}', varInt:'  LOCAL {NAME}\n  {NAME} = {INITVAL}', varReal:'  LOCAL {NAME}\n  {NAME} = {INITVAL}', varBool:'  LOCAL {NAME}\n  {NAME} = {INITVAL}', call:'  CALL {PROG}({ARGS})', calc:'  {TARGET} = {EXPR}' },
