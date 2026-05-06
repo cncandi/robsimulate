@@ -468,7 +468,9 @@ function parseKRL(code){
     if((m=line.match(/^([A-Za-z_]\w*)\s*=\s*(.+)/))){
       if(!KW.has(m[1].toUpperCase())){
         const _target=m[1],_expr=m[2].trim();
-        vars[_target]=parseVal(_expr);pushStep(ln,'calc',{target:_target,expr:_expr});continue;}}
+        try{const _fn=new Function(...Object.keys(vars),'return ('+_expr+')');vars[_target]=_fn(...Object.values(vars));}
+        catch(e){vars[_target]=parseVal(_expr)||0;}
+        pushStep(ln,'calc',{target:_target,expr:_expr});continue;}}
     pushStep(ln,'other',{raw:line});
   }
   return{steps,positions,finalState:{variables:{...vars},digitalIn:{...din},digitalOut:{...dout},analogOut:{...anout},analogIn:{...anin}}};

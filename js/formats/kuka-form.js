@@ -97,9 +97,11 @@ var FV_SYSVARS = [
   { rx: /^\$TOOL\s*=\s*TOOL_DATA\[(\d+)\]/i,  id:'tool',    label:'TCP / Werkzeug',    unit:'#',    color:'#4488cc', min:1, max:30,  step:1,    toKRL:function(v){ return '$TOOL=TOOL_DATA['+Math.round(v)+']'; } },
   { rx: /^\$advance\s*=\s*([\d.]+)/i,          id:'advance', label:'Vorlauf',           unit:'Pkt',  color:'#4488cc', min:0, max:5,   step:1,    toKRL:function(v){ return '$advance='+Math.round(v); } },
   // Geschwindigkeit
-  { rx: /^\$VEL\.CP\s*=\s*([\d.]+)/i, id:'velcp', badge:'SPEED', label:'Geschwindigkeit', unit:'mm/min', color:'#f05500', min:1, max:10020, step:1,
-    getVal: function(t){ var m=t.match(/[\d.]+$/); return m ? Math.round(parseFloat(m[0])*60000) : 10020; },
-    toKRL: function(v){ return '$VEL.CP='+Math.max(0.0001,(parseFloat(v)||1)/60000).toFixed(4); },
+  { rx: /^\$VEL\.CP\s*=\s*([\d.]+)/i, id:'velcp', badge:'SPEED', label:'Geschwindigkeit',
+    unit:'mm/min', color:'#f05500', min:1000, max:10000, step:10,
+    scale: 60000,
+    getVal: function(t){ var m=t.match(/[\d.]+$/); return m ? Math.round(parseFloat(m[0])*60000) : 6000; },
+    toKRL: function(v){ return '$VEL.CP='+Math.max(0.0001,(parseFloat(v)||1000)/60000).toFixed(4); },
     displayVal: function(v){ return Math.round(parseFloat(v)*60000)+' mm/min'; } },
   { rx: /^\$VEL\.PTP\s*=\s*([\d.]+)/i,         id:'velptp',  label:'PTP-Geschwindigkeit', unit:'%',  color:'#f05500', min:1, max:100, step:1,    toKRL:function(v){ return '$VEL.PTP='+Math.round(v); } },
   { rx: /^\$ACC\.CP\s*=\s*([\d.]+)/i,          id:'acccp',   label:'Beschleunigung',    unit:'m/s²', color:'#f05500', min:0.1, max:10, step:0.1,  toKRL:function(v){ return '$ACC.CP='+parseFloat(v).toFixed(1); } },
@@ -238,7 +240,8 @@ function fvSVFormHTML(sv, value, i) {
     }
   } else if (sv.sysvar.min !== null) {
     // Slider + Nummer
-    var numVal = parseFloat(value) || sv.sysvar.min;
+    var scale = sv.sysvar.scale || 1;
+    var numVal = Math.round((parseFloat(value) || sv.sysvar.min/scale) * scale);
     html += '<div class="fv-ctrl-row" style="flex-direction:column;align-items:stretch;gap:6px">';
     html += '<div style="display:flex;align-items:center;gap:8px">';
     html += '<input class="fv-slider" id="fv-sv-sl-'+i+'" type="range"'
@@ -407,7 +410,8 @@ function fvBuild(expandLine) {
         html += '<span class="fv-sv-label">'+sv.sysvar.label+'</span>';
         if (!sv.sysvar.noValue) {
           var dispVal = sv.value;
-          if (sv.sysvar.ioType && sv.io) {
+          if (sv.sysvar.displayVal) { dispVal = sv.sysvar.displayVal(sv.value); }
+          else if (sv.sysvar.ioType && sv.io) {
             var io = sv.io; var ioT2 = sv.sysvar.ioType;
             if (io.n !== undefined) dispVal = '['+io.n+']';
             if (io.v !== undefined) {
@@ -1079,8 +1083,12 @@ function fvToolbarInit() {
         { label:'INT',   badge:'INT',  bc:'#8844cc', bcolor:'#fff', insert: 'INT myVar=0' },
         { label:'REAL',  badge:'REAL', bc:'#8844cc', bcolor:'#fff', insert: 'REAL myVal=0.0' },
         { label:'BOOL',  badge:'BOOL', bc:'#8844cc', bcolor:'#fff', insert: 'BOOL myFlag=FALSE' },
+        { label:'KOM.',  badge:';',    bc:'#666666', bcolor:'#fff', insert: '; Kommentar' },
+      ]
+    },
+    { id:'calc', icon: ICONS.data, label:'Rechnen', color:'#aa7700',
+      items: [
         { label:'CALC',  badge:'CALC', bc:'#aa7700', bcolor:'#fff', insert: 'myVar = myVar + 1.0' },
-        { label:'KOM.', badge:';', bc:'#666666', bcolor:'#fff', insert: '; Kommentar' },
       ]
     },
   ];
