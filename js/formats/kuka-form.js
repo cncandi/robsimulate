@@ -360,6 +360,7 @@ function fvBuild(expandLine) {
       html += '<div class="fv-card'+(isExp?' fv-open':'')+'" data-line="'+i+'">';
       // Kopfzeile
       html += '<div class="fv-head" onclick="fvSetCursor('+i+');fvToggle('+i+')">';
+      html += '<span class="fv-dh" title="Verschieben (Drag)">⠿</span>';
       html += '<span class="fv-num">'+(i+1)+'</span>';
       html += '<span class="fv-badge fv-badge-'+mv.moveType.toLowerCase()+'">'+mv.moveType+'</span>';
       html += fvPreviewHTML(mv);
@@ -390,6 +391,7 @@ function fvBuild(expandLine) {
         var svColor = sv.sysvar.color || '#4488cc';
         html += '<div class="fv-card fv-sv-card'+(isExpSv?' fv-open':'')+'" data-line="'+i+'" style="border-left-color:'+svColor+'">';
         html += '<div class="fv-head" onclick="fvSetCursor('+i+');fvToggle('+i+')">';
+        html += '<span class="fv-dh" title="Verschieben (Drag)">⠿</span>';
         html += '<span class="fv-num">'+(i+1)+'</span>';
         html += '<span class="fv-badge fv-badge-sv" style="background:'+svColor+'40;color:'+svColor+'">'+sv.sysvar.id.toUpperCase()+'</span>';
         html += '<span class="fv-sv-label">'+sv.sysvar.label+'</span>';
@@ -432,6 +434,8 @@ function fvBuild(expandLine) {
     var el = fv.querySelector('[data-line="'+expandLine+'"]');
     if (el) el.scrollIntoView({ block:'nearest' });
   }
+  // Drag & Drop nach dem Rendern anbinden
+  _fvBindDrag(fv);
 }
 
 // ── Formular-HTML ────────────────────────────────────
@@ -641,6 +645,64 @@ function fvDrop(e, targetIdx) {
   _fvDragSrc = -1;
   if (typeof parseAndLoad === 'function') parseAndLoad();
   fvBuild(dst);
+}
+
+
+// ── Drag & Drop für Formular-Zeilen ─────────────────
+var _fvDragSrcIdx = -1;
+var _fvDragEl     = null;
+
+function _fvBindDrag(fv) {
+  var cards = fv.querySelectorAll('.fv-card[data-line], .fv-group-hdr[data-line], .fv-group-end[data-line]');
+  cards.forEach(function(card) {
+    var handle = card.querySelector('.fv-dh');
+    if (!handle) return;
+
+    handle.addEventListener('mousedown', function(e) {
+      card.draggable = true;
+    });
+    card.addEventListener('dragstart', function(e) {
+      _fvDragSrcIdx = parseInt(card.getAttribute('data-line'));
+      _fvDragEl     = card;
+      e.dataTransfer.effectAllowed = 'move';
+      setTimeout(function(){ card.classList.add('fv-dragging'); }, 0);
+    });
+    card.addEventListener('dragend', function() {
+      card.draggable = false;
+      card.classList.remove('fv-dragging');
+      fv.querySelectorAll('.fv-drop-over').forEach(function(el){ el.classList.remove('fv-drop-over'); });
+      _fvDragSrcIdx = -1;
+      _fvDragEl = null;
+    });
+    card.addEventListener('dragover', function(e) {
+      if (_fvDragSrcIdx < 0) return;
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+      fv.querySelectorAll('.fv-drop-over').forEach(function(el){ el.classList.remove('fv-drop-over'); });
+      card.classList.add('fv-drop-over');
+    });
+    card.addEventListener('dragleave', function() {
+      card.classList.remove('fv-drop-over');
+    });
+    card.addEventListener('drop', function(e) {
+      e.preventDefault();
+      card.classList.remove('fv-drop-over');
+      var targetIdx = parseInt(card.getAttribute('data-line'));
+      if (_fvDragSrcIdx < 0 || _fvDragSrcIdx === targetIdx) return;
+      var ta    = document.getElementById('code-input');
+      var lines = ta.value.split(/?
+/);
+      // Zeile herausnehmen und an Zielposition einfügen
+      var src = lines.splice(_fvDragSrcIdx, 1)[0];
+      var dst = targetIdx > _fvDragSrcIdx ? targetIdx - 1 : targetIdx;
+      lines.splice(dst, 0, src);
+      ta.value = lines.join('
+');
+      _fvDragSrcIdx = -1;
+      if (typeof parseAndLoad === 'function') parseAndLoad();
+      fvBuild(dst);
+    });
+  });
 }
 
 function fvMoveRow(lineIdx, dir) {
