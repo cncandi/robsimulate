@@ -827,9 +827,7 @@ function fvApplySV(lineIdx) {
     var val  = document.getElementById('fv-sv-val-'+lineIdx);
     // Doppelte Deklaration verhindern
     var newName = name ? name.value.trim() : 'myVar';
-    var dupLines = ta.value.split(/
-?
-/);
+    var dupLines = ta.value.split(/\r?\n/);
     for (var di = 0; di < dupLines.length; di++) {
       if (di === lineIdx) continue;
       var dm = dupLines[di].trim().match(/^(INT|REAL|BOOL|CHAR)\s+(\w+)/i);
