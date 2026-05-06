@@ -639,8 +639,7 @@ function fvDrop(e, targetIdx) {
   var src = lines.splice(_fvDragSrc, 1)[0];
   var dst = targetIdx > _fvDragSrc ? targetIdx - 1 : targetIdx;
   lines.splice(dst, 0, src);
-  ta.value = lines.join('
-');
+  ta.value = lines.join('\n');
   _fvDragSrc = -1;
   if (typeof parseAndLoad === 'function') parseAndLoad();
   fvBuild(dst);
