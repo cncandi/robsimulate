@@ -463,7 +463,7 @@ function parseKRL(code){
     if((m=line.match(/^\$ANIN\s*\[(\d+)\]/i))){anin[+m[1]]=0;pushStep(ln,'ain',{n:+m[1]});continue;}
     // ── Variablen ─────────────────────────────────────────────────────────
     if((m=line.match(/^DECL\s+(INT|REAL|BOOL|CHAR)\s+(\w+)(?:\s*=\s*(.+))?/i))||
-       (m=line.match(/^(INT|REAL|BOOL|CHAR)\s+(\w+)\s*(?:=\s*(.+))?\$/i))){
+       (m=line.match(/^(INT|REAL|BOOL|CHAR)\s+(\w+)(?:\s*=\s*(.+))?/i))){
       const vt=m[1].toUpperCase(),vn=m[2],vv=m[3]?m[3].trim():'';
       vars[vn]=parseVal(vv||'0');pushStep(ln,'var',{varType:vt,name:vn,val:vv||''});continue;}
     if((m=line.match(/^([A-Za-z_]\w*)\s*=\s*(.+)/))){
