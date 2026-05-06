@@ -567,6 +567,7 @@ function fvInsertMenu(afterLine, e) {
     { label:'Ablauf',   color:'#00aa88', items:[
       { badge:'HALT', bc:'#cc4444', bcolor:'#fff', key:'flow_0' },
       { badge:'WAIT', bc:'#00aa88', bcolor:'#fff', key:'flow_1' },
+      { badge:'COM',  bc:'#666666', bcolor:'#fff', key:'data_6' },
     ]},
     { label:'Prozess',  color:'#f05500', items:[
       { badge:'VEL',  bc:'#f05500', bcolor:'#fff', key:'process_0' },
@@ -588,7 +589,6 @@ function fvInsertMenu(afterLine, e) {
       { badge:'REAL', bc:'#8844cc', bcolor:'#fff', key:'data_3' },
       { badge:'BOOL', bc:'#8844cc', bcolor:'#fff', key:'data_4' },
       { badge:'CALC', bc:'#aa7700', bcolor:'#fff', key:'data_5' },
-      { badge:';',    bc:'#666666', bcolor:'#fff', key:'data_6' },
     ]},
     { label:'Gruppe',   color:'#449966', items:[
       { badge:'GRP',  bc:'#336644', bcolor:'#aaffcc', key:'group_0' },
@@ -1055,8 +1055,9 @@ function fvToolbarInit() {
     },
     { id:'flow', icon: ICONS.flow, label:'Ablauf', color:'#00aa88',
       items: [
-        { label:'HALT', badge:'HALT', bc:'#cc4444', bcolor:'#fff', insert: 'HALT' },
-        { label:'WAIT', badge:'WAIT', bc:'#00aa88', bcolor:'#fff', insert: 'WAIT SEC 1.0' },
+        { label:'HALT',     badge:'HALT', bc:'#cc4444', bcolor:'#fff', insert: 'HALT' },
+        { label:'WAIT',     badge:'WAIT', bc:'#00aa88', bcolor:'#fff', insert: 'WAIT SEC 1.0' },
+        { label:'Kommentar',badge:'COM',  bc:'#666666', bcolor:'#fff', insert: '; Kommentar' },
       ]
     },
     { id:'process', icon: ICONS.process, label:'Prozess', color:'#f05500',
@@ -1086,7 +1087,6 @@ function fvToolbarInit() {
         { label:'REAL',  badge:'REAL', bc:'#8844cc', bcolor:'#fff', insert: 'REAL myVal=0.0' },
         { label:'BOOL',  badge:'BOOL', bc:'#8844cc', bcolor:'#fff', insert: 'BOOL myFlag=FALSE' },
         { label:'CALC',  badge:'CALC', bc:'#aa7700', bcolor:'#fff', insert: 'myVar = myVar + 1.0' },
-        { label:'KOM.',  badge:';',    bc:'#666666', bcolor:'#fff', insert: '; Kommentar' },
       ]
     },
   ];
