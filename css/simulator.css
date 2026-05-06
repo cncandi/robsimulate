@@ -329,7 +329,14 @@ input[type=number] {
 .fv-dh:hover { color: var(--acc); }
 .fv-dh:active { cursor: grabbing; }
 .fv-dragging { opacity: 0.4; }
-.fv-drop-over { outline: 2px solid var(--acc); outline-offset: -2px; }
+.fv-drop-line {
+  height: 3px;
+  background: var(--acc);
+  border-radius: 2px;
+  margin: 0 4px;
+  pointer-events: none;
+  box-shadow: 0 0 6px var(--acc);
+}
 .fv-num { font-size: .85em; color: var(--txt); min-width: 32px; text-align: center; padding: 0 4px; flex-shrink: 0; border-right: 1px solid rgba(240,85,0,.15); align-self: stretch; display: flex; align-items: center; justify-content: center; }
 .fv-badge { font-size: inherit; font-weight: 900; letter-spacing: 1px; padding: 2px 7px; margin: 0 8px 0 6px; border-radius: 2px; flex-shrink: 0; font-family: 'Consolas','Courier New',monospace; }
 .fv-badge-lin  { background: var(--acc); color: #fff; }

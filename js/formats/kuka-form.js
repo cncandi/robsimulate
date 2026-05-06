@@ -648,61 +648,83 @@ function fvDrop(e, targetIdx) {
 }
 
 
-// ── Drag & Drop für Formular-Zeilen ─────────────────
-var _fvDragSrcIdx = -1;
-var _fvDragEl     = null;
+// ── Drag & Drop für Formular-Zeilen (Einfügelinie zwischen Zeilen) ──────
+var _fvDragSrcIdx  = -1;
+var _fvDropTarget  = -1;
+var _fvDropLine    = null;
+
+function _fvGetDropLine() {
+  if (!_fvDropLine) {
+    _fvDropLine = document.createElement('div');
+    _fvDropLine.className = 'fv-drop-line';
+  }
+  return _fvDropLine;
+}
+
+function _fvClearDropLine() {
+  if (_fvDropLine && _fvDropLine.parentNode)
+    _fvDropLine.parentNode.removeChild(_fvDropLine);
+  _fvDropTarget = -1;
+}
 
 function _fvBindDrag(fv) {
   var cards = fv.querySelectorAll('.fv-card[data-line], .fv-group-hdr[data-line], .fv-group-end[data-line]');
+
   cards.forEach(function(card) {
     var handle = card.querySelector('.fv-dh');
     if (!handle) return;
 
-    handle.addEventListener('mousedown', function(e) {
-      card.draggable = true;
-    });
+    handle.addEventListener('mousedown', function() { card.draggable = true; });
+
     card.addEventListener('dragstart', function(e) {
       _fvDragSrcIdx = parseInt(card.getAttribute('data-line'));
-      _fvDragEl     = card;
       e.dataTransfer.effectAllowed = 'move';
-      setTimeout(function(){ card.classList.add('fv-dragging'); }, 0);
+      setTimeout(function() { card.classList.add('fv-dragging'); }, 0);
     });
+
     card.addEventListener('dragend', function() {
       card.draggable = false;
       card.classList.remove('fv-dragging');
-      fv.querySelectorAll('.fv-drop-over').forEach(function(el){ el.classList.remove('fv-drop-over'); });
+      _fvClearDropLine();
       _fvDragSrcIdx = -1;
-      _fvDragEl = null;
     });
+
     card.addEventListener('dragover', function(e) {
       if (_fvDragSrcIdx < 0) return;
       e.preventDefault();
       e.dataTransfer.dropEffect = 'move';
-      fv.querySelectorAll('.fv-drop-over').forEach(function(el){ el.classList.remove('fv-drop-over'); });
-      card.classList.add('fv-drop-over');
+      var rect   = card.getBoundingClientRect();
+      var before = e.clientY < rect.top + rect.height / 2;
+      var lineIdx = parseInt(card.getAttribute('data-line'));
+      var insertBefore = before ? lineIdx : lineIdx + 1;
+      if (insertBefore === _fvDropTarget) return;
+      _fvDropTarget = insertBefore;
+      var dl = _fvGetDropLine();
+      card.parentNode.insertBefore(dl, before ? card : card.nextSibling);
     });
-    card.addEventListener('dragleave', function() {
-      card.classList.remove('fv-drop-over');
-    });
+
     card.addEventListener('drop', function(e) {
       e.preventDefault();
-      card.classList.remove('fv-drop-over');
-      var targetIdx = parseInt(card.getAttribute('data-line'));
-      if (_fvDragSrcIdx < 0 || _fvDragSrcIdx === targetIdx) return;
+      var src = _fvDragSrcIdx;
+      var dst = _fvDropTarget;
+      _fvClearDropLine();
+      _fvDragSrcIdx = -1;
+      if (src < 0 || dst < 0 || src === dst || src + 1 === dst) return;
       var ta    = document.getElementById('code-input');
       var lines = ta.value.split(/\r?\n/);
-      // Zeile herausnehmen und an Zielposition einfügen
-      var src = lines.splice(_fvDragSrcIdx, 1)[0];
-      var dst = targetIdx > _fvDragSrcIdx ? targetIdx - 1 : targetIdx;
-      lines.splice(dst, 0, src);
+      var moved = lines.splice(src, 1)[0];
+      var realDst = dst > src ? dst - 1 : dst;
+      lines.splice(realDst, 0, moved);
       ta.value = lines.join('\n');
-      _fvDragSrcIdx = -1;
       if (typeof parseAndLoad === 'function') parseAndLoad();
-      fvBuild(dst);
+      fvBuild(realDst);
     });
   });
-}
 
+  fv.addEventListener('dragleave', function(e) {
+    if (!fv.contains(e.relatedTarget)) _fvClearDropLine();
+  });
+}
 function fvMoveRow(lineIdx, dir) {
   var ta = document.getElementById('code-input');
   var lines = ta.value.split(/\r?\n/);
