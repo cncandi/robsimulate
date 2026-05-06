@@ -1083,12 +1083,8 @@ function fvToolbarInit() {
         { label:'INT',   badge:'INT',  bc:'#8844cc', bcolor:'#fff', insert: 'INT myVar=0' },
         { label:'REAL',  badge:'REAL', bc:'#8844cc', bcolor:'#fff', insert: 'REAL myVal=0.0' },
         { label:'BOOL',  badge:'BOOL', bc:'#8844cc', bcolor:'#fff', insert: 'BOOL myFlag=FALSE' },
-        { label:'KOM.',  badge:';',    bc:'#666666', bcolor:'#fff', insert: '; Kommentar' },
-      ]
-    },
-    { id:'calc', icon: ICONS.data, label:'Rechnen', color:'#aa7700',
-      items: [
         { label:'CALC',  badge:'CALC', bc:'#aa7700', bcolor:'#fff', insert: 'myVar = myVar + 1.0' },
+        { label:'KOM.',  badge:';',    bc:'#666666', bcolor:'#fff', insert: '; Kommentar' },
       ]
     },
   ];
