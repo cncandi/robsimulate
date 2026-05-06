@@ -89,7 +89,7 @@ function fvN(n) { return parseFloat(n||0).toFixed(3); }
 var FV_SYSVARS = [
   // Kommentar (muss als erstes stehen damit ; zuerst erkannt wird)
   { rx: /^;\s*(.*)$/, id:'comment', label:'Kommentar', color:'#666666',
-    getVal: function(t){ var m=t.match(/^;\s*(.*)/); return {text:m?m[1]:''}; },
+    getVal: function(t){ var m=t.match(/^;[ 	]*(.*)/); return {text:m?m[1]:''}; },
     toKRL:  function(text){ return '; ' + text; },
     ioType: 'comment' },
   // Konfiguration
@@ -357,10 +357,9 @@ function fvBuild(expandLine) {
         mv.subtype = fvPTPSubtypeOverride[i];
 
       var isExp = (expandLine === i);
-      html += '<div class="fv-card'+(isExp?' fv-open':'')+'" data-line="'+i+'" draggable="true" ondragstart="fvDragStart(event,'+i+')" ondragover="fvDragOver(event)" ondrop="fvDrop(event,'+i+')" ondragleave="fvDragLeave(event)">';
+      html += '<div class="fv-card'+(isExp?' fv-open':'')+'" data-line="'+i+'">';
       // Kopfzeile
       html += '<div class="fv-head" onclick="fvSetCursor('+i+');fvToggle('+i+')">';
-      html += '<span class="fv-drag-handle" title="Verschieben" onmousedown="event.stopPropagation()">⠿</span>';
       html += '<span class="fv-num">'+(i+1)+'</span>';
       html += '<span class="fv-badge fv-badge-'+mv.moveType.toLowerCase()+'">'+mv.moveType+'</span>';
       html += fvPreviewHTML(mv);
@@ -389,9 +388,8 @@ function fvBuild(expandLine) {
       if (sv) {
         var isExpSv = (expandLine === i);
         var svColor = sv.sysvar.color || '#4488cc';
-        html += '<div class="fv-card fv-sv-card'+(isExpSv?' fv-open':'')+'" data-line="'+i+'" style="border-left-color:'+svColor+'" draggable="true" ondragstart="fvDragStart(event,'+i+')" ondragover="fvDragOver(event)" ondrop="fvDrop(event,'+i+')" ondragleave="fvDragLeave(event)">';
+        html += '<div class="fv-card fv-sv-card'+(isExpSv?' fv-open':'')+'" data-line="'+i+'" style="border-left-color:'+svColor+'">';
         html += '<div class="fv-head" onclick="fvSetCursor('+i+');fvToggle('+i+')">';
-        html += '<span class="fv-drag-handle" title="Verschieben">⠿</span>';
         html += '<span class="fv-num">'+(i+1)+'</span>';
         html += '<span class="fv-badge fv-badge-sv" style="background:'+svColor+'40;color:'+svColor+'">'+sv.sysvar.id.toUpperCase()+'</span>';
         html += '<span class="fv-sv-label">'+sv.sysvar.label+'</span>';
