@@ -419,7 +419,7 @@ input[type=number] {
 .fvtb-menu {
   display: none; position: absolute; top: calc(100% + 4px); left: 0;
   background: rgba(5,12,22,.98); border: 1px solid rgba(240,85,0,.35);
-  border-radius: 4px; min-width: 140px; overflow: hidden; z-index: 100;
+  border-radius: 4px; min-width: 140px; overflow-y: auto; max-height: 80vh; z-index: 100;
   box-shadow: 0 4px 16px rgba(0,0,0,.7);
 }
 .fvtb-btn.open .fvtb-menu { display: block; }
