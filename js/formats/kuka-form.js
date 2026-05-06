@@ -648,81 +648,106 @@ function fvDrop(e, targetIdx) {
 }
 
 
-// ── Drag & Drop für Formular-Zeilen (Einfügelinie zwischen Zeilen) ──────
-var _fvDragSrcIdx  = -1;
-var _fvDropTarget  = -1;
-var _fvDropLine    = null;
+// ── Drag & Drop — Container-Handler mit Einfügelinie ─────────
+var _fvDragSrcIdx = -1;
+var _fvDropLine   = null;
 
 function _fvGetDropLine() {
   if (!_fvDropLine) {
     _fvDropLine = document.createElement('div');
     _fvDropLine.className = 'fv-drop-line';
+    _fvDropLine.style.pointerEvents = 'none';
   }
   return _fvDropLine;
 }
-
 function _fvClearDropLine() {
   if (_fvDropLine && _fvDropLine.parentNode)
     _fvDropLine.parentNode.removeChild(_fvDropLine);
-  _fvDropTarget = -1;
+}
+
+// Gibt die Karte und "before/after" zur Mausposition y zurück
+function _fvCardAtY(fv, y) {
+  var best = null, bestBefore = true, bestDist = Infinity;
+  var cards = fv.querySelectorAll('.fv-card[data-line], .fv-group-hdr[data-line], .fv-group-end[data-line]');
+  cards.forEach(function(card) {
+    var r = card.getBoundingClientRect();
+    var mid = r.top + r.height / 2;
+    var dist = Math.abs(y - mid);
+    if (dist < bestDist) {
+      bestDist  = dist;
+      best      = card;
+      bestBefore = y < mid;
+    }
+  });
+  return best ? { card: best, before: bestBefore } : null;
 }
 
 function _fvBindDrag(fv) {
-  var cards = fv.querySelectorAll('.fv-card[data-line], .fv-group-hdr[data-line], .fv-group-end[data-line]');
+  // Handle — macht die Karte draggable
+  fv.querySelectorAll('.fv-dh').forEach(function(handle) {
+    handle.addEventListener('mousedown', function() {
+      handle.closest('[data-line]').draggable = true;
+    });
+  });
 
-  cards.forEach(function(card) {
-    var handle = card.querySelector('.fv-dh');
-    if (!handle) return;
-
-    handle.addEventListener('mousedown', function() { card.draggable = true; });
-
+  // Dragstart auf jeder Karte
+  fv.querySelectorAll('[data-line]').forEach(function(card) {
     card.addEventListener('dragstart', function(e) {
+      if (!card.draggable) return;
       _fvDragSrcIdx = parseInt(card.getAttribute('data-line'));
       e.dataTransfer.effectAllowed = 'move';
       setTimeout(function() { card.classList.add('fv-dragging'); }, 0);
     });
-
     card.addEventListener('dragend', function() {
       card.draggable = false;
       card.classList.remove('fv-dragging');
       _fvClearDropLine();
       _fvDragSrcIdx = -1;
     });
+  });
 
-    card.addEventListener('dragover', function(e) {
-      if (_fvDragSrcIdx < 0) return;
-      e.preventDefault();
-      e.dataTransfer.dropEffect = 'move';
-      var rect   = card.getBoundingClientRect();
-      var before = e.clientY < rect.top + rect.height / 2;
-      var lineIdx = parseInt(card.getAttribute('data-line'));
-      var insertBefore = before ? lineIdx : lineIdx + 1;
-      if (insertBefore === _fvDropTarget) return;
-      _fvDropTarget = insertBefore;
-      var dl = _fvGetDropLine();
-      card.parentNode.insertBefore(dl, before ? card : card.nextSibling);
-    });
+  // Einziger dragover-Handler auf dem Container
+  fv.addEventListener('dragover', function(e) {
+    if (_fvDragSrcIdx < 0) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
 
-    card.addEventListener('drop', function(e) {
-      e.preventDefault();
-      var src = _fvDragSrcIdx;
-      var dst = _fvDropTarget;
-      _fvClearDropLine();
-      _fvDragSrcIdx = -1;
-      if (src < 0 || dst < 0 || src === dst || src + 1 === dst) return;
-      var ta    = document.getElementById('code-input');
-      var lines = ta.value.split(/\r?\n/);
-      var moved = lines.splice(src, 1)[0];
-      var realDst = dst > src ? dst - 1 : dst;
-      lines.splice(realDst, 0, moved);
-      ta.value = lines.join('\n');
-      if (typeof parseAndLoad === 'function') parseAndLoad();
-      fvBuild(realDst);
-    });
+    var hit = _fvCardAtY(fv, e.clientY);
+    if (!hit) return;
+
+    var dl = _fvGetDropLine();
+    fv.insertBefore(dl, hit.before ? hit.card : hit.card.nextSibling);
   });
 
   fv.addEventListener('dragleave', function(e) {
     if (!fv.contains(e.relatedTarget)) _fvClearDropLine();
+  });
+
+  // Drop ebenfalls auf Container
+  fv.addEventListener('drop', function(e) {
+    e.preventDefault();
+    var src = _fvDragSrcIdx;
+    _fvClearDropLine();
+    _fvDragSrcIdx = -1;
+    if (src < 0) return;
+
+    var hit = _fvCardAtY(fv, e.clientY);
+    if (!hit) return;
+
+    var targetIdx = parseInt(hit.card.getAttribute('data-line'));
+    var dst = hit.before ? targetIdx : targetIdx + 1;
+
+    // No-op: selbe oder direkt nachfolgende Position
+    if (src === dst || src + 1 === dst) return;
+
+    var ta    = document.getElementById('code-input');
+    var lines = ta.value.split(/\r?\n/);
+    var moved = lines.splice(src, 1)[0];
+    var realDst = dst > src ? dst - 1 : dst;
+    lines.splice(realDst, 0, moved);
+    ta.value = lines.join('\n');
+    if (typeof parseAndLoad === 'function') parseAndLoad();
+    fvBuild(realDst);
   });
 }
 function fvMoveRow(lineIdx, dir) {
