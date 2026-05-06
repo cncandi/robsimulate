@@ -679,35 +679,50 @@
   // ── Adept V+ / legacy ───────────────────────────────────────────────────
   IMPLS.adept = {
     _generate: function (pd) {
-      return generate(pd, {
-        _formatId: 'adept',
-        header: function (t, b, vars) {
-          var h = ['.PROGRAM main()'];
-          var vn = vars.map(function (v) { return v.name; }).join(', ');
-          if (vn) h.push('  LOCAL ' + vn);
-          if (t) h.push('  TOOL tool' + t);
-          if (b) h.push('  BASE base' + b);
-          return h;
-        },
-        footer: function () { return ['  HALT', '.END']; },
-        moveL:   function (p, vel, idx) { return '  MOVES p' + idx; },
-        moveJ:   function (p, vel, idx) { return '  MOVE p' + idx; },
-        moveC:   function (pv, pt, vel, idx) { return '  MOVEC p' + (idx - 1) + ', p' + idx; },
-        halt:    function ()     { return '  HALT'; },
-        dout:    function (n, v) { return v ? '  SIGNAL ' + n : '  SIGNAL -' + n; },
-        dinWait: function (n)    { return '  WAIT SIG(' + n + ')'; },
-        aout:    function (n, v) { return '  AOUT ' + n + ' = ' + parseFloat(v).toFixed(2); },
-        ainRead: function (n)    { return '  r = AIN(' + n + ')'; },
-        waitSec: function (t)    { return '  WAIT ' + parseFloat(t).toFixed(1); },
-        tool:    function (n)    { return '  TOOL tool' + n; },
-        base:    function (n)    { return '  BASE base' + n; },
-        comment: function (t)    { return '  ; ' + t; },
+      var positions=pd.positions||[], steps=pd.steps||[];
+      var hf=(typeof fmtHfLoad==='function')?fmtHfLoad('adept'):null;
+      var lines=[];
+      var hdr=(hf&&hf.header)?hf.header:'.PROGRAM pp_main()';
+      hdr.split('\n').forEach(function(l){lines.push(l);});
+      var curVel=0.167; var speedPct=function(v){return Math.max(1,Math.min(100,Math.round((v||0.167)/0.167*100)));};
+
+      // Positionsdaten
+      lines.push('');
+      lines.push('  ; Positionsdaten');
+      positions.forEach(function(p,i){
+        lines.push('  SET p'+(i+1)+' = TRANS('+p.X.toFixed(3)+', '+p.Y.toFixed(3)+', '+p.Z.toFixed(3)+', '+p.A.toFixed(3)+', '+p.B.toFixed(3)+', '+p.C.toFixed(3)+')');
       });
+      lines.push('');
+
+      steps.forEach(function(s){
+        var pos;
+        switch(s.type){
+          case 'comment': lines.push('  ; '+(s.text||'')); break;
+          case 'velcp':   curVel=s.v||0.167; lines.push('  SPEED '+speedPct(curVel)+' ALWAYS'); break;
+          case 'tool':    lines.push(_t('adept','tool',{N:s.n},'  ; TOOL tool'+s.n)); break;
+          case 'base':    lines.push(_t('adept','base',{N:s.n},'  ; BASE base'+s.n)); break;
+          case 'halt':    lines.push(_t('adept','halt',{},'  BREAK')); break;
+          case 'wait':    lines.push(_t('adept','wait',{T:parseFloat(s.t||0).toFixed(1),T_MS:Math.round(parseFloat(s.t||0)*1000)},'  WAIT '+parseFloat(s.t||0).toFixed(1))); break;
+          case 'dout':{ var dv=s.v==='TRUE'||s.v==='ON'||s.v==='1'; lines.push(_t('adept','dout',{CH:s.n,VAL:dv?'TRUE':'FALSE'}, dv?'  SIGNAL '+s.n:'  SIGNAL -'+s.n)); break; }
+          case 'din':     lines.push(_t('adept','din',{CH:s.n},'  WAIT SIG('+s.n+')')); break;
+          case 'aout':    lines.push(_t('adept','aout',{CH:s.n,VAL_F:parseFloat(s.v||0).toFixed(2)},'  AOUT '+s.n+' = '+parseFloat(s.v||0).toFixed(2))); break;
+          case 'ain':     lines.push(_t('adept','ain',{CH:s.n},'  r = AIN('+s.n+')')); break;
+          case 'var':{ var vt=s.varType||'REAL',vv=s.val||(vt==='INT'?'0':vt==='BOOL'?'FALSE':'0.0'); var vk=vt==='INT'?'varInt':vt==='BOOL'?'varBool':'varReal'; lines.push(_t('adept',vk,{NAME:s.name||'v',INITVAL:vv,TYPE:vt},'  LOCAL '+s.name+' = '+vv)); break; }
+          case 'calc':    lines.push(_t('adept','calc',{TARGET:s.target,EXPR:s.expr},'  '+s.target+' = '+s.expr)); break;
+          case 'move':{ pos=positions[s.posIdx]; if(!pos) break; var nm='p'+(s.posIdx+1); var mv={N:s.posIdx+1,VEL_PCT:speedPct(curVel)}; if(s.moveType==='PTP') lines.push(_t('adept','moveJ',mv,'  MOVE '+nm)); else lines.push(_t('adept','moveL',mv,'  MOVES '+nm)); break; }
+          case 'circ':{ pos=positions[s.posIdx]; var pv=positions[s.viaIdx]; if(!pos||!pv) break; var mv2={N:s.posIdx+1,VN:s.viaIdx+1,VEL_PCT:speedPct(curVel)}; lines.push(_t('adept','moveC',mv2,'  MOVEC p'+(s.viaIdx+1)+', p'+(s.posIdx+1))); break; }
+          case 'call':    lines.push(_t('adept','call',{PROG:s.prog||'sub',ARGS:s.args||''},'  CALL '+(s.prog||'sub')+'('+(s.args||'')+')')); break;
+        }
+      });
+      lines.push('');
+      var ftr=(hf&&hf.footer)?hf.footer:'  BREAK\n.END';
+      ftr.split('\n').forEach(function(l){lines.push(l);});
+      return lines.join('\n');
     },
     _parse: function (text) {
       return parsePositions(text, [
-        { rx: /MOVES\s+(\w+)/, ptp: false },
-        { rx: /\bMOVE\b\s+(\w+)/, ptp: true },
+        { rx: /MOVES\s+p\d+/, ptp: false },
+        { rx: /\bMOVE\b\s+p\d+/, ptp: true },
       ]);
     }
   };
@@ -715,35 +730,50 @@
   // ── Omron V+ / eV+ / ACE ───────────────────────────────────────────────
   IMPLS.omron = {
     _generate: function (pd) {
-      return generate(pd, {
-        _formatId: 'omron',
-        header: function (t, b, vars) {
-          var h = ['.PROGRAM main()'];
-          var vn = vars.map(function (v) { return v.name; }).join(', ');
-          if (vn) h.push('  LOCAL ' + vn);
-          if (t) h.push('  TOOL tool' + t);
-          if (b) h.push('  BASE base' + b);
-          return h;
-        },
-        footer: function () { return ['  HALT', '.END']; },
-        moveL:   function (p, vel, idx) { return '  MOVES p' + idx; },
-        moveJ:   function (p, vel, idx) { return '  JMOVE p' + idx; },
-        moveC:   function (pv, pt, vel, idx) { return '  MOVEC p' + (idx - 1) + ', p' + idx; },
-        halt:    function ()     { return '  HALT'; },
-        dout:    function (n, v) { return v ? '  SIGNAL ' + n : '  SIGNAL -' + n; },
-        dinWait: function (n)    { return '  WAIT SIG(' + n + ')'; },
-        aout:    function (n, v) { return '  AOUT ' + n + ' = ' + parseFloat(v).toFixed(2); },
-        ainRead: function (n)    { return '  r = AIN(' + n + ')'; },
-        waitSec: function (t)    { return '  TWAIT ' + parseFloat(t).toFixed(1); },
-        tool:    function (n)    { return '  TOOL tool' + n; },
-        base:    function (n)    { return '  BASE base' + n; },
-        comment: function (t)    { return '  ; ' + t; },
+      var positions=pd.positions||[], steps=pd.steps||[];
+      var hf=(typeof fmtHfLoad==='function')?fmtHfLoad('omron'):null;
+      var lines=[];
+      var hdr=(hf&&hf.header)?hf.header:'.PROGRAM pp_main()';
+      hdr.split('\n').forEach(function(l){lines.push(l);});
+      var curVel=0.167; var speedPct=function(v){return Math.max(1,Math.min(100,Math.round((v||0.167)/0.167*100)));};
+
+      // Positionsdaten
+      lines.push('');
+      lines.push('  ; Positionsdaten');
+      positions.forEach(function(p,i){
+        lines.push('  SET p'+(i+1)+' = TRANS('+p.X.toFixed(3)+', '+p.Y.toFixed(3)+', '+p.Z.toFixed(3)+', '+p.A.toFixed(3)+', '+p.B.toFixed(3)+', '+p.C.toFixed(3)+')');
       });
+      lines.push('');
+
+      steps.forEach(function(s){
+        var pos;
+        switch(s.type){
+          case 'comment': lines.push('  ; '+(s.text||'')); break;
+          case 'velcp':   curVel=s.v||0.167; lines.push('  SPEED '+speedPct(curVel)+' ALWAYS'); break;
+          case 'tool':    lines.push(_t('omron','tool',{N:s.n},'  ; TOOL tool'+s.n)); break;
+          case 'base':    lines.push(_t('omron','base',{N:s.n},'  ; BASE base'+s.n)); break;
+          case 'halt':    lines.push(_t('omron','halt',{},'  BREAK')); break;
+          case 'wait':    lines.push(_t('omron','wait',{T:parseFloat(s.t||0).toFixed(1),T_MS:Math.round(parseFloat(s.t||0)*1000)},'  WAIT '+parseFloat(s.t||0).toFixed(1))); break;
+          case 'dout':{ var dv=s.v==='TRUE'||s.v==='ON'||s.v==='1'; lines.push(_t('omron','dout',{CH:s.n,VAL:dv?'TRUE':'FALSE'}, dv?'  SIGNAL '+s.n:'  SIGNAL -'+s.n)); break; }
+          case 'din':     lines.push(_t('omron','din',{CH:s.n},'  WAIT SIG('+s.n+')')); break;
+          case 'aout':    lines.push(_t('omron','aout',{CH:s.n,VAL_F:parseFloat(s.v||0).toFixed(2)},'  AOUT '+s.n+' = '+parseFloat(s.v||0).toFixed(2))); break;
+          case 'ain':     lines.push(_t('omron','ain',{CH:s.n},'  r = AIN('+s.n+')')); break;
+          case 'var':{ var vt=s.varType||'REAL',vv=s.val||(vt==='INT'?'0':vt==='BOOL'?'FALSE':'0.0'); var vk=vt==='INT'?'varInt':vt==='BOOL'?'varBool':'varReal'; lines.push(_t('omron',vk,{NAME:s.name||'v',INITVAL:vv,TYPE:vt},'  LOCAL '+s.name+' = '+vv)); break; }
+          case 'calc':    lines.push(_t('omron','calc',{TARGET:s.target,EXPR:s.expr},'  '+s.target+' = '+s.expr)); break;
+          case 'move':{ pos=positions[s.posIdx]; if(!pos) break; var nm='p'+(s.posIdx+1); var mv={N:s.posIdx+1,VEL_PCT:speedPct(curVel)}; if(s.moveType==='PTP') lines.push(_t('omron','moveJ',mv,'  MOVE '+nm)); else lines.push(_t('omron','moveL',mv,'  MOVES '+nm)); break; }
+          case 'circ':{ pos=positions[s.posIdx]; var pv=positions[s.viaIdx]; if(!pos||!pv) break; var mv2={N:s.posIdx+1,VN:s.viaIdx+1,VEL_PCT:speedPct(curVel)}; lines.push(_t('omron','moveC',mv2,'  MOVEC p'+(s.viaIdx+1)+', p'+(s.posIdx+1))); break; }
+          case 'call':    lines.push(_t('omron','call',{PROG:s.prog||'sub',ARGS:s.args||''},'  CALL '+(s.prog||'sub')+'('+(s.args||'')+')')); break;
+        }
+      });
+      lines.push('');
+      var ftr=(hf&&hf.footer)?hf.footer:'  BREAK\n.END';
+      ftr.split('\n').forEach(function(l){lines.push(l);});
+      return lines.join('\n');
     },
     _parse: function (text) {
       return parsePositions(text, [
-        { rx: /MOVES\s+(\w+)/, ptp: false },
-        { rx: /JMOVE\s+(\w+)/, ptp: true },
+        { rx: /MOVES\s+p\d+/, ptp: false },
+        { rx: /\bMOVE\b\s+p\d+/, ptp: true },
       ]);
     }
   };
@@ -751,36 +781,61 @@
   // ── Epson SPEL+ / RC+ ───────────────────────────────────────────────────
   IMPLS.epson = {
     _generate: function (pd) {
-      return generate(pd, {
-        _formatId: 'epson',
-        header: function (t, b, vars) {
-          var h = ['Function Main'];
-          vars.forEach(function (v) {
-            h.push('  ' + (v.varType === 'INT' ? 'Integer' : v.varType === 'REAL' ? 'Real' : 'Boolean') + ' ' + v.name);
-          });
-          if (t) h.push('  Tool ' + t);
-          if (b) h.push('  Local ' + b);
-          return h;
-        },
-        footer: function () { return ['Fend']; },
-        moveL:   function (p, vel, idx) { return '  Move P' + idx; },
-        moveJ:   function (p, vel, idx) { return '  Go P' + idx; },
-        moveC:   function (pv, pt, vel, idx) { return '  Arc P' + (idx - 1) + ', P' + idx; },
-        halt:    function ()     { return '  Halt'; },
-        dout:    function (n, v) { return v ? '  On ' + n : '  Off ' + n; },
-        dinWait: function (n)    { return '  Wait Sw(' + n + ')=On'; },
-        aout:    function (n, v) { return '  AOut ' + n + ', ' + parseFloat(v).toFixed(2); },
-        ainRead: function (n)    { return '  r = AIn(' + n + ')'; },
-        waitSec: function (t)    { return '  Wait ' + parseFloat(t).toFixed(1); },
-        tool:    function (n)    { return '  Tool ' + n; },
-        base:    function (n)    { return '  Local ' + n; },
-        comment: function (t)    { return "  ' " + t; },
+      var positions=pd.positions||[], steps=pd.steps||[];
+      var hf=(typeof fmtHfLoad==='function')?fmtHfLoad('epson'):null;
+      var lines=[];
+      var hdr=(hf&&hf.header)?hf.header:'Function main';
+      hdr.split('\n').forEach(function(l){lines.push(l);});
+      lines.push('');
+      var curVelMms=Math.round(0.167*1000), curPct=40;
+
+      // Variablendeklarationen
+      steps.filter(function(s){return s.type==='var';}).forEach(function(s){
+        var vt=s.varType||'REAL'; var typName=vt==='INT'?'Integer':vt==='BOOL'?'Boolean':'Real';
+        var vv=s.val||(vt==='INT'?'0':vt==='BOOL'?'False':'0.0');
+        lines.push('  '+_t('epson',vt==='INT'?'varInt':vt==='BOOL'?'varBool':'varReal',{NAME:s.name,INITVAL:vv,TYPE:vt},'  '+typName+' '+s.name+' = '+vv));
       });
+      lines.push('');
+
+      // Positionsdaten P1 = XY(...)
+      positions.forEach(function(p,i){
+        lines.push('  P'+(i+1)+' = XY('+p.X.toFixed(3)+', '+p.Y.toFixed(3)+', '+p.Z.toFixed(3)+', '+p.A.toFixed(3)+', '+p.B.toFixed(3)+', '+p.C.toFixed(3)+')');
+      });
+      lines.push('');
+      lines.push('  Motor On');
+      lines.push('  Power High');
+      lines.push('  Speed '+curPct);
+      lines.push('  Accel 40, 40');
+      lines.push('');
+
+      steps.forEach(function(s){
+        var pos, mv;
+        switch(s.type){
+          case 'comment': lines.push('  \' '+(s.text||'')); break;
+          case 'var': break; // bereits oben
+          case 'velcp': curVelMms=Math.round((s.v||0.167)*1000); curPct=Math.max(1,Math.min(100,Math.round((s.v||0.167)/0.167*100))); lines.push('  SpeedS '+curVelMms); break;
+          case 'tool':  lines.push(_t('epson','tool',{N:s.n},'  Tool '+s.n)); break;
+          case 'base':  lines.push(_t('epson','base',{N:s.n},'  Local '+s.n)); break;
+          case 'halt':  lines.push(_t('epson','halt',{},'  Halt')); break;
+          case 'wait':  lines.push(_t('epson','wait',{T:parseFloat(s.t||0).toFixed(1),T_MS:Math.round(parseFloat(s.t||0)*1000)},'  Wait '+parseFloat(s.t||0).toFixed(1))); break;
+          case 'dout':{ var dv=s.v==='TRUE'||s.v==='ON'||s.v==='1'; lines.push(_t('epson','dout',{CH:s.n,VAL:dv?'On':'Off'}, dv?'  On '+s.n:'  Off '+s.n)); break; }
+          case 'din':   lines.push(_t('epson','din',{CH:s.n},'  Wait Sw('+s.n+')=On')); break;
+          case 'aout':  lines.push(_t('epson','aout',{CH:s.n,VAL_F:parseFloat(s.v||0).toFixed(2)},'  AOut '+s.n+', '+parseFloat(s.v||0).toFixed(2))); break;
+          case 'ain':   lines.push(_t('epson','ain',{CH:s.n},'  r = AIn('+s.n+')')); break;
+          case 'calc':  lines.push(_t('epson','calc',{TARGET:s.target,EXPR:s.expr},'  '+s.target+' = '+s.expr)); break;
+          case 'move':{ pos=positions[s.posIdx]; if(!pos) break; var nm='P'+(s.posIdx+1); mv={N:s.posIdx+1,VEL_MMS:curVelMms,VEL_PCT:curPct}; if(s.moveType==='PTP') lines.push(_t('epson','moveJ',mv,'  Go '+nm)); else lines.push(_t('epson','moveL',mv,'  Move '+nm)); break; }
+          case 'circ':{ pos=positions[s.posIdx]; var pv=positions[s.viaIdx]; if(!pos||!pv) break; mv={N:s.posIdx+1,VN:s.viaIdx+1,VEL_MMS:curVelMms}; lines.push(_t('epson','moveC',mv,'  Arc P'+(s.viaIdx+1)+', P'+(s.posIdx+1))); break; }
+        }
+      });
+      lines.push('');
+      var ftr=(hf&&hf.footer)?hf.footer:'Fend';
+      ftr.split('\n').forEach(function(l){lines.push(l);});
+      return lines.join('\n');
     },
     _parse: function (text) {
       return parsePositions(text, [
-        { rx: /Move\s+P(\d+)/, ptp: false },
-        { rx: /Go\s+P(\d+)/,   ptp: true  },
+        { rx: /Move\s+P\d+/, ptp: false },
+        { rx: /Go\s+P\d+/, ptp: true },
       ]);
     }
   };
@@ -985,34 +1040,43 @@
   // ── Nachi FD Robot Language ─────────────────────────────────────────────
   IMPLS.nachi = {
     _generate: function (pd) {
-      return generate(pd, {
-        _formatId: 'nachi',
-        header: function (t, b, vars) {
-          var h = ['PROGRAM MAIN_NACHI'];
-          vars.forEach(function (v) { h.push('  ' + v.varType + ' ' + v.name); });
-          if (t) h.push('  TOOL ' + t);
-          if (b) h.push('  BASE ' + b);
-          return h;
-        },
-        footer: function () { return ['END']; },
-        moveL:   function (p, vel, idx) { return '  MOVEX L, P' + idx + ', S=' + velMmS(vel); },
-        moveJ:   function (p, vel, idx) { return '  MOVEX A, P' + idx + ', S=' + velPct(vel); },
-        moveC:   function (pv, pt, vel, idx) { return '  MOVEX C, P' + (idx - 1) + ', P' + idx + ', S=' + velMmS(vel); },
-        halt:    function ()     { return '  STOP'; },
-        dout:    function (n, v) { return '  OUT[' + n + ']=' + (v ? 'ON' : 'OFF'); },
-        dinWait: function (n)    { return '  WAITI IN[' + n + ']=ON'; },
-        aout:    function (n, v) { return '  AOUT[' + n + ']=' + parseFloat(v).toFixed(2); },
-        ainRead: function (n)    { return '  r = AIN[' + n + ']'; },
-        waitSec: function (t)    { return '  WAIT ' + parseFloat(t).toFixed(1); },
-        tool:    function (n)    { return '  TOOL ' + n; },
-        base:    function (n)    { return '  BASE ' + n; },
-        comment: function (t)    { return '  ;' + t; },
+      var positions=pd.positions||[], steps=pd.steps||[];
+      var hf=(typeof fmtHfLoad==='function')?fmtHfLoad('nachi'):null;
+      var lines=[];
+      var ln=1; var curSpd=5.0;
+      var pushN=function(c){ lines.push(ln+'  '+c); ln++; };
+
+      lines.push(ln+'  REM "NACHI FD PROGRAM"'); ln++;
+
+      steps.forEach(function(s){
+        var pos;
+        switch(s.type){
+          case 'comment': lines.push(ln+'  REM "'+( s.text||'')+'"'); ln++; break;
+          case 'velcp':   curSpd=Math.max(0.1,Math.min(100,Math.round((s.v||0.167)/0.167*100)/10)); break;
+          case 'halt':    pushN('STOP'); break;
+          case 'wait':    pushN('TIMER T='+parseFloat(s.t||0).toFixed(1)); break;
+          case 'dout':{ var dv=s.v==='TRUE'||s.v==='ON'||s.v==='1'; pushN('OUT['+s.n+']='+(dv?'ON':'OFF')); break; }
+          case 'din':     pushN('WAITI IN['+s.n+']=ON'); break;
+          case 'var':{ var vt=s.varType||'REAL',vv=s.val||(vt==='INT'?'0':vt==='BOOL'?'FALSE':'0.0'); pushN('REM "VAR '+vt+' '+s.name+' = '+vv+'"'); break; }
+          case 'calc':    pushN(s.target+' = '+s.expr); break;
+          case 'move':{ pos=positions[s.posIdx]; if(!pos) break;
+            var mv={N:s.posIdx+1,X:pos.X.toFixed(3),Y:pos.Y.toFixed(3),Z:pos.Z.toFixed(3),A:pos.A.toFixed(3),B:pos.B.toFixed(3),C:pos.C.toFixed(3),VEL_MMS:Math.round((s.v||curSpd)*1000||5000)};
+            if(s.moveType==='PTP') pushN(_t('nachi','moveJ',mv,'MOVEX A=1,AC=0,SM=0,M1J,P,('+pos.X.toFixed(3)+','+pos.Y.toFixed(3)+','+pos.Z.toFixed(3)+','+pos.A.toFixed(3)+','+pos.B.toFixed(3)+','+pos.C.toFixed(3)+'),R='+curSpd.toFixed(1)+',H=1,MS,CONF=0000'));
+            else pushN(_t('nachi','moveL',mv,'MOVEX A=1,AC=0,SM=0,M1X,P,('+pos.X.toFixed(3)+','+pos.Y.toFixed(3)+','+pos.Z.toFixed(3)+','+pos.A.toFixed(3)+','+pos.B.toFixed(3)+','+pos.C.toFixed(3)+'),R='+curSpd.toFixed(1)+',H=1,MS,CONF=0000'));
+            break; }
+          case 'circ':{ var pv=positions[s.viaIdx],pt=positions[s.posIdx]; if(!pv||!pt) break;
+            pushN('MOVEX A=1,AC=0,SM=0,M1X,P,('+pv.X.toFixed(3)+','+pv.Y.toFixed(3)+','+pv.Z.toFixed(3)+','+pv.A.toFixed(3)+','+pv.B.toFixed(3)+','+pv.C.toFixed(3)+'),R='+curSpd.toFixed(1)+',H=1,MS,CONF=0000');
+            pushN('MOVEX A=1,AC=0,SM=0,M1X,P,('+pt.X.toFixed(3)+','+pt.Y.toFixed(3)+','+pt.Z.toFixed(3)+','+pt.A.toFixed(3)+','+pt.B.toFixed(3)+','+pt.C.toFixed(3)+'),R='+curSpd.toFixed(1)+',H=1,MS,CONF=0000');
+            break; }
+        }
       });
+      pushN('END');
+      return lines.join('\n');
     },
     _parse: function (text) {
       return parsePositions(text, [
-        { rx: /MOVEX L/, ptp: false },
-        { rx: /MOVEX A/, ptp: true  },
+        { rx: /M1X/, ptp: false },
+        { rx: /M1J/, ptp: true },
       ]);
     }
   };
@@ -1020,37 +1084,49 @@
   // ── Hanwha HCR Task Builder ─────────────────────────────────────────────
   IMPLS.hanwha = {
     _generate: function (pd) {
-      return generate(pd, {
-        _formatId: 'hanwha',
-        header: function (t, b, vars) {
-          var h = ['// Hanwha HCR'];
-          vars.forEach(function (v) {
-            var typ = v.varType === 'INT' ? 'int' : v.varType === 'REAL' ? 'double' : 'bool';
-            h.push(typ + ' ' + v.name + ' = ' + (v.val || (v.varType === 'BOOL' ? 'false' : v.varType === 'REAL' ? '1.0' : '1')));
-          });
-          if (t) h.push('setTCP(' + t + ')');
-          if (b) h.push('setUserFrame(' + b + ')');
-          return h;
-        },
-        footer: function () { return ['Stop()']; },
-        moveL:   function (p, vel, idx) { return 'MoveL(P' + idx + ', speed=' + velMmS(vel) + ')'; },
-        moveJ:   function (p, vel, idx) { return 'MoveJ(P' + idx + ', speed=' + velPct(vel) + ')'; },
-        moveC:   function (pv, pt, vel, idx) { return 'MoveC(P' + (idx - 1) + ', P' + idx + ', speed=' + velMmS(vel) + ')'; },
-        halt:    function ()     { return 'Stop()'; },
-        dout:    function (n, v) { return 'SetDO(' + n + ', ' + (v ? 'true' : 'false') + ')'; },
-        dinWait: function (n)    { return 'WaitDI(' + n + ', true)'; },
-        aout:    function (n, v) { return 'SetAO(' + n + ', ' + parseFloat(v).toFixed(2) + ')'; },
-        ainRead: function (n)    { return 'r = GetAI(' + n + ')'; },
-        waitSec: function (t)    { return 'Wait(' + parseFloat(t).toFixed(1) + ')'; },
-        tool:    function (n)    { return 'setTCP(' + n + ')'; },
-        base:    function (n)    { return 'setUserFrame(' + n + ')'; },
-        comment: function (t)    { return '// ' + t; },
+      var positions=pd.positions||[], steps=pd.steps||[];
+      var hf=(typeof fmtHfLoad==='function')?fmtHfLoad('hanwha'):null;
+      var lines=[];
+      var hdr=(hf&&hf.header)?hf.header:'# HANWHA HCR';
+      hdr.split('\n').forEach(function(l){lines.push(l);});
+      var curVelMms=Math.round(0.167*1000);
+
+      // Positionsdaten
+      lines.push('');
+      lines.push('# Positionsdaten');
+      positions.forEach(function(p,i){
+        lines.push('p'+(i+1)+' = ['+p.X.toFixed(3)+', '+p.Y.toFixed(3)+', '+p.Z.toFixed(3)+', '+p.A.toFixed(3)+', '+p.B.toFixed(3)+', '+p.C.toFixed(3)+']');
       });
+      lines.push('');
+
+      steps.forEach(function(s){
+        var pos, mv;
+        switch(s.type){
+          case 'comment': lines.push('# '+(s.text||'')); break;
+          case 'velcp':   curVelMms=Math.round((s.v||0.167)*1000); break;
+          case 'tool':    lines.push(_t('hanwha','tool',{N:s.n},'setTool("Tool_'+s.n+'")')); break;
+          case 'base':    lines.push(_t('hanwha','base',{N:s.n},'setBase("Base_'+s.n+'")')); break;
+          case 'halt':    lines.push(_t('hanwha','halt',{},'Stop()')); break;
+          case 'wait':    lines.push(_t('hanwha','wait',{T:parseFloat(s.t||0).toFixed(1),T_MS:Math.round(parseFloat(s.t||0)*1000)},'Wait('+parseFloat(s.t||0).toFixed(1)+')')); break;
+          case 'dout':{ var dv=s.v==='TRUE'||s.v==='ON'||s.v==='1'; lines.push(_t('hanwha','dout',{CH:s.n,VAL:dv?'true':'false'},'SetDO('+s.n+', '+(dv?'true':'false')+')')); break; }
+          case 'din':     lines.push(_t('hanwha','din',{CH:s.n},'WaitDI('+s.n+', true)')); break;
+          case 'aout':    lines.push(_t('hanwha','aout',{CH:s.n,VAL_F:parseFloat(s.v||0).toFixed(2)},'SetAO('+s.n+', '+parseFloat(s.v||0).toFixed(2)+')')); break;
+          case 'ain':     lines.push(_t('hanwha','ain',{CH:s.n},'r = GetAI('+s.n+')')); break;
+          case 'var':{ var vt=s.varType||'REAL',vv=s.val||(vt==='INT'?'0':vt==='BOOL'?'false':'0.0'); var typ=vt==='INT'?'int':vt==='BOOL'?'bool':'double'; var vk=vt==='INT'?'varInt':vt==='BOOL'?'varBool':'varReal'; lines.push(_t('hanwha',vk,{NAME:s.name,INITVAL:vv,TYPE:vt},typ+' '+s.name+' = '+vv)); break; }
+          case 'calc':    lines.push(_t('hanwha','calc',{TARGET:s.target,EXPR:s.expr},s.target+' = '+s.expr)); break;
+          case 'move':{ pos=positions[s.posIdx]; if(!pos) break; var nm='p'+(s.posIdx+1); mv={N:s.posIdx+1,VEL_MMS:curVelMms,VEL_PCT:Math.max(1,Math.min(100,Math.round(curVelMms/1670)))}; if(s.moveType==='PTP') lines.push(_t('hanwha','moveJ',mv,'MoveJ('+nm+', speed='+Math.max(1,Math.round(curVelMms/167))+', acc=500)')); else lines.push(_t('hanwha','moveL',mv,'MoveL('+nm+', speed='+curVelMms+', acc=500)')); break; }
+          case 'circ':{ var pv=positions[s.viaIdx],pt=positions[s.posIdx]; if(!pv||!pt) break; mv={N:s.posIdx+1,VN:s.viaIdx+1,VEL_MMS:curVelMms}; lines.push(_t('hanwha','moveC',mv,'MoveC(p'+(s.viaIdx+1)+', p'+(s.posIdx+1)+', speed='+curVelMms+', acc=300)')); break; }
+        }
+      });
+      lines.push('');
+      var ftr=(hf&&hf.footer)?hf.footer:'End';
+      ftr.split('\n').forEach(function(l){lines.push(l);});
+      return lines.join('\n');
     },
     _parse: function (text) {
       return parsePositions(text, [
-        { rx: /MoveL\(P(\d+)/, ptp: false },
-        { rx: /MoveJ\(P(\d+)/, ptp: true  },
+        { rx: /MoveL\(p\d+/, ptp: false },
+        { rx: /MoveJ\(p\d+/, ptp: true },
       ]);
     }
   };
@@ -1058,36 +1134,58 @@
   // ── igus Robot Control / iJC ─────────────────────────────────────────────
   IMPLS.igus = {
     _generate: function (pd) {
-      return generate(pd, {
-        _formatId: 'igus',
-        header: function (t, b, vars) {
-          var h = ['# igus iRC/iJC'];
-          vars.forEach(function (v) {
-            var typ = v.varType === 'INT' ? 'INT' : v.varType === 'REAL' ? 'REAL' : 'BOOL';
-            h.push('VAR ' + v.name + ' : ' + typ + ' = ' + (v.val || (v.varType === 'BOOL' ? 'false' : v.varType === 'REAL' ? '1.0' : '1')));
-          });
-          if (t) h.push('SetTool(' + t + ')');
-          if (b) h.push('SetBase(' + b + ')');
-          return h;
-        },
-        footer: function () { return ['StopProgram()']; },
-        moveL:   function (p, vel, idx) { return 'LinearMotion(P' + idx + ')'; },
-        moveJ:   function (p, vel, idx) { return 'JointMotion(P' + idx + ')'; },
-        halt:    function ()     { return 'StopProgram()'; },
-        dout:    function (n, v) { return 'SetDOUT(DOUT' + n + ', ' + (v ? 'true' : 'false') + ')'; },
-        dinWait: function (n)    { return 'WaitForSignal(DIN' + n + ', true)'; },
-        aout:    function (n, v) { return 'SetAOUT(' + n + ', ' + parseFloat(v).toFixed(2) + ')'; },
-        ainRead: function (n)    { return 'r = ReadAIN(' + n + ')'; },
-        waitSec: function (t)    { return 'WaitTime(' + Math.round(parseFloat(t) * 1000) + ' ms)'; },
-        tool:    function (n)    { return 'SetTool(' + n + ')'; },
-        base:    function (n)    { return 'SetBase(' + n + ')'; },
-        comment: function (t)    { return '# ' + t; },
+      var positions=pd.positions||[], steps=pd.steps||[];
+      var hf=(typeof fmtHfLoad==='function')?fmtHfLoad('igus'):null;
+      var lines=[];
+      var hdr=(hf&&hf.header)?hf.header:'PROGRAM pp_main';
+      hdr.split('\n').forEach(function(l){lines.push(l);});
+      var curVelMms=Math.round(0.167*1000);
+      lines.push('');
+
+      // Positionsvariablen definieren
+      positions.forEach(function(p,i){
+        lines.push('  DefPosVariable p'+(i+1));
+        lines.push('    X='+p.X.toFixed(3)+', Y='+p.Y.toFixed(3)+', Z='+p.Z.toFixed(3)+', A='+p.A.toFixed(3)+', B='+p.B.toFixed(3)+', C='+p.C.toFixed(3));
+        lines.push('');
       });
+      // Variablen
+      steps.filter(function(s){return s.type==='var';}).forEach(function(s){
+        var vv=s.val||(s.varType==='INT'?'0':s.varType==='BOOL'?'false':'0.0');
+        lines.push('  DefNumberVariable '+s.name+' = '+vv);
+      });
+      lines.push('  # Bewegungen');
+
+      steps.forEach(function(s){
+        var pos, mv;
+        switch(s.type){
+          case 'comment': lines.push('  # '+(s.text||'')); break;
+          case 'var': break;
+          case 'velcp': curVelMms=Math.round((s.v||0.167)*1000); break;
+          case 'tool':  lines.push(_t('igus','tool',{N:s.n},'  SetTool('+s.n+')')); break;
+          case 'base':  lines.push(_t('igus','base',{N:s.n},'  SetBase('+s.n+')')); break;
+          case 'halt':  lines.push(_t('igus','halt',{},'  StopProgram()')); break;
+          case 'wait':  lines.push(_t('igus','wait',{T:parseFloat(s.t||0).toFixed(1),T_MS:Math.round(parseFloat(s.t||0)*1000)},'  WaitTime('+Math.round(parseFloat(s.t||0)*1000)+' ms)')); break;
+          case 'dout':{ var dv=s.v==='TRUE'||s.v==='ON'||s.v==='1'; lines.push(_t('igus','dout',{CH:s.n,VAL:dv?'True':'False'},'  DigitalOut DOut'+s.n+', '+(dv?'True':'False'))); break; }
+          case 'din':   lines.push(_t('igus','din',{CH:s.n},'  WaitConditional DIn'+s.n)); break;
+          case 'aout':  lines.push(_t('igus','aout',{CH:s.n,VAL_F:parseFloat(s.v||0).toFixed(2)},'  SetAOUT('+s.n+', '+parseFloat(s.v||0).toFixed(2)+')')); break;
+          case 'ain':   lines.push(_t('igus','ain',{CH:s.n},'  ReadAIN('+s.n+')')); break;
+          case 'calc':  lines.push(_t('igus','calc',{TARGET:s.target,EXPR:s.expr},'  '+s.target+' = '+s.expr)); break;
+          case 'move':{ pos=positions[s.posIdx]; if(!pos) break; var nm='p'+(s.posIdx+1); mv={N:s.posIdx+1,VEL_MMS:curVelMms}; if(s.moveType==='PTP') lines.push(_t('igus','moveJ',mv,'  JointByVariable '+nm+', Vel=40, Acc=50, Smooth=0')); else lines.push(_t('igus','moveL',mv,'  LinearByVariable '+nm+', Vel='+curVelMms+', Acc=50, Smooth=20')); break; }
+          case 'circ':{ var pv=positions[s.viaIdx],pt=positions[s.posIdx]; if(!pv||!pt) break;
+            lines.push('  Linear X='+pv.X.toFixed(3)+', Y='+pv.Y.toFixed(3)+', Z='+pv.Z.toFixed(3)+', A='+pv.A.toFixed(3)+', B='+pv.B.toFixed(3)+', C='+pv.C.toFixed(3)+', Vel='+curVelMms+', Acc=50, Smooth=50');
+            lines.push('  LinearByVariable p'+(s.posIdx+1)+', Vel='+curVelMms+', Acc=50, Smooth=0');
+            break; }
+        }
+      });
+      lines.push('');
+      var ftr=(hf&&hf.footer)?hf.footer:'END';
+      ftr.split('\n').forEach(function(l){lines.push(l);});
+      return lines.join('\n');
     },
     _parse: function (text) {
       return parsePositions(text, [
-        { rx: /LinearMotion\(P(\d+)\)/, ptp: false },
-        { rx: /JointMotion\(P(\d+)\)/,  ptp: true  },
+        { rx: /LinearByVariable/, ptp: false },
+        { rx: /JointByVariable/, ptp: true },
       ]);
     }
   };
@@ -1095,34 +1193,53 @@
   // ── Estun Robot Language / ER ────────────────────────────────────────────
   IMPLS.estun = {
     _generate: function (pd) {
-      return generate(pd, {
-        _formatId: 'estun',
-        header: function (t, b, vars) {
-          var h = ['PROGRAM MAIN_ESTUN'];
-          vars.forEach(function (v) { h.push('  ' + v.varType + ' ' + v.name); });
-          if (t) h.push('  TOOL ' + t);
-          if (b) h.push('  USER ' + b);
-          return h;
-        },
-        footer: function () { return ['END']; },
-        moveL:   function (p, vel, idx) { return '  MOVL P' + String(idx).padStart(3, '0') + ' VL=' + velMmS(vel); },
-        moveJ:   function (p, vel, idx) { return '  MOVJ P' + String(idx).padStart(3, '0') + ' VJ=' + velPct(vel); },
-        moveC:   function (pv, pt, vel, idx) { return '  MOVC P' + String(idx - 1).padStart(3, '0') + ' P' + String(idx).padStart(3, '0') + ' VL=' + velMmS(vel); },
-        halt:    function ()     { return '  PAUSE'; },
-        dout:    function (n, v) { return '  DO[' + n + ']=' + (v ? 'ON' : 'OFF'); },
-        dinWait: function (n)    { return '  WAIT DI[' + n + ']=ON'; },
-        aout:    function (n, v) { return '  AO[' + n + ']=' + parseFloat(v).toFixed(2); },
-        ainRead: function (n)    { return '  r = AI[' + n + ']'; },
-        waitSec: function (t)    { return '  WAIT ' + parseFloat(t).toFixed(1); },
-        tool:    function (n)    { return '  TOOL ' + n; },
-        base:    function (n)    { return '  USER ' + n; },
-        comment: function (t)    { return '  ;' + t; },
+      var positions=pd.positions||[], steps=pd.steps||[];
+      var hf=(typeof fmtHfLoad==='function')?fmtHfLoad('estun'):null;
+      var lines=[];
+      var curVelMms=Math.round(0.167*1000); var curVelPct=30;
+
+      // === Datei 1: .erd (Datenbereich) ===
+      lines.push('; === Datenbereich (.erd) ===');
+      positions.forEach(function(p,i){
+        lines.push('CPOS p'+(i+1)+' = {X='+p.X.toFixed(3)+',Y='+p.Y.toFixed(3)+',Z='+p.Z.toFixed(3)+',A='+p.A.toFixed(3)+',B='+p.B.toFixed(3)+',C='+p.C.toFixed(3)+'}');
       });
+      steps.filter(function(s){return s.type==='var';}).forEach(function(s){
+        var vt=s.varType||'REAL', vv=s.val||(vt==='INT'?'0':vt==='BOOL'?'TRUE':'0.0');
+        lines.push(vt+' '+s.name+' = '+vv);
+      });
+      lines.push('');
+
+      // === Datei 2: .erp (Programmbereich) ===
+      var hdr=(hf&&hf.header)?hf.header:'; === Programmbereich (.erp) ===\nStart';
+      hdr.split('\n').forEach(function(l){lines.push(l);});
+
+      steps.forEach(function(s){
+        var pos, mv;
+        switch(s.type){
+          case 'comment': lines.push('  ; '+(s.text||'')); break;
+          case 'var': break;
+          case 'velcp': curVelMms=Math.round((s.v||0.167)*1000); curVelPct=Math.max(1,Math.min(100,Math.round((s.v||0.167)/0.167*100))); break;
+          case 'tool':  lines.push(_t('estun','tool',{N:s.n},'  SetTool{T=Tool'+s.n+'}')); break;
+          case 'base':  lines.push(_t('estun','base',{N:s.n},'  SetUserCoor{U=Base'+s.n+'}')); break;
+          case 'halt':  lines.push(_t('estun','halt',{},'  PAUSE')); break;
+          case 'wait':  lines.push(_t('estun','wait',{T:parseFloat(s.t||0).toFixed(1),T_MS:Math.round(parseFloat(s.t||0)*1000)},'  WaitDI{N=0, V=0, T='+parseFloat(s.t||0).toFixed(1)+'}')); break;
+          case 'dout':{ var dv=s.v==='TRUE'||s.v==='ON'||s.v==='1'; lines.push(_t('estun','dout',{CH:s.n,VAL:dv?'1':'0'},'  SetDO{N='+s.n+', V='+(dv?'1':'0')+'}')); break; }
+          case 'din':   lines.push(_t('estun','din',{CH:s.n},'  WaitDI{N='+s.n+', V=1}')); break;
+          case 'aout':  lines.push(_t('estun','aout',{CH:s.n,VAL_F:parseFloat(s.v||0).toFixed(2)},'  SetAO{N='+s.n+', V='+parseFloat(s.v||0).toFixed(2)+'}')); break;
+          case 'ain':   lines.push(_t('estun','ain',{CH:s.n},'  ; AIN N='+s.n)); break;
+          case 'calc':  lines.push(_t('estun','calc',{TARGET:s.target,EXPR:s.expr},'  '+s.target+' = '+s.expr)); break;
+          case 'move':{ pos=positions[s.posIdx]; if(!pos) break; var nm='p'+(s.posIdx+1); mv={N:s.posIdx+1,VEL_MMS:curVelMms,VEL_PCT:curVelPct}; if(s.moveType==='PTP') lines.push(_t('estun','moveJ',mv,'  MovJ{P='+nm+', VJ='+curVelPct+', PL=0}')); else lines.push(_t('estun','moveL',mv,'  MovL{P='+nm+', V='+curVelMms+', PL=0}')); break; }
+          case 'circ':{ var pv=positions[s.viaIdx],pt=positions[s.posIdx]; if(!pv||!pt) break; mv={N:s.posIdx+1,VN:s.viaIdx+1,VEL_MMS:curVelMms}; lines.push(_t('estun','moveC',mv,'  MovC{P=p'+(s.viaIdx+1)+', V='+curVelMms+', PL=0}')); lines.push('  MovC{P=p'+(s.posIdx+1)+', V='+curVelMms+', PL=0}'); break; }
+        }
+      });
+      var ftr=(hf&&hf.footer)?hf.footer:'End';
+      ftr.split('\n').forEach(function(l){lines.push(l);});
+      return lines.join('\n');
     },
     _parse: function (text) {
       return parsePositions(text, [
-        { rx: /MOVL\s+P\d+/, ptp: false },
-        { rx: /MOVJ\s+P\d+/, ptp: true  },
+        { rx: /MovL\{/, ptp: false },
+        { rx: /MovJ\{/, ptp: true },
       ]);
     }
   };
@@ -1322,8 +1439,8 @@ var FMT_HF_DEFAULTS = {
   kawasaki: { header: '.PROGRAM pp_main()', footer: '.END' },
   staubli:  { header: '<?xml version="1.0" encoding="utf-8"?>\n<programList xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"\n  xmlns="http://www.staubli.com/robotics/VAL3/Program/2">\n  <program name="pp_main">\n    <description/>\n    <paramSection/>', footer: '</programList>' },
   ur:       { header: 'def pp_main():', footer: 'end' },
-  adept:    { header: '.PROGRAM pp_main()', footer: '.END' },
-  omron:    { header: '.PROGRAM pp_main()', footer: '.END' },
+  adept:    { header: '.PROGRAM pp_main()', footer: '  BREAK\n.END' },
+  omron:    { header: '.PROGRAM pp_main()', footer: '  BREAK\n.END' },
   epson:    { header: 'Function main', footer: 'Fend' },
   comau:    { header: 'PROGRAM PP_MAIN', footer: 'END PP_MAIN' },
   aubo:     { header: 'function pp_main()', footer: 'end' },
@@ -1331,8 +1448,8 @@ var FMT_HF_DEFAULTS = {
   denso:    { header: 'PROGRAM PP_MAIN\nTAKEARM\nSPEED 50', footer: 'GIVEARM\nEND' },
   nachi:    { header: 'PROGRAM PP_MAIN', footer: 'END' },
   hanwha:   { header: 'def pp_main():', footer: 'end' },
-  igus:     { header: '<Program name="PP_MAIN">', footer: '</Program>' },
-  estun:    { header: 'PROGRAM PP_MAIN', footer: 'END' },
+  igus:     { header: 'PROGRAM pp_main', footer: 'END' },
+  estun:    { header: '; === Programmbereich (.erp) ===\nStart', footer: 'End' },
   neura:    { header: 'def pp_main():', footer: 'end' },
   mabi:     { header: '%_N_PP_MAIN_MPF\n; MABI / SINUMERIK ONE\nN10 G90 G54\nN20 TRAORI', footer: 'M30' },
 };
@@ -1354,7 +1471,7 @@ var FMT_CMD_DEFAULTS = {
   denso:    { moveJ:'  MOVE P, P{N}', moveL:'  MOVE L, P{N}', moveC:'  MOVE C, P{VN}, P{N}', halt:'  STOP', dout:'  SET IO[{CH}]', din:'  WAIT IO[{CH}]', aout:'  AO[{CH}] = {VAL_F}', ain:'  r = AI[{CH}]', wait:'  WAIT {T}', tool:'  TOOL {N}', base:'  WORK {N}', varInt:'  DIM {NAME} AS INTEGER', varReal:'  DIM {NAME} AS SINGLE', varBool:'  DIM {NAME} AS BOOLEAN', call:'  CALL {PROG}({ARGS})', calc:'  {TARGET} = {EXPR}' },
   nachi:    { moveJ:'  MOVEX A, P{N}, S={VEL_PCT}', moveL:'  MOVEX L, P{N}, S={VEL_MMS}', moveC:'  MOVEX C, P{VN}, P{N}, S={VEL_MMS}', halt:'  STOP', dout:'  OUT[{CH}]={VAL}', din:'  WAITI IN[{CH}]=ON', aout:'  AOUT[{CH}]={VAL_F}', ain:'  r = AIN[{CH}]', wait:'  WAIT {T}', tool:'  TOOL {N}', base:'  BASE {N}', varInt:'  INT {NAME}', varReal:'  REAL {NAME}', varBool:'  BOOL {NAME}', call:'  CALL {PROG}({ARGS})', calc:'  {TARGET} = {EXPR}' },
   hanwha:   { moveJ:'MoveJ(P{N}, speed={VEL_PCT})', moveL:'MoveL(P{N}, speed={VEL_MMS})', moveC:'MoveC(P{VN}, P{N}, speed={VEL_MMS})', halt:'Stop()', dout:'SetDO({CH}, {VAL})', din:'WaitDI({CH}, true)', aout:'SetAO({CH}, {VAL_F})', ain:'r = GetAI({CH})', wait:'Wait({T})', tool:'setTCP({N})', base:'setUserFrame({N})', varInt:'int {NAME} = {INITVAL}', varReal:'double {NAME} = {INITVAL}', varBool:'bool {NAME} = {INITVAL}', call:'{PROG}({ARGS})', calc:'{TARGET} = {EXPR}' },
-  igus:     { moveJ:'JointMotion(P{N})', moveL:'LinearMotion(P{N})', moveC:'; arc not standard in iRC', halt:'StopProgram()', dout:'SetDOUT(DOUT{CH}, {VAL})', din:'WaitForSignal(DIN{CH}, true)', aout:'SetAOUT({CH}, {VAL_F})', ain:'r = ReadAIN({CH})', wait:'WaitTime({T_MS} ms)', tool:'SetTool({N})', base:'SetBase({N})', varInt:'VAR {NAME} : INT = {INITVAL}', varReal:'VAR {NAME} : REAL = {INITVAL}', varBool:'VAR {NAME} : BOOL = {INITVAL}', call:'<Call program="{PROG}" arg="{ARGS}"/>', calc:'{TARGET} = {EXPR}' },
+  igus:     { moveJ:'  JointByVariable p{N}, Vel={VEL_PCT}, Acc=50, Smooth=0', moveL:'  LinearByVariable p{N}, Vel={VEL_MMS}, Acc=50, Smooth=20', moveC:'  LinearByVariable p{VN}, Vel={VEL_MMS}, Acc=50, Smooth=50\n  LinearByVariable p{N}, Vel={VEL_MMS}, Acc=50, Smooth=0', halt:'  StopProgram()', dout:'  DigitalOut DOut{CH}, {VAL}', din:'  WaitConditional DIn{CH}', aout:'  SetAOUT({CH}, {VAL_F})', ain:'  ReadAIN({CH})', wait:'  WaitTime({T_MS} ms)', tool:'  SetTool({N})', base:'  SetBase({N})', varInt:'  DefNumberVariable {NAME} = {INITVAL}', varReal:'  DefNumberVariable {NAME} = {INITVAL}', varBool:'  DefNumberVariable {NAME} = {INITVAL}', call:'  Sub "{PROG}.xml"', calc:'  {TARGET} = {EXPR}' },
   estun:    { moveJ:'  MOVJ P{N}, VJ={VEL_PCT}', moveL:'  MOVL P{N}, V={VEL_MMS}', moveC:'  MOVC P{VN}, P{N}, V={VEL_MMS}', halt:'  PAUSE', dout:'  DO[{CH}]={VAL}', din:'  WAIT DI[{CH}]=ON', aout:'  AO[{CH}]={VAL_F}', ain:'  r = AI[{CH}]', wait:'  WAIT {T}', tool:'  TOOL {N}', base:'  USER {N}', varInt:'  INT {NAME}', varReal:'  REAL {NAME}', varBool:'  BOOL {NAME}', call:'  CALL {PROG}({ARGS})', calc:'  {TARGET} = {EXPR}' },
   neura:    { moveJ:'robot.moveJ({X}, {Y}, {Z}, {A}, {B}, {C});', moveL:'robot.moveL({X}, {Y}, {Z}, {A}, {B}, {C});', moveC:'robot.moveC(p{VN}, p{N});', halt:'robot.stop();', dout:'robot.setDigitalOutput({CH}, {VAL});', din:'robot.waitUntil(robot.digitalInput({CH}));', aout:'robot.setAnalogOutput({CH}, {VAL_F});', ain:'r = robot.analogInput({CH});', wait:'robot.sleep({T});', tool:'robot.setTool("tool{N}");', base:'robot.setBase("base{N}");', varInt:'int {NAME} = {INITVAL};', varReal:'double {NAME} = {INITVAL};', varBool:'bool {NAME} = {INITVAL};', call:'{PROG}({ARGS});', calc:'{TARGET} = {EXPR};' },
   mabi:     { moveJ:'G0 X{X} Y{Y} Z{Z} A{A} B{B} C{C}', moveL:'G1 X{X} Y{Y} Z{Z} A{A} B{B} C{C} F{VEL_MMS}', moveC:'CIP X{X} Y{Y} Z{Z} I1={VX} J1={VY} K1={VZ} F{VEL_MMS}', halt:'M30', dout:'M{CH} ; DO={VAL}', din:'; WAIT DI[{CH}]', aout:'AOUT[{CH}]={VAL_F}', ain:'; AIN[{CH}]', wait:'G4 F{T}', tool:'T="TOOL_{N}" D1', base:'; Base G5{N}', varInt:'{NAME}={INITVAL} ; INT', varReal:'{NAME}={INITVAL} ; REAL', varBool:'{NAME}={INITVAL} ; BOOL', call:'L{PROG}', calc:'{TARGET}={EXPR}' },
