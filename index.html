@@ -695,16 +695,55 @@ function fetchRoblibRobots() {
 
 function loadRobotFromLib(r) {
   var list = document.getElementById('roblibList');
-  list.innerHTML = '<div style="color:#ff6000;font-family:monospace;font-size:12px;grid-column:1/-1">Lade '+r.name+'…</div>';
-  fetch('https://cnc-technik.de/robsimul/roblib/api.php?action=download&id='+r.id)
-    .then(function(res){ if(!res.ok) throw new Error('HTTP '+res.status); return res.blob(); })
-    .then(function(blob){
-      var file = new File([blob], r.name+'.zip', {type:'application/zip'});
+  list.style.display = 'block';
+  list.innerHTML = '<div style="padding:16px;grid-column:1/-1">' +
+    '<div style="font-family:monospace;font-size:13px;color:#ff6000;margin-bottom:12px">Lade ' + r.name + '…</div>' +
+    '<div style="font-family:monospace;font-size:11px;color:#6a8fa8;margin-bottom:6px;display:flex;justify-content:space-between">' +
+    '  <span id="rl-dl-label">Verbinde…</span><span id="rl-dl-pct">0%</span>' +
+    '</div>' +
+    '<div style="background:rgba(255,255,255,.08);border-radius:4px;height:8px;overflow:hidden">' +
+    '  <div id="rl-dl-bar" style="height:100%;width:0%;background:#ff6000;border-radius:4px;transition:width .2s"></div>' +
+    '</div></div>';
+
+  var xhr = new XMLHttpRequest();
+  xhr.open('GET', 'https://cnc-technik.de/robsimul/roblib/api.php?action=download&id=' + r.id);
+  xhr.responseType = 'blob';
+
+  xhr.onprogress = function(e) {
+    var bar = document.getElementById('rl-dl-bar');
+    var lbl = document.getElementById('rl-dl-label');
+    var pct = document.getElementById('rl-dl-pct');
+    if (!bar) return;
+    if (e.lengthComputable) {
+      var p = Math.round(e.loaded / e.total * 100);
+      bar.style.width = p + '%';
+      lbl.textContent = 'Herunterladen…';
+      pct.textContent = p + '%';
+    } else {
+      var kb = Math.round(e.loaded / 1024);
+      lbl.textContent = 'Herunterladen…';
+      pct.textContent = kb + ' KB';
+    }
+  };
+
+  xhr.onload = function() {
+    var bar = document.getElementById('rl-dl-bar');
+    var lbl = document.getElementById('rl-dl-label');
+    if (bar) { bar.style.width = '100%'; bar.style.background = '#22c55e'; }
+    if (lbl) lbl.textContent = 'Verarbeite…';
+    var blob = xhr.response;
+    var file = new File([blob], r.name + '.zip', {type: 'application/zip'});
+    setTimeout(function() {
       document.getElementById('roblibModal').style.display = 'none';
       loadKinematicZIP(file);
-    }).catch(function(e){
-      list.innerHTML = '<div style="color:#f87171;font-family:monospace;font-size:12px;grid-column:1/-1">Fehler: '+e.message+'</div>';
-    });
+    }, 300);
+  };
+
+  xhr.onerror = function() {
+    list.innerHTML = '<div style="color:#f87171;font-family:monospace;font-size:12px;grid-column:1/-1;padding:16px">Verbindungsfehler</div>';
+  };
+
+  xhr.send();
 }
 </script>
 
