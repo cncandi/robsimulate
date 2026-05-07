@@ -23,3 +23,9 @@ jobs:
           port: 21
           timeout: 60000
           log-level: standard
+          state-name: .ftp-deploy-sync-state-v2.json
+          exclude: |
+            **/.git*
+            **/.git*/**
+            **/.github/**
+            README.md
