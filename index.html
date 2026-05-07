@@ -326,19 +326,10 @@
       <div class="sec-t" onclick="toggleSec(this)"><span class="tog">▼</span data-i18n="kin_sec">⚙ Kinematik</div>
       <div class="sec-b">
         <!-- Name + New/Load/Save -->
-        <div style="display:flex;gap:4px;align-items:center;margin-bottom:6px">
-          <input id="kin-name" class="stl-inp" type="text" value="KR8 R1420 HW" style="flex:1;font-size:.82em" placeholder="Name der Kinematik" data-i18n="kin_name_placeholder" data-i18n-attr="placeholder">
-          <button class="sbtn" onclick="newKinematic()" title="Neue leere Kinematik">+Neu</button>
-          <button class="sbtn" onclick="window.open('https://cnc-technik.de/robsimul/robmodel/','_blank')" title="RobModel öffnen — Kinematik aus STL erstellen">🔧 RobModel</button>
-        </div>
         <div style="display:flex;gap:4px;margin-bottom:6px">
-          <button class="sbtn" onclick="saveKinematic()" style="flex:1" data-i18n="save">💾 Speichern</button>
-          <button class="sbtn" onclick="loadKinematic()" style="flex:1" data-i18n="load">📂 Laden</button>
-          <button class="sbtn" onclick="openRoblibModal()" style="flex:1;background:rgba(255,96,0,.15);border-color:#ff6000;color:#ff6000" title="Roboter aus ROBLIB laden">📚 Bibliothek</button>
+          <button class="sbtn" onclick="openRoblibModal()" style="flex:1;background:rgba(255,96,0,.15);border-color:#ff6000;color:#ff6000;font-size:1em;padding:10px" title="Roboter aus ROBLIB laden">📚 Bibliothek</button>
           <input type="file" id="kin-file-in" accept=".zip,.json,.xml" style="display:none">
-        </div>
-        <div style="display:flex;gap:4px;margin-bottom:8px">
-          <button class="sbtn" onclick="loadDefaultSTLs();loadDefaultSceneSTLs();" style="flex:1;background:rgba(240,85,0,.15);border-color:var(--acc)" data-i18n="stlload">↺ Anlage laden</button>
+          <input id="kin-name" type="text" style="display:none" value="KR8 R1420 HW">
         </div>
         <div style="font-size:.85em;color:var(--txt3);margin-bottom:4px;padding:0 2px;font-weight:bold">Achsgrenzen [°]</div>
         <div id="kin-section" style="scroll-margin-top:4px"></div>
