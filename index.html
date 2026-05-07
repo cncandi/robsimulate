@@ -590,74 +590,129 @@
 <div id="roblibModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.8);z-index:9999;align-items:center;justify-content:center">
   <div style="background:#0d1a26;border:1px solid #ff6000;border-radius:8px;width:min(680px,95vw);max-height:85vh;display:flex;flex-direction:column">
     <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid rgba(255,96,0,.3);font-family:monospace;font-size:13px;color:#ff6000">
-      <span>📚 ROBOTERBIBLIOTHEK</span>
-      <button onclick="document.getElementById('roblibModal').style.display='none'" style="background:none;border:none;color:#888;font-size:18px;cursor:pointer">✕</button>
+      <span>&#x1F4DA; ROBOTERBIBLIOTHEK</span>
+      <div style="display:flex;align-items:center;gap:10px">
+        <span id="rl-user-badge" style="font-size:11px;color:#6a8fa8;display:none"></span>
+        <button id="rl-logout-btn" onclick="roblibLogout()" style="display:none;background:none;border:1px solid rgba(255,96,0,.4);color:#ff6000;font-family:monospace;font-size:10px;padding:2px 8px;border-radius:3px;cursor:pointer;letter-spacing:.06em">ABMELDEN</button>
+        <button onclick="document.getElementById('roblibModal').style.display='none'" style="background:none;border:none;color:#888;font-size:18px;cursor:pointer">&#x2715;</button>
+      </div>
     </div>
-    <div id="roblibList" style="overflow-y:auto;padding:12px;display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px;flex:1">
-      <div style="color:#6a8fa8;font-family:monospace;font-size:12px">Lade…</div>
+    <!-- Login view -->
+    <div id="roblibLoginView" style="display:flex;align-items:center;justify-content:center;flex:1;padding:32px">
+      <div style="width:min(280px,100%);display:flex;flex-direction:column;gap:12px">
+        <div style="font-family:monospace;font-size:12px;color:#6a8fa8;letter-spacing:.06em;margin-bottom:4px">ANMELDEN</div>
+        <input id="rl-login-user" type="text" placeholder="Benutzer" autocomplete="username"
+          style="background:#0f2030;border:1px solid rgba(255,96,0,.3);border-radius:4px;padding:8px 10px;color:#d8e8f0;font-family:monospace;font-size:13px;outline:none">
+        <input id="rl-login-pass" type="password" placeholder="Passwort" autocomplete="current-password"
+          style="background:#0f2030;border:1px solid rgba(255,96,0,.3);border-radius:4px;padding:8px 10px;color:#d8e8f0;font-family:monospace;font-size:13px;outline:none"
+          onkeydown="if(event.key==='Enter')roblibLogin()">
+        <div id="rl-login-err" style="display:none;color:#f87171;font-family:monospace;font-size:11px">Falsche Zugangsdaten.</div>
+        <button id="rl-login-btn" onclick="roblibLogin()"
+          style="padding:9px;background:#ff6000;color:#000;border:none;border-radius:4px;font-family:monospace;font-size:12px;font-weight:700;cursor:pointer;letter-spacing:.06em">
+          ANMELDEN
+        </button>
+      </div>
     </div>
+    <!-- Robot list -->
+    <div id="roblibList" style="display:none;overflow-y:auto;padding:12px;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px;flex:1"></div>
   </div>
 </div>
 
 <script>
-function openRoblibModal() {
-  var modal = document.getElementById('roblibModal');
-  modal.style.display = 'flex';
-  var list = document.getElementById('roblibList');
-  list.innerHTML = '<div style="color:#6a8fa8;font-family:monospace;font-size:12px">Lade…</div>';
+var _rlUser = '', _rlPass = '';
 
-  fetch('https://cnc-technik.de/robsimul/roblib/api.php?action=list')
-    .then(function(r){ return r.json(); })
-    .then(function(data) {
-      if (!data.ok || !data.robots.length) {
-        list.innerHTML = '<div style="color:#6a8fa8;font-family:monospace;font-size:12px">Keine Roboter gefunden.</div>';
-        return;
+function openRoblibModal() {
+  document.getElementById('roblibModal').style.display = 'flex';
+  if (_rlUser) {
+    showRoblibList();
+  } else {
+    showRoblibLogin();
+  }
+}
+
+function showRoblibLogin() {
+  document.getElementById('roblibList').style.display = 'none';
+  document.getElementById('roblibLoginView').style.display = 'flex';
+}
+
+function showRoblibList() {
+  document.getElementById('roblibLoginView').style.display = 'none';
+  document.getElementById('roblibList').style.display = 'grid';
+  var badge = document.getElementById('rl-user-badge');
+  badge.textContent = _rlUser; badge.style.display = 'inline';
+  document.getElementById('rl-logout-btn').style.display = 'inline';
+  fetchRoblibRobots();
+}
+
+function roblibLogin() {
+  var u = document.getElementById('rl-login-user').value.trim();
+  var p = document.getElementById('rl-login-pass').value;
+  if (!u || !p) return;
+  var fd = new FormData();
+  fd.append('user', u); fd.append('pass', p);
+  var btn = document.getElementById('rl-login-btn');
+  btn.disabled = true; btn.textContent = '…';
+  fetch('https://cnc-technik.de/robsimul/roblib/api.php', {method:'POST', body:fd})
+    .then(r => r.json()).then(function(d) {
+      btn.disabled = false; btn.textContent = 'ANMELDEN';
+      if (d.ok) {
+        _rlUser = u; _rlPass = p;
+        document.getElementById('rl-login-err').style.display = 'none';
+        showRoblibList();
+      } else {
+        document.getElementById('rl-login-err').style.display = 'block';
       }
+    }).catch(function() {
+      btn.disabled = false; btn.textContent = 'ANMELDEN';
+      document.getElementById('rl-login-err').style.display = 'block';
+    });
+}
+
+function roblibLogout() {
+  _rlUser = ''; _rlPass = '';
+  document.getElementById('rl-login-user').value = '';
+  document.getElementById('rl-login-pass').value = '';
+  showRoblibLogin();
+}
+
+function fetchRoblibRobots() {
+  var list = document.getElementById('roblibList');
+  list.innerHTML = '<div style="color:#6a8fa8;font-family:monospace;font-size:12px;grid-column:1/-1">Lade…</div>';
+  var fd = new FormData();
+  fd.append('user', _rlUser); fd.append('pass', _rlPass);
+  fetch('https://cnc-technik.de/robsimul/roblib/api.php', {method:'POST', body:fd})
+    .then(r => r.json()).then(function(data) {
+      if (!data.ok) { list.innerHTML = '<div style="color:#f87171;font-family:monospace;font-size:12px;grid-column:1/-1">'+data.error+'</div>'; return; }
+      if (!data.robots.length) { list.innerHTML = '<div style="color:#6a8fa8;font-family:monospace;font-size:12px;grid-column:1/-1">Keine Roboter verfügbar.</div>'; return; }
       list.innerHTML = '';
       data.robots.forEach(function(r) {
         var card = document.createElement('div');
         card.style.cssText = 'background:#0f2030;border:1px solid #1a3348;border-radius:6px;cursor:pointer;overflow:hidden;transition:border-color .15s';
         card.onmouseover = function(){ card.style.borderColor='#ff6000'; };
         card.onmouseout  = function(){ card.style.borderColor='#1a3348'; };
-
         var thumb = r.thumb_url
           ? '<img src="'+r.thumb_url+'" style="width:100%;height:100px;object-fit:contain;background:#060e14">'
-          : '<div style="width:100%;height:100px;background:#060e14;display:flex;align-items:center;justify-content:center;color:#1a3348;font-size:28px">⬡</div>';
-
-        card.innerHTML = thumb +
-          '<div style="padding:8px">' +
-          '<div style="font-family:monospace;font-size:12px;color:#fff;font-weight:bold;margin-bottom:4px">' + r.name + '</div>' +
-          '<div style="font-family:monospace;font-size:10px;color:#6a8fa8">' + r.marke + ' · ' + r.achsen + ' Achsen</div>' +
-          '<div style="font-family:monospace;font-size:10px;color:#6a8fa8">' + r.reichweite_mm + ' mm · ' + r.nutzlast_kg + ' kg</div>' +
-          '</div>';
-
+          : '<div style="width:100%;height:100px;background:#060e14;display:flex;align-items:center;justify-content:center;color:#1a3348;font-size:28px">&#x2B21;</div>';
+        card.innerHTML = thumb+'<div style="padding:8px"><div style="font-family:monospace;font-size:12px;color:#fff;font-weight:bold;margin-bottom:4px">'+r.name+'</div><div style="font-family:monospace;font-size:10px;color:#6a8fa8">'+r.marke+' · '+r.achsen+' Achsen</div><div style="font-family:monospace;font-size:10px;color:#6a8fa8">'+r.reichweite_mm+' mm · '+r.nutzlast_kg+' kg</div></div>';
         card.onclick = function() { loadRobotFromLib(r); };
         list.appendChild(card);
       });
-    })
-    .catch(function(e) {
-      list.innerHTML = '<div style="color:#f87171;font-family:monospace;font-size:12px">Fehler: ' + e.message + '</div>';
+    }).catch(function(e) {
+      list.innerHTML = '<div style="color:#f87171;font-family:monospace;font-size:12px;grid-column:1/-1">Fehler: '+e.message+'</div>';
     });
 }
 
 function loadRobotFromLib(r) {
-  var modal = document.getElementById('roblibModal');
-  var list  = document.getElementById('roblibList');
-  list.innerHTML = '<div style="color:#ff6000;font-family:monospace;font-size:12px">Lade ' + r.name + '…</div>';
-
-  var downloadUrl = 'https://cnc-technik.de/robsimul/roblib/api.php?action=download&id=' + r.id;
-  fetch(downloadUrl)
-    .then(function(res) {
-      if (!res.ok) throw new Error('HTTP ' + res.status);
-      return res.blob();
-    })
-    .then(function(blob) {
-      var file = new File([blob], r.name + '.zip', { type: 'application/zip' });
-      modal.style.display = 'none';
+  var list = document.getElementById('roblibList');
+  list.innerHTML = '<div style="color:#ff6000;font-family:monospace;font-size:12px;grid-column:1/-1">Lade '+r.name+'…</div>';
+  fetch('https://cnc-technik.de/robsimul/roblib/api.php?action=download&id='+r.id)
+    .then(function(res){ if(!res.ok) throw new Error('HTTP '+res.status); return res.blob(); })
+    .then(function(blob){
+      var file = new File([blob], r.name+'.zip', {type:'application/zip'});
+      document.getElementById('roblibModal').style.display = 'none';
       loadKinematicZIP(file);
-    })
-    .catch(function(e) {
-      list.innerHTML = '<div style="color:#f87171;font-family:monospace;font-size:12px">Fehler: ' + e.message + '</div>';
+    }).catch(function(e){
+      list.innerHTML = '<div style="color:#f87171;font-family:monospace;font-size:12px;grid-column:1/-1">Fehler: '+e.message+'</div>';
     });
 }
 </script>
