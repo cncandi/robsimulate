@@ -3144,7 +3144,7 @@ function buildKinConfig(){
   const offEl=document.getElementById('joint-offsets-ui');
   offEl.innerHTML=`
     <div class="joint-cfg" style="font-size:.68em;color:var(--txt3);font-weight:bold;border-bottom:1px solid var(--bdr);margin-top:6px">
-      <span></span><span style="text-align:center">X [mm]</span><span style="text-align:center">Y [mm]</span><span style="text-align:center">Z [mm]</span><span></span>
+      <span></span><span style="text-align:center">Z [mm]</span><span style="text-align:center">Y [mm]</span><span style="text-align:center">X [mm]</span><span></span>
     </div>`+
   JOINTS_DEF.map((j,i)=>`
     <div class="joint-cfg">
