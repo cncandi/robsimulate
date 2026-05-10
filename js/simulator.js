@@ -3144,14 +3144,14 @@ function buildKinConfig(){
   const offEl=document.getElementById('joint-offsets-ui');
   offEl.innerHTML=`
     <div class="joint-cfg" style="font-size:.68em;color:var(--txt3);font-weight:bold;border-bottom:1px solid var(--bdr);margin-top:6px">
-      <span></span><span style="text-align:center">Z [mm]</span><span style="text-align:center">Y [mm]</span><span style="text-align:center">X [mm]</span><span></span>
+      <span></span><span style="text-align:center">X [mm]</span><span style="text-align:center">Y [mm]</span><span style="text-align:center">Z [mm]</span><span></span>
     </div>`+
   JOINTS_DEF.map((j,i)=>`
     <div class="joint-cfg">
       <span class="jl">A${i+1}</span>
-      <input id="jox${i}" type="number" value="${j.off[2]}" step="1" style="width:100%">
+      <input id="jox${i}" type="number" value="${j.off[0]}" step="1" style="width:100%">
       <input id="joy${i}" type="number" value="${j.off[1]}" step="1" style="width:100%">
-      <input id="joz${i}" type="number" value="${j.off[0]}" step="1" style="width:100%">
+      <input id="joz${i}" type="number" value="${j.off[2]}" step="1" style="width:100%">
       <span style="color:var(--txt3);font-size:.75em">${j.axis}</span>
     </div>`).join('');
 }
@@ -3163,9 +3163,9 @@ function applyKinematicConfig(){
     const ox=parseFloat((document.getElementById('jox'+i)&&document.getElementById('jox'+i).value));
     const oy=parseFloat((document.getElementById('joy'+i)&&document.getElementById('joy'+i).value));
     const oz=parseFloat((document.getElementById('joz'+i)&&document.getElementById('joz'+i).value));
-    if(!isNaN(ox))j.off[2]=ox;  // X-Feld → off[2]
+    if(!isNaN(ox))j.off[0]=ox;  // X-Feld → off[0]
     if(!isNaN(oy))j.off[1]=oy;
-    if(!isNaN(oz))j.off[0]=oz;  // Z-Feld → off[0]
+    if(!isNaN(oz))j.off[2]=oz;  // Z-Feld → off[2]
   });
   buildPivotChain();
   buildRobotModel(jointAngles);
