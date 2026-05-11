@@ -93,8 +93,8 @@ var FV_SYSVARS = [
     toKRL:  function(text){ return '; ' + text; },
     ioType: 'comment' },
   // Konfiguration
-  { rx: /^\$BASE\s*=\s*BASE_DATA\[(\d+)\]/i,  id:'base',    label:'Koordinatensystem', unit:'#',    color:'#4488cc', min:1, max:30,  step:1,    toKRL:function(v){ return '$BASE = BASE_DATA['+Math.round(v)+']'; } },
-  { rx: /^\$TOOL\s*=\s*TOOL_DATA\[(\d+)\]/i,  id:'tool',    label:'TCP / Werkzeug',    unit:'#',    color:'#4488cc', min:1, max:30,  step:1,    toKRL:function(v){ return '$TOOL=TOOL_DATA['+Math.round(v)+']'; } },
+  { rx: /^\$BASE\s*=\s*BASE_DATA\[(\d+)\]/i,  id:'base',    label:'Koordinatensystem', unit:'#',    color:'#4488cc', min:1, max:30,  step:1,    listKey:'baseList',  toKRL:function(v){ return '$BASE = BASE_DATA['+Math.round(v)+']'; } },
+  { rx: /^\$TOOL\s*=\s*TOOL_DATA\[(\d+)\]/i,  id:'tool',    label:'TCP / Werkzeug',    unit:'#',    color:'#4488cc', min:1, max:30,  step:1,    listKey:'tcpList',   toKRL:function(v){ return '$TOOL=TOOL_DATA['+Math.round(v)+']'; } },
   { rx: /^\$advance\s*=\s*([\d.]+)/i,          id:'advance', label:'Vorlauf',           unit:'Pkt',  color:'#4488cc', min:0, max:5,   step:1,    toKRL:function(v){ return '$advance='+Math.round(v); } },
   // Geschwindigkeit
   { rx: /^\$VEL\.CP\s*=\s*([\d.]+)/i, id:'velcp', badge:'SPEED', label:'Geschwindigkeit',
@@ -244,6 +244,27 @@ function fvSVFormHTML(sv, value, i) {
         html += '<div style="color:#cc6600;font-size:.78em;margin-top:4px">⚠ Keine INT/REAL Variable davor deklariert</div>';
       }
     }
+  } else if (sv.sysvar.listKey) {
+    // Select aus definierten BASE/TOOL Einträgen
+    var list = window[sv.sysvar.listKey] || [];
+    var curNum = parseInt(value) || 1;
+    html += '<div class="fv-ctrl-row" style="flex-direction:column;align-items:stretch;gap:5px">';
+    if (!list.length) {
+      html += '<div style="color:#cc6600;font-size:.82em">⚠ Keine Einträge definiert</div>';
+    } else {
+      html += '<select id="fv-sv-'+i+'" class="fv-inp" style="width:100%" onchange="">';
+      list.forEach(function(entry, idx) {
+        var num = idx + 1;
+        var name = entry.name ? ' · ' + entry.name : '';
+        html += '<option value="'+num+'"'+(num===curNum?' selected':'')+'>'+num+name+'</option>';
+      });
+      html += '</select>';
+      var selEntry = list[curNum-1];
+      if (selEntry && selEntry.name) {
+        html += '<span style="font-size:.8em;color:'+sv.sysvar.color+';font-family:monospace">'+selEntry.name+'</span>';
+      }
+    }
+    html += '</div>';
   } else if (sv.sysvar.min !== null) {
     // Slider + Nummer
     var scale = sv.sysvar.scale || 1;
