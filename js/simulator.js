@@ -1429,10 +1429,18 @@ function applyKinematicData(data, stlBuffers, sceneBuffers) {
   }
   buildRobotModel(jointAngles);
 
-  // Code-Editor wiederherstellen
-  if (data.code !== undefined && data.code !== null) {
-    var codeEl = document.getElementById('code-input');
-    if (codeEl) codeEl.value = data.code;
+  // Code-Editor wiederherstellen + parsen
+  if (data.code) {
+    var codeEl3 = document.getElementById('code-input');
+    if (codeEl3) {
+      codeEl3.value = data.code;
+      codeEl3.style.display = '';
+      // kuka-form Formularansicht schliessen
+      var fw = document.getElementById('fv-form-wrap'); if(fw) fw.style.display='none';
+      var fv = document.getElementById('krl-form-view'); if(fv) fv.style.display='none';
+      // Code parsen und Szene aufbauen
+      if (typeof parseAndLoad === 'function') parseAndLoad();
+    }
   }
 
   // Szenenmodelle aus stlScene + scene/ STLs
@@ -1769,19 +1777,18 @@ function sceneNeu() {
   buildScene([]);
   clearTCPTrace();
 
-  // Format auf kuka-form zurücksetzen — activate() schreibt leeres generateKRL() in Editor
-  if (typeof FormatRegistry !== 'undefined') {
-    var cur = FormatRegistry.getActiveId();
-    if (cur !== 'kuka-form') FormatRegistry.setActive('kuka-form');
-    else {
-      // Schon aktiv: Editor direkt leeren
-      var codeEl = document.getElementById('code-input');
-      if (codeEl) codeEl.value = '';
-    }
-  } else {
-    var codeEl2 = document.getElementById('code-input');
-    if (codeEl2) codeEl2.value = '';
+  // Editor direkt leeren — kuka-form deactivieren falls aktiv, dann textarea leer setzen
+  if (typeof FormatRegistry !== 'undefined' && FormatRegistry.getActiveId() !== 'kuka-form') {
+    FormatRegistry.setActive('kuka-form');
   }
+  // Immer direkt leeren (generateKRL schreibt sonst Fallback-Code)
+  var codeEl = document.getElementById('code-input');
+  if (codeEl) { codeEl.value = ''; codeEl.style.display = ''; }
+  // kuka-form Formularansicht verstecken falls aktiv
+  var fvWrap = document.getElementById('fv-form-wrap');
+  if (fvWrap) fvWrap.style.display = 'none';
+  var fvView = document.getElementById('krl-form-view');
+  if (fvView) fvView.style.display = 'none';
   var gutEl = document.getElementById('gutter'); if(gutEl) gutEl.innerHTML = '';
 
   // Roboter: Kinematik + STLs
@@ -1867,9 +1874,11 @@ function sceneSpeichern() {
 
   // 1. Kinematik-JSON erweitert um TCP-/BASE-/Szenenmodell-Listen
   var data = getKinematicData();
-  // Code-Editor Inhalt
+  // Code-Editor Inhalt — bevorzuge code-input.value, Fallback: generateKRL(parsedData)
   var codeEl = document.getElementById('code-input');
-  data.code = codeEl ? codeEl.value : '';
+  var codeVal = codeEl ? codeEl.value.trim() : '';
+  if (!codeVal && typeof generateKRL === 'function') codeVal = generateKRL(parsedData) || '';
+  data.code = codeVal;
   data.tcpList  = tcpList.map(function(t){ return Object.assign({},t); });
   data.baseList = baseList.map(function(b){ return Object.assign({},b); });
   data.stlScene = stlObjects.filter(Boolean).map(function(o,i){
