@@ -558,6 +558,14 @@ function makeBaseFrameGroup(name) {
   return grp;
 }
 
+function updateAxisLabelsVisibility() {
+  baseFrameGroups.forEach(function(grp) {
+    if (grp && grp.userData.labelSprite) {
+      grp.userData.labelSprite.visible = showAxisLabels;
+    }
+  });
+}
+
 function updateBaseFrameLabel(grp, name, isActive) {
   var canvas = grp.userData.labelCanvas;
   if (!canvas) return;
@@ -606,6 +614,7 @@ function syncBaseFrameGroups() {
       }
     });
     grp.visible = showBaseFrame;
+    if (grp.userData.labelSprite) grp.userData.labelSprite.visible = showAxisLabels;
   });
 }
 scene.add(baseFrameGrp); // legacy (wird nicht mehr direkt genutzt)
@@ -699,6 +708,7 @@ let pedestalMesh     = null;
 let showSkeleton     = true;
 let showPosFrames    = true;   // Zielkoordinatensysteme (posGrp)
 let showBaseFrame    = true;   // BASE Koordinatensystem
+let showAxisLabels   = true;   // Achslabel der BASE KS
 let showTCPMarker    = true;   // TCP Frame (markerVisuals)
 let showSTLRobot     = true;
 let showToolMesh     = true;
@@ -4079,6 +4089,7 @@ function toggleBaseFrame() {
   showBaseFrame = !showBaseFrame;
   document.getElementById('btn-show-baseframe').classList.toggle('on', showBaseFrame);
   baseFrameGroups.forEach(function(g){g.visible=showBaseFrame;});
+  updateAxisLabelsVisibility();
 }
 function toggleTCPMarker() {
   showTCPMarker = !showTCPMarker;
@@ -4175,6 +4186,7 @@ function bindSettingsEvents() {
   bind('cfg-show-stlrobot',   'change', function(){ if(this.checked!==showSTLRobot) toggleSTLRobot(); });
   bind('cfg-show-posframes',  'change', function(){ if(this.checked!==showPosFrames) togglePosFrames(); });
   bind('cfg-show-baseframe',  'change', function(){ if(this.checked!==showBaseFrame) toggleBaseFrame(); });
+  bind('cfg-show-axislabels', 'change', function(){ showAxisLabels=this.checked; updateAxisLabelsVisibility(); });
   bind('cfg-show-tcpmarker',  'change', function(){ if(this.checked!==showTCPMarker) toggleTCPMarker(); });
 }
 
