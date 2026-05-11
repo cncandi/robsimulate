@@ -391,14 +391,14 @@
         <input id="tcp-name" type="text" placeholder="Name" oninput="if(tcpList[tcpNavIdx])tcpList[tcpNavIdx].name=this.value" style="width:100%;background:var(--bg1);border:1px solid var(--bdr);border-radius:3px;padding:3px 6px;font-family:monospace;font-size:.82em;color:var(--txt);margin-bottom:6px;box-sizing:border-box">
         <div style="font-size:.7em;color:var(--txt3);margin-bottom:4px">Position [mm] relativ zum Flansch:</div>
         <div class="stl-grid" style="margin-bottom:5px">
-          <span class="stl-lbl">X</span><input class="stl-inp" id="tcp-x" type="number" oninput="if(tcpList[tcpNavIdx])tcpList[tcpNavIdx].x=parseFloat(this.value)||0" value="364.5" step="1"><span class="stl-unit">mm</span>
-          <span class="stl-lbl">Y</span><input class="stl-inp" id="tcp-y" type="number" oninput="if(tcpList[tcpNavIdx])tcpList[tcpNavIdx].y=parseFloat(this.value)||0" value="0" step="0.1"><span class="stl-unit">mm</span>
-          <span class="stl-lbl">Z</span><input class="stl-inp" id="tcp-z" type="number" oninput="if(tcpList[tcpNavIdx])tcpList[tcpNavIdx].z=parseFloat(this.value)||0" value="46.5" step="1"><span class="stl-unit">mm</span>
-          <span class="stl-lbl">A(Z)</span><input class="stl-inp" id="tcp-a" type="number" oninput="if(tcpList[tcpNavIdx])tcpList[tcpNavIdx].a=parseFloat(this.value)||0" value="0" step="1"><span class="stl-unit">°</span>
-          <span class="stl-lbl">B(Y)</span><input class="stl-inp" id="tcp-b" type="number" oninput="if(tcpList[tcpNavIdx])tcpList[tcpNavIdx].b=parseFloat(this.value)||0" value="90" step="1"><span class="stl-unit">°</span>
-          <span class="stl-lbl">C(X)</span><input class="stl-inp" id="tcp-c" type="number" oninput="if(tcpList[tcpNavIdx])tcpList[tcpNavIdx].c=parseFloat(this.value)||0" value="0" step="1"><span class="stl-unit">°</span>
+          <span class="stl-lbl">X</span><input class="stl-inp" id="tcp-x" type="number" oninput="if(tcpList[tcpNavIdx])tcpList[tcpNavIdx].x=parseFloat(this.value)||0;updateTCPDef()" value="364.5" step="1"><span class="stl-unit">mm</span>
+          <span class="stl-lbl">Y</span><input class="stl-inp" id="tcp-y" type="number" oninput="if(tcpList[tcpNavIdx])tcpList[tcpNavIdx].y=parseFloat(this.value)||0;updateTCPDef()" value="0" step="0.1"><span class="stl-unit">mm</span>
+          <span class="stl-lbl">Z</span><input class="stl-inp" id="tcp-z" type="number" oninput="if(tcpList[tcpNavIdx])tcpList[tcpNavIdx].z=parseFloat(this.value)||0;updateTCPDef()" value="46.5" step="1"><span class="stl-unit">mm</span>
+          <span class="stl-lbl">A(Z)</span><input class="stl-inp" id="tcp-a" type="number" oninput="if(tcpList[tcpNavIdx])tcpList[tcpNavIdx].a=parseFloat(this.value)||0;updateTCPDef()" value="0" step="1"><span class="stl-unit">°</span>
+          <span class="stl-lbl">B(Y)</span><input class="stl-inp" id="tcp-b" type="number" oninput="if(tcpList[tcpNavIdx])tcpList[tcpNavIdx].b=parseFloat(this.value)||0;updateTCPDef()" value="90" step="1"><span class="stl-unit">°</span>
+          <span class="stl-lbl">C(X)</span><input class="stl-inp" id="tcp-c" type="number" oninput="if(tcpList[tcpNavIdx])tcpList[tcpNavIdx].c=parseFloat(this.value)||0;updateTCPDef()" value="0" step="1"><span class="stl-unit">°</span>
         </div>
-        <div style="margin-bottom:5px"><button class="sbtn on" onclick="updateTCPDef()" style="width:100%;background:var(--acc);color:#fff;border-color:#c04200;font-weight:bold" data-i18n="overnahme">▶ Übernehmen</button></div>
+        <div style="display:none"><button class="sbtn on" onclick="updateTCPDef()" style="width:100%;background:var(--acc);color:#fff;border-color:#c04200;font-weight:bold" data-i18n="overnahme">▶ Übernehmen</button></div>
         <div style="font-size:.7em;color:var(--txt3)">
           <div style="display:none"><button class="sbtn" onclick="saveTCP()" style="flex:1">💾 TCP speichern</button><button class="sbtn" onclick="loadTCP()" style="flex:1">📂 TCP laden</button><input type="file" id="tcp-file-in" accept=".zip,.json,.xml" style="display:none"></div>
           <button class="sbtn" onclick="loadToolFile()" style="display:none;width:100%;margin-top:3px">+ STL Werkzeug laden</button>
@@ -426,14 +426,14 @@
         <input id="base-name" type="text" placeholder="Name" oninput="if(baseList[baseNavIdx])baseList[baseNavIdx].name=this.value" style="width:100%;background:var(--bg1);border:1px solid var(--bdr);border-radius:3px;padding:3px 6px;font-family:monospace;font-size:.82em;color:var(--txt);margin-bottom:6px;box-sizing:border-box">
         <div style="font-size:.7em;color:var(--txt3);margin-bottom:4px">Position [mm] / Orientierung [°] vom Roboter-BASE:</div>
         <div class="stl-grid" style="margin-bottom:5px">
-          <span class="stl-lbl">X</span><input class="stl-inp" id="base-x" type="number" oninput="if(baseList[baseNavIdx])baseList[baseNavIdx].x=parseFloat(this.value)||0" value="0" step="1"><span class="stl-unit">mm</span>
-          <span class="stl-lbl">Y</span><input class="stl-inp" id="base-y" type="number" oninput="if(baseList[baseNavIdx])baseList[baseNavIdx].y=parseFloat(this.value)||0" value="0" step="0.1"><span class="stl-unit">mm</span>
-          <span class="stl-lbl">Z</span><input class="stl-inp" id="base-z" type="number" oninput="if(baseList[baseNavIdx])baseList[baseNavIdx].z=parseFloat(this.value)||0" value="0" step="1"><span class="stl-unit">mm</span>
-          <span class="stl-lbl">A(Z)</span><input class="stl-inp" id="base-a" type="number" oninput="if(baseList[baseNavIdx])baseList[baseNavIdx].a=parseFloat(this.value)||0" value="0" step="1"><span class="stl-unit">°</span>
-          <span class="stl-lbl">B(Y)</span><input class="stl-inp" id="base-b" type="number" oninput="if(baseList[baseNavIdx])baseList[baseNavIdx].b=parseFloat(this.value)||0" value="0" step="1"><span class="stl-unit">°</span>
-          <span class="stl-lbl">C(X)</span><input class="stl-inp" id="base-c" type="number" oninput="if(baseList[baseNavIdx])baseList[baseNavIdx].c=parseFloat(this.value)||0" value="0" step="1"><span class="stl-unit">°</span>
+          <span class="stl-lbl">X</span><input class="stl-inp" id="base-x" type="number" oninput="if(baseList[baseNavIdx])baseList[baseNavIdx].x=parseFloat(this.value)||0;updateBaseDef()" value="0" step="1"><span class="stl-unit">mm</span>
+          <span class="stl-lbl">Y</span><input class="stl-inp" id="base-y" type="number" oninput="if(baseList[baseNavIdx])baseList[baseNavIdx].y=parseFloat(this.value)||0;updateBaseDef()" value="0" step="0.1"><span class="stl-unit">mm</span>
+          <span class="stl-lbl">Z</span><input class="stl-inp" id="base-z" type="number" oninput="if(baseList[baseNavIdx])baseList[baseNavIdx].z=parseFloat(this.value)||0;updateBaseDef()" value="0" step="1"><span class="stl-unit">mm</span>
+          <span class="stl-lbl">A(Z)</span><input class="stl-inp" id="base-a" type="number" oninput="if(baseList[baseNavIdx])baseList[baseNavIdx].a=parseFloat(this.value)||0;updateBaseDef()" value="0" step="1"><span class="stl-unit">°</span>
+          <span class="stl-lbl">B(Y)</span><input class="stl-inp" id="base-b" type="number" oninput="if(baseList[baseNavIdx])baseList[baseNavIdx].b=parseFloat(this.value)||0;updateBaseDef()" value="0" step="1"><span class="stl-unit">°</span>
+          <span class="stl-lbl">C(X)</span><input class="stl-inp" id="base-c" type="number" oninput="if(baseList[baseNavIdx])baseList[baseNavIdx].c=parseFloat(this.value)||0;updateBaseDef()" value="0" step="1"><span class="stl-unit">°</span>
         </div>
-        <div style="margin-bottom:5px"><button class="sbtn on" onclick="updateBaseDef()" style="width:100%;background:var(--acc);color:#fff;border-color:#c04200;font-weight:bold">▶ Übernehmen</button></div>
+        <div style="display:none"><button class="sbtn on" onclick="updateBaseDef()" style="width:100%;background:var(--acc);color:#fff;border-color:#c04200;font-weight:bold">▶ Übernehmen</button></div>
       </div>
     </div>
     <!-- STL Scene -->
