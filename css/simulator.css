@@ -262,9 +262,9 @@ input[type=range].ss::-webkit-slider-thumb{-webkit-appearance:none;width:12px;he
 .joint-cfg input:focus{border-color:var(--acc)}
 .empty{color:var(--txt3);font-size:.72em;padding:7px;text-align:center}
 /* Resize handles */
-.ep-resize-handle{width:5px;background:var(--acc);cursor:ew-resize;flex-shrink:0;opacity:.3;transition:opacity .15s}
+.ep-resize-handle{width:5px;background:var(--acc);cursor:pointer;flex-shrink:0;opacity:.3;transition:opacity .15s;position:relative}
 .ep-resize-handle:hover{opacity:1}
-.ip-resize-handle{width:5px;background:var(--acc);cursor:ew-resize;flex-shrink:0;opacity:.3;transition:opacity .15s}
+.ip-resize-handle{width:5px;background:var(--acc);cursor:pointer;flex-shrink:0;opacity:.3;transition:opacity .15s;position:relative}
 .ip-resize-handle:hover{opacity:1}
 
 /* ── Einstellungsfenster (Steuerungspanel-Stil) ─────────── */
