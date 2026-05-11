@@ -379,7 +379,15 @@
       <div class="sec-t" onclick="toggleSec(this)"><span class="tog">▼</span data-i18n="tcp_sec">🔧 TCP</div>
       <div class="sec-b">
         <!-- TCP Navigation -->
-        <div id="tcp-nav-ui" style="margin-bottom:8px"></div>
+        <div style="display:flex;align-items:center;gap:4px;margin-bottom:8px">
+          <button onclick="tcpNavTo(0)"          class="sbtn" id="tcp-nav-first" style="min-width:32px;font-size:14px">⏮</button>
+          <button onclick="tcpNavTo(tcpNavIdx-1)" class="sbtn" id="tcp-nav-prev"  style="min-width:32px;font-size:14px">◀</button>
+          <span id="tcp-nav-label" style="flex:1;text-align:center;font-size:12px;font-family:monospace;color:var(--txt2)">—</span>
+          <button onclick="tcpNavTo(tcpNavIdx+1)" class="sbtn" id="tcp-nav-next"  style="min-width:32px;font-size:14px">▶</button>
+          <button onclick="tcpNavTo(tcpList.length-1)" class="sbtn" id="tcp-nav-last" style="min-width:32px;font-size:14px">⏭</button>
+          <button onclick="tcpAddCurrent()"       class="sbtn" style="min-width:32px;font-size:14px;background:rgba(37,99,235,.2);border-color:rgba(37,99,235,.5);color:#60a5fa" title="Aktuellen TCP speichern">+</button>
+          <button onclick="tcpDelCurrent()"       class="sbtn" id="tcp-nav-del" style="min-width:32px;font-size:14px;background:rgba(204,51,51,.15);border-color:rgba(204,51,51,.4);color:#f87171" title="TCP löschen">✕</button>
+        </div>
         <div style="font-size:.7em;color:var(--txt3);margin-bottom:4px">Position [mm] relativ zum Flansch:</div>
         <div class="stl-grid" style="margin-bottom:5px">
           <span class="stl-lbl">X</span><input class="stl-inp" id="tcp-x" type="number" value="364.5" step="1"><span class="stl-unit">mm</span>
