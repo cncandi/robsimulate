@@ -585,7 +585,7 @@ function makeBaseFrameGroup(name) {
   ctx.fillStyle = '#60a5fa';
   ctx.fillText(name || 'BASE', 4, 44);
   var tex = new THREE.CanvasTexture(canvas);
-  var sprite = new THREE.Sprite(new THREE.SpriteMaterial({map:tex,depthTest:false}));
+  var sprite = new THREE.Sprite(new THREE.SpriteMaterial({map:tex,depthTest:false,transparent:true,alphaTest:0.01}));
   sprite.scale.set(180,44,1);
   sprite.position.set(20,0,-10);
   sprite.userData.isLabel = true;
