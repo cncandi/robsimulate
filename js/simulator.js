@@ -2513,7 +2513,7 @@ function renderStlNav() {
   // find valid idx
   var validObjs = stlObjects.map((o,i) => o ? i : -1).filter(i => i >= 0);
   if (!validObjs.length) {
-    navEl.innerHTML = '';
+    navEl.innerHTML = '<div style="display:flex;justify-content:flex-end;margin-bottom:8px"><button onclick="stlAddEntry()" style="min-width:32px;height:28px;font-size:14px;cursor:pointer;background:rgba(37,99,235,.2);border:1px solid rgba(37,99,235,.5);color:#60a5fa;border-radius:4px;padding:0 4px">+</button></div>';
     fldEl.innerHTML = '<div class="empty">Keine STL Szenenmodelle geladen</div>';
     return;
   }
@@ -2543,6 +2543,10 @@ function renderStlNav() {
   row.appendChild(lbl);
   row.appendChild(nav('▶', function(){ stlNavIdx=validObjs[Math.min(validObjs.length-1,pos+1)]; renderStlNav(); }, pos===n-1));
   row.appendChild(nav('⏭', function(){ stlNavIdx=validObjs[validObjs.length-1]; renderStlNav(); }, pos===n-1));
+  var addBtn = document.createElement('button');
+  addBtn.textContent='+'; addBtn.style.cssText='min-width:32px;height:28px;font-size:14px;cursor:pointer;background:rgba(37,99,235,.2);border:1px solid rgba(37,99,235,.5);color:#60a5fa;border-radius:4px;padding:0 4px';
+  addBtn.onclick = function(){ stlAddEntry(); };
+  row.appendChild(addBtn);
   var delBtn = document.createElement('button');
   delBtn.textContent='✕'; delBtn.style.cssText='min-width:32px;height:28px;font-size:14px;cursor:pointer;background:rgba(204,51,51,.15);border:1px solid rgba(204,51,51,.3);color:#f87171;border-radius:4px;padding:0 4px';
   delBtn.onclick = function(){ removeSTL(realIdx); };
