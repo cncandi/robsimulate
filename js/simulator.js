@@ -931,20 +931,17 @@ function loadAxisSTL(idx, file) {
   reader.onload = e => {
     const buf = e.target.result;
     parseGeometry(buf, file.name).then(geo => {
-    if (axisSTLMeshes[idx]) {
-      scene.remove(axisSTLMeshes[idx]);
-      axisSTLMeshes[idx].geometry.dispose();
-    }
-    axisSTLMeshes[idx] = new THREE.Mesh(geo,
-      new THREE.MeshPhongMaterial({color:0xe8a020, shininess:80}));
-    scene.add(axisSTLMeshes[idx]);
-    // Store raw base64 for later save
-    axisSTLBase64[idx] = btoa(String.fromCharCode.apply(null, new Uint8Array(e.target.result)));
-  window['_axisSTLBuffer'+idx] = e.target.result;
-  if (!window._axisSTLBuffers) window._axisSTLBuffers = {};
-  window._axisSTLBuffers[idx] = e.target.result;
-    document.getElementById('asl-name'+idx).textContent = file.name.replace(/\.stl$/i,'');
-    document.getElementById('asl-del'+idx).style.display = '';
+      if (axisSTLMeshes[idx]) { scene.remove(axisSTLMeshes[idx]); axisSTLMeshes[idx].geometry.dispose(); }
+      axisSTLMeshes[idx] = new THREE.Mesh(geo, new THREE.MeshPhongMaterial({color:0xe8a020,shininess:80}));
+      scene.add(axisSTLMeshes[idx]);
+      axisSTLBase64[idx] = btoa(String.fromCharCode.apply(null, new Uint8Array(buf)));
+      window['_axisSTLBuffer'+idx] = buf;
+      if (!window._axisSTLBuffers) window._axisSTLBuffers = {};
+      window._axisSTLBuffers[idx] = buf;
+      document.getElementById('asl-name'+idx).textContent = file.name.replace(/\.[^.]+$/i,'');
+      document.getElementById('asl-del'+idx).style.display = '';
+      buildRobotModel(jointAngles);
+    }).catch(err => { alert('Fehler: '+err.message); });
   };
   reader.readAsArrayBuffer(file);
 }
