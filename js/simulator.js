@@ -1316,6 +1316,7 @@ function applyKinematicData(data, stlBuffers) {
   if (data.tcp) {
     var t = data.tcp;
     tcpList = [{ x:t.x||0, y:t.y||0, z:t.z||0, a:t.a||0, b:t.b||0, c:t.c||0, name:'TCP 1' }];
+    var tni2 = document.getElementById('tcp-name'); if(tni2) tni2.value = 'TCP 1';
     tcpNavIdx = 0;
     tcpSetInputs(tcpList[0]);
     renderTcpNav();
@@ -1403,15 +1404,18 @@ function tcpNavTo(idx) {
   if (!tcpList.length) return;
   tcpNavIdx = Math.max(0, Math.min(idx, tcpList.length - 1));
   tcpSetInputs(tcpList[tcpNavIdx]);
+  var entry = tcpList[tcpNavIdx];
+  if (entry && !entry.name) entry.name = 'TCP ' + (tcpNavIdx+1);
   var n = document.getElementById('tcp-name');
-  if (n) n.value = tcpList[tcpNavIdx].name || '';
+  if (n) n.value = entry ? entry.name : '';
   renderTcpNav();
 }
 
 function tcpAddCurrent() {
   var t = tcpGetInputs();
   var ni = document.getElementById('tcp-name');
-  t.name = (ni && ni.value.trim()) ? ni.value.trim() : 'TCP ' + (tcpList.length + 1);
+  var tn = tcpList.length + 1;
+  t.name = (ni && ni.value.trim()) ? ni.value.trim() : 'TCP ' + tn;
   tcpList.push(t);
   tcpNavIdx = tcpList.length - 1;
   if (ni) ni.value = t.name;
@@ -1451,6 +1455,7 @@ document.addEventListener('DOMContentLoaded', function() {
                    c: parseFloat(document.getElementById('tcp-c')?.value)||0,
                    name: 'TCP 1' });
     tcpNavIdx = 0;
+    var tni = document.getElementById('tcp-name'); if(tni) tni.value = tcpList[0].name || 'TCP 1';
   }
   renderTcpNav();
 });
