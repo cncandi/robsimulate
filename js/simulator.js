@@ -550,7 +550,7 @@ function makeBaseFrameGroup(name) {
   var tex = new THREE.CanvasTexture(canvas);
   var sprite = new THREE.Sprite(new THREE.SpriteMaterial({map:tex,depthTest:false}));
   sprite.scale.set(180,44,1);
-  sprite.position.set(20,0,30);
+  sprite.position.set(20,0,-10);
   sprite.userData.isLabel = true;
   grp.add(sprite);
   grp.userData.labelSprite = sprite;
@@ -1525,6 +1525,13 @@ function baseDelCurrent() {
   baseNavIdx = Math.min(baseNavIdx, baseList.length - 1);
   if (baseNavIdx >= 0) baseSetInputs(baseList[baseNavIdx]);
   renderBaseNav();
+}
+
+function baseNameChanged(val) {
+  if (baseList[baseNavIdx]) {
+    baseList[baseNavIdx].name = val;
+    syncBaseFrameGroups();
+  }
 }
 
 function renderBaseNav() {
