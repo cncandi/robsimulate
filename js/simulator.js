@@ -1719,17 +1719,26 @@ function sceneNeu() {
   pauseSim();
   setStatus('stopped', 'STOPPED');
 
-  // Code-Editor leeren
-  var codeEl = document.getElementById('code-input');
-  if (codeEl) { codeEl.value = ''; codeEl.dispatchEvent(new Event('input')); }
-  // Gutter leeren
-  var gutEl = document.getElementById('gutter'); if(gutEl) gutEl.innerHTML = '';
-
-  // Simulationsdaten
+  // Simulationsdaten zuerst leeren (generateKRL braucht leere parsedData)
   parsedData = {positions:[], steps:[], finalState:{variables:{},digitalIn:{},digitalOut:{},analogOut:{},analogIn:{}}};
   ikTable = []; trajectory = []; trajMax = 0;
   buildScene([]);
   clearTCPTrace();
+
+  // Format auf kuka-form zurücksetzen — activate() schreibt leeres generateKRL() in Editor
+  if (typeof FormatRegistry !== 'undefined') {
+    var cur = FormatRegistry.getActiveId();
+    if (cur !== 'kuka-form') FormatRegistry.setActive('kuka-form');
+    else {
+      // Schon aktiv: Editor direkt leeren
+      var codeEl = document.getElementById('code-input');
+      if (codeEl) codeEl.value = '';
+    }
+  } else {
+    var codeEl2 = document.getElementById('code-input');
+    if (codeEl2) codeEl2.value = '';
+  }
+  var gutEl = document.getElementById('gutter'); if(gutEl) gutEl.innerHTML = '';
 
   // Roboter: Kinematik + STLs
   for (var i=0;i<6;i++) {
