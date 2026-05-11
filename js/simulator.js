@@ -1259,22 +1259,22 @@ function applyKinematicData(data, stlBuffers) {
 function toggleLeftPanel() {
   const ep = document.querySelector('.ep');
   const handle = document.getElementById('ep-resize-handle');
+  const btn = document.getElementById('ep-toggle-btn');
   const hidden = ep.style.display === 'none';
   ep.style.display = hidden ? '' : 'none';
-  if (handle) handle.style.display = hidden ? '' : 'none';
-  const btn = document.getElementById('btn-toggle-left');
-  if (btn) btn.classList.toggle('on', hidden);
+  if (handle) { handle.style.width = hidden ? '' : '14px'; handle.style.cursor = 'pointer'; }
+  if (btn) btn.textContent = hidden ? '◀' : '▶';
   window.dispatchEvent(new Event('resize'));
 }
 
 function toggleRightPanel() {
   const ip = document.getElementById('info-panel');
   const handle = document.getElementById('ip-resize-handle');
+  const btn = document.getElementById('ip-toggle-btn');
   const hidden = ip.style.display === 'none';
   ip.style.display = hidden ? '' : 'none';
-  if (handle) handle.style.display = hidden ? '' : 'none';
-  const btn = document.getElementById('btn-toggle-right');
-  if (btn) btn.classList.toggle('on', hidden);
+  if (handle) { handle.style.width = hidden ? '' : '14px'; handle.style.cursor = 'pointer'; }
+  if (btn) btn.textContent = hidden ? '▶' : '◀';
   window.dispatchEvent(new Event('resize'));
 }
 
