@@ -442,7 +442,10 @@
         <button class="add-btn" onclick="event.stopPropagation();document.getElementById('stl-file').click()">+ Laden</button>
         <input type="file" id="stl-file" accept=".stl" multiple>
       </div>
-      <div class="sec-b" id="stl-list"><div class="empty">Keine STL Dateien geladen</div></div>
+      <div class="sec-b">
+        <div id="stl-nav-ui"></div>
+        <div id="stl-fields"></div>
+      </div>
     </div>
     <!-- Positions -->
     <div class="sec collapsed">
