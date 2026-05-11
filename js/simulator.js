@@ -929,8 +929,8 @@ function pickAxisSTL(idx) {
 function loadAxisSTL(idx, file) {
   const reader = new FileReader();
   reader.onload = e => {
-    const geo = stlLoader.parse(e.target.result);
-    geo.computeVertexNormals();
+    const buf = e.target.result;
+    parseGeometry(buf, file.name).then(geo => {
     if (axisSTLMeshes[idx]) {
       scene.remove(axisSTLMeshes[idx]);
       axisSTLMeshes[idx].geometry.dispose();
@@ -1661,6 +1661,60 @@ document.addEventListener('DOMContentLoaded', function() {
 
 // ── NEU / LADEN / SPEICHERN (komplette Szene) ─────────────────────
 
+
+// ── STEP / OCCT Import ────────────────────────────────────────────
+var _occtModule = null;
+var _occtLoading = null;
+
+function getOCCT() {
+  if (_occtModule) return Promise.resolve(_occtModule);
+  if (_occtLoading) return _occtLoading;
+  if (typeof occtimportjs === 'undefined') return Promise.reject(new Error('occt-import-js nicht geladen'));
+  _occtLoading = occtimportjs({
+    locateFile: function(path) {
+      return 'https://cdn.jsdelivr.net/npm/occt-import-js@0.0.23/dist/' + path;
+    }
+  }).then(function(m) { _occtModule = m; return m; });
+  return _occtLoading;
+}
+
+function stepToGeometry(arrayBuffer) {
+  return getOCCT().then(function(occt) {
+    var buf = new Uint8Array(arrayBuffer);
+    occt.FS.writeFile('/input.stp', buf);
+    var result = occt.ReadStepFile('/input.stp', null);
+    if (!result.success || !result.meshes || !result.meshes.length)
+      throw new Error('STEP lesen fehlgeschlagen');
+    var positions = [], normals = [], indices = [], offset = 0;
+    result.meshes.forEach(function(mesh) {
+      var pos = mesh.attributes.position.array;
+      var nor = mesh.attributes.normal && mesh.attributes.normal.array;
+      var idx = mesh.index && mesh.index.array;
+      for (var j=0;j<pos.length;j++) positions.push(pos[j]);
+      if (nor) for (var j=0;j<nor.length;j++) normals.push(nor[j]);
+      if (idx) for (var j=0;j<idx.length;j++) indices.push(idx[j]+offset);
+      offset += pos.length/3;
+    });
+    var geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.Float32BufferAttribute(positions,3));
+    if (normals.length) geo.setAttribute('normal', new THREE.Float32BufferAttribute(normals,3));
+    if (indices.length) geo.setIndex(indices);
+    geo.computeVertexNormals();
+    return geo;
+  });
+}
+
+// Universeller Geometry-Loader: STL oder STEP
+function parseGeometry(arrayBuffer, fileName) {
+  var ext = (fileName||'').split('.').pop().toLowerCase();
+  if (ext==='stp'||ext==='step') {
+    setStatus('paused', 'STEP wird geladen (OCCT)...');
+    return stepToGeometry(arrayBuffer);
+  }
+  // STL (synchron → in Promise verpackt)
+  return Promise.resolve(stlLoader.parse(arrayBuffer));
+}
+
 function sceneNeu() {
   if (!confirm('Alles zurücksetzen? Alle Daten gehen verloren.')) return;
   // Robot
@@ -1690,7 +1744,25 @@ function sceneLaden() {
   inp.onchange = function(e) {
     var file = e.target.files[0]; if (!file) return;
     inp.value = '';
-    loadKinematicZIP(file);  // bestehende Funktion — liest JSON + STLs
+    var ext = file.name.split('.').pop().toLowerCase();
+    if (ext==='stp'||ext==='step') {
+      // STEP als Szenenmodell laden
+      var reader = new FileReader();
+      reader.onload = function(ev) {
+        parseGeometry(ev.target.result, file.name).then(function(geo) {
+          var mat = new THREE.MeshPhongMaterial({color:0x4499cc,shininess:60,side:THREE.DoubleSide});
+          var mesh = new THREE.Mesh(geo, mat);
+          stlGrp.add(mesh);
+          stlObjects.push({mesh:mesh,name:file.name,buf:ev.target.result,offset:{x:0,y:0,z:0,a:0,b:0,c:0},displayName:''});
+          stlNavIdx = stlObjects.length-1;
+          renderStlNav();
+          setStatus('paused','STEP geladen: '+file.name);
+        }).catch(function(err){ alert('STEP Fehler: '+err.message); });
+      };
+      reader.readAsArrayBuffer(file);
+    } else {
+      loadKinematicZIP(file);
+    }
   };
   inp.click();
 }
@@ -2660,8 +2732,8 @@ function stlLoadForCurrent() {
     var reader = new FileReader();
     reader.onload = function(ev) {
       var buf = ev.target.result;
-      var geo = stlLoader.parse(buf); geo.computeVertexNormals();
       var idx = stlNavIdx;
+      parseGeometry(buf, file.name).then(function(geo) {
       var obj = stlObjects[idx];
       if (obj && obj.mesh) { stlGrp.remove(obj.mesh); obj.mesh.geometry.dispose(); obj.mesh.material.dispose(); }
       var mat = new THREE.MeshPhongMaterial({color:0x4499cc,shininess:60,side:THREE.DoubleSide});
@@ -2670,10 +2742,11 @@ function stlLoadForCurrent() {
       if (obj) {
         obj.mesh = mesh; obj.name = file.name; obj.buf = buf;
       } else {
-        stlObjects[idx] = { mesh, name: file.name, buf, offset: {x:0,y:0,z:0,a:0,b:0,c:0}, displayName: '' };
+        stlObjects[idx] = { mesh: mesh, name: file.name, buf: buf, offset: {x:0,y:0,z:0,a:0,b:0,c:0}, displayName: '' };
       }
       updateSTL(idx);
       renderStlNav();
+      }).catch(function(err){ alert('Fehler: '+err.message); });
     };
     reader.readAsArrayBuffer(file);
     inp.value = '';
