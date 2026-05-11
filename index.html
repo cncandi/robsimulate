@@ -20,7 +20,7 @@
   <button class="sbtn" onclick="sceneNeu()" style="background:rgba(255,96,0,.2);border-color:rgba(255,96,0,.6);color:#ff8030;font-weight:bold">NEU</button>
   <button class="sbtn" onclick="sceneLaden()" style="color:#60a5fa">📂 Laden</button>
   <button class="sbtn" onclick="sceneSpeichern()" style="color:#4ade80">💾 Speichern</button>
-  <input type="file" id="scene-file-in" accept=".zip,.json" style="display:none">
+  <input type="file" id="scene-file-in" accept=".zip,.json,.stp,.step" style="display:none">
   <div class="sep"></div>
   <button class="sbtn" id="b-start" title="Zum Anfang">|◀◀</button>
   <button class="sbtn" id="b-playrev" title="Rückwärts">◀ Play</button>
@@ -348,12 +348,12 @@
         <div id="eff-nr-ui" style="display:none;padding:0 5px"></div>
         <div style="font-size:.85em;color:var(--txt3);margin-top:10px;margin-bottom:4px;padding:0 2px;font-weight:bold">STL Achsmodelle</div>
         <div id="axis-stl-ui"></div>
-        <input type="file" id="axis-stl-file" accept=".stl" style="display:none">
+        <input type="file" id="axis-stl-file" accept=".stl,.stp,.step" style="display:none">
         <div style="display:flex;gap:4px;margin-top:5px">
           <button class="sbtn" onclick="loadPedestalSTL()" style="flex:1">+ Umgebung STL</button>
           <button class="stl-vis-btn" id="vis-pedestal" onclick="cycleSTLMode('pedestal')" title="Sichtbarkeit wechseln"></button>
           <span id="pedestal-name" style="font-size:.7em;color:var(--txt3);align-self:center;overflow:hidden;white-space:nowrap;flex:2"></span>
-          <input type="file" id="pedestal-stl-file" accept=".stl" style="display:none">
+          <input type="file" id="pedestal-stl-file" accept=".stl,.stp,.step" style="display:none">
         </div>
 
 
@@ -445,7 +445,7 @@
     <div class="sec collapsed">
       <div class="sec-t" onclick="toggleSec(this)"><span class="tog">▼</span>📦 STL Szenenmodelle
         <button class="add-btn" onclick="event.stopPropagation();stlAddEntry()" style="background:rgba(37,99,235,.2);border-color:rgba(37,99,235,.5);color:#60a5fa">+</button>
-        <input type="file" id="stl-file" accept=".stl" multiple>
+        <input type="file" id="stl-file" accept=".stl,.stp,.step" multiple>
       </div>
       <div class="sec-b">
         <div id="stl-nav-ui"></div>
@@ -488,6 +488,7 @@
 </div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/occt-import-js@0.0.23/dist/occt-import-js.js"></script>
 <script src="./js/i18n.js"></script>
 <script src="./js/dp-solver.js"></script>
 <script src="./js/formats/registry.js"></script>
