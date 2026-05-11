@@ -2386,6 +2386,46 @@ function loadSTL(file){
 
 let stlNavIdx = 0;
 
+function stlLoadForCurrent() {
+  var inp = document.getElementById('stl-replace-inp');
+  if (!inp) {
+    inp = document.createElement('input');
+    inp.type = 'file'; inp.accept = '.stl'; inp.id = 'stl-replace-inp';
+    inp.style.display = 'none';
+    document.body.appendChild(inp);
+  }
+  inp.onchange = function(e) {
+    var file = e.target.files[0]; if (!file) return;
+    var reader = new FileReader();
+    reader.onload = function(ev) {
+      var buf = ev.target.result;
+      var geo = stlLoader.parse(buf); geo.computeVertexNormals();
+      var idx = stlNavIdx;
+      var obj = stlObjects[idx];
+      if (obj && obj.mesh) { stlGrp.remove(obj.mesh); obj.mesh.geometry.dispose(); obj.mesh.material.dispose(); }
+      var mat = new THREE.MeshPhongMaterial({color:0x4499cc,shininess:60,side:THREE.DoubleSide});
+      var mesh = new THREE.Mesh(geo, mat);
+      stlGrp.add(mesh);
+      if (obj) {
+        obj.mesh = mesh; obj.name = file.name; obj.buf = buf;
+      } else {
+        stlObjects[idx] = { mesh, name: file.name, buf, offset: {x:0,y:0,z:0,a:0,b:0,c:0}, displayName: '' };
+      }
+      updateSTL(idx);
+      renderStlNav();
+    };
+    reader.readAsArrayBuffer(file);
+    inp.value = '';
+  };
+  inp.click();
+}
+
+function stlAddEntry() {
+  stlObjects.push({ mesh: null, name: '', buf: null, offset: {x:0,y:0,z:0,a:0,b:0,c:0}, displayName: '' });
+  stlNavIdx = stlObjects.length - 1;
+  renderStlNav();
+}
+
 function renderSTLEntry(idx) {
   stlNavIdx = idx;
   renderStlNav();
@@ -2438,7 +2478,10 @@ function renderStlNav() {
 
   fldEl.innerHTML = `
     <input id="stl-nav-name" type="text" placeholder="Name" value="${obj.displayName||''}" style="width:100%;background:var(--bg1);border:1px solid var(--bdr);border-radius:3px;padding:3px 6px;font-family:monospace;font-size:.82em;color:var(--txt);margin-bottom:6px;box-sizing:border-box">
-    <div style="font-size:.75em;color:var(--txt3);margin-bottom:4px;font-family:monospace">${obj.name}</div>
+    <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px">
+      <span style="flex:1;font-size:.75em;color:var(--txt3);font-family:monospace;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${obj.name||'— kein STL —'}</span>
+      <button onclick="stlLoadForCurrent()" style="height:28px;padding:0 10px;font-size:11px;cursor:pointer;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.15);color:#9ab;border-radius:4px;white-space:nowrap">STL laden</button>
+    </div>
     <div class="stl-grid" style="margin-bottom:4px">
       <span class="stl-lbl">X</span><input class="stl-inp" id="stl-f-x" type="number" value="${o.x||0}" step="1"><span class="stl-unit">mm</span>
       <span class="stl-lbl">Y</span><input class="stl-inp" id="stl-f-y" type="number" value="${o.y||0}" step="1"><span class="stl-unit">mm</span>
