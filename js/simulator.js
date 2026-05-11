@@ -1422,12 +1422,9 @@ function renderBaseNav() {
 function updateBaseDef() {
   var b = baseGetInputs();
   var r = Math.PI/180;
-  // BASE-Offset auf baseFrameGrp anwenden
+  // Nur BASE-Koordinatensystem verschieben — Roboter bleibt unverändert
   baseFrameGrp.position.set(b.x, b.y, b.z);
   baseFrameGrp.rotation.set(b.c*r, b.b*r, b.a*r, 'ZYX');
-  // Robotergruppe mitverschieben
-  robotGrp.position.set(b.x, b.y, b.z);
-  robotGrp.rotation.set(b.c*r, b.b*r, b.a*r, 'ZYX');
 }
 
 document.addEventListener('DOMContentLoaded', renderBaseNav);
