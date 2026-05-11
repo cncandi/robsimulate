@@ -1259,18 +1259,44 @@ function applyKinematicData(data, stlBuffers) {
 function toggleLeftPanel() {
   const ep = document.querySelector('.ep');
   const btn = document.getElementById('ep-toggle-btn');
-  const hidden = ep.style.display === 'none';
-  ep.style.display = hidden ? '' : 'none';
-  if (btn) btn.textContent = hidden ? '◀' : '▶';
+  if (!ep) return;
+  const closed = ep._panelClosed;
+  if (closed) {
+    ep.style.width = ep._savedW || '300px';
+    ep.style.minWidth = '';
+    ep.style.overflow = '';
+    ep._panelClosed = false;
+    if (btn) btn.textContent = '◀';
+  } else {
+    ep._savedW = ep.offsetWidth + 'px';
+    ep.style.width = '0';
+    ep.style.minWidth = '0';
+    ep.style.overflow = 'hidden';
+    ep._panelClosed = true;
+    if (btn) btn.textContent = '▶';
+  }
   window.dispatchEvent(new Event('resize'));
 }
 
 function toggleRightPanel() {
   const ip = document.getElementById('info-panel');
   const btn = document.getElementById('ip-toggle-btn');
-  const hidden = ip.style.display === 'none';
-  ip.style.display = hidden ? '' : 'none';
-  if (btn) btn.textContent = hidden ? '▶' : '◀';
+  if (!ip) return;
+  const closed = ip._panelClosed;
+  if (closed) {
+    ip.style.width = ip._savedW || '270px';
+    ip.style.minWidth = '';
+    ip.style.overflow = '';
+    ip._panelClosed = false;
+    if (btn) btn.textContent = '▶';
+  } else {
+    ip._savedW = ip.offsetWidth + 'px';
+    ip.style.width = '0';
+    ip.style.minWidth = '0';
+    ip.style.overflow = 'hidden';
+    ip._panelClosed = true;
+    if (btn) btn.textContent = '◀';
+  }
   window.dispatchEvent(new Event('resize'));
 }
 
