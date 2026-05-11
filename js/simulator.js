@@ -538,10 +538,14 @@ function syncTcpFrameGroups() {
   while (tcpFrameGroups.length > tcpList.length) {
     scene.remove(tcpFrameGroups.pop());
   }
-  // Flansch-Weltpose aus FK
-  var fkC = fkAll(jointAngles);
-  var flanschPos = fkC.pts[6];          // [x,y,z] Flansch-Weltpos
-  var flanschRot = fkC.rots[6];         // 3x3 Rotationsmatrix Flansch-Welt
+  // Flansch-Weltpose aus Three.js-Szenengraph (A6-Pivot)
+  var a6pivot = axisPivots[5] || axisPivots[axisPivots.length-1];
+  var flanschQuat = new THREE.Quaternion();
+  var flanschWorldPos = new THREE.Vector3();
+  if (a6pivot) {
+    a6pivot.getWorldQuaternion(flanschQuat);
+    a6pivot.getWorldPosition(flanschWorldPos);
+  }
 
   tcpList.forEach(function(t, i) {
     var grp = tcpFrameGroups[i];
@@ -550,17 +554,13 @@ function syncTcpFrameGroups() {
     var isActive = (i === tcpNavIdx);
 
     // TCP-Offset in Flansch-Lokalkoordinaten → Weltkoordinaten
-    var lo = [t.x||0, t.y||0, t.z||0];
-    var wp = mVec(flanschRot, lo);
-    grp.position.set(flanschPos[0]+wp[0], flanschPos[1]+wp[1], flanschPos[2]+wp[2]);
+    var localOffset = new THREE.Vector3(t.x||0, t.y||0, t.z||0);
+    localOffset.applyQuaternion(flanschQuat);
+    grp.position.copy(flanschWorldPos.clone().add(localOffset));
 
-    // TCP-Rotation: Flansch-Rot × TCP-Euler(A,B,C)
-    var r = Math.PI/180;
-    var Ra = [[Math.cos((t.a||0)*r),-Math.sin((t.a||0)*r),0],[Math.sin((t.a||0)*r),Math.cos((t.a||0)*r),0],[0,0,1]];
-    var Rb = [[Math.cos((t.b||0)*r),0,Math.sin((t.b||0)*r)],[0,1,0],[-Math.sin((t.b||0)*r),0,Math.cos((t.b||0)*r)]];
-    var Rc = [[1,0,0],[0,Math.cos((t.c||0)*r),-Math.sin((t.c||0)*r)],[0,Math.sin((t.c||0)*r),Math.cos((t.c||0)*r)]];
-    var Rt = mMul(flanschRot, mMul(Ra, mMul(Rb, Rc)));
-    grp.quaternion.copy(_mat3ToQuat(Rt));
+    // TCP-Rotation: Flansch-Quaternion × TCP-Euler(A,B,C) per KUKA-Konvention
+    var tcpLocalQuat = new THREE.Quaternion().setFromEuler(kukaEuler(t.a||0, t.b||0, t.c||0));
+    grp.quaternion.copy(flanschQuat.clone().multiply(tcpLocalQuat));
 
     updateBaseFrameLabel(grp, t.name, isActive);
     grp.traverse(function(obj) {
@@ -1491,12 +1491,13 @@ function tcpNavTo(idx) {
 }
 
 function tcpAddCurrent() {
-  var t = tcpGetInputs();
-  t.name = 'TCP ' + (tcpList.length + 1);
+  var name = 'TCP ' + (tcpList.length + 1);
+  var t = { x:0, y:0, z:0, a:0, b:90, c:0, name: name };
   tcpList.push(t);
   tcpNavIdx = tcpList.length - 1;
+  tcpSetInputs(t);
   var ni = document.getElementById('tcp-name');
-  if (ni) ni.value = t.name;
+  if (ni) ni.value = name;
   renderTcpNav();
 }
 
