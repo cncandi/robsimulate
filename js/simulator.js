@@ -531,7 +531,6 @@ function syncTcpFrameGroups() {
   while (tcpFrameGroups.length < tcpList.length) {
     var idx = tcpFrameGroups.length;
     var grp = makeBaseFrameGroup(tcpList[idx] ? tcpList[idx].name : 'TCP '+(idx+1));
-    // TCP frames use different colors: X=rot, Y=grün, Z=blau (same axes)
     grp.visible = showBaseFrame;
     scene.add(grp);
     tcpFrameGroups.push(grp);
@@ -539,16 +538,30 @@ function syncTcpFrameGroups() {
   while (tcpFrameGroups.length > tcpList.length) {
     scene.remove(tcpFrameGroups.pop());
   }
+  // Flansch-Weltpose aus FK
+  var fkC = fkAll(jointAngles);
+  var flanschPos = fkC.pts[6];          // [x,y,z] Flansch-Weltpos
+  var flanschRot = fkC.rots[6];         // 3x3 Rotationsmatrix Flansch-Welt
+
   tcpList.forEach(function(t, i) {
     var grp = tcpFrameGroups[i];
     if (!grp) return;
-    var r = Math.PI/180;
-    // TCP position: at TCP offset point (relative to flansch, shown at TCP world pos when FK known)
-    // For now show at offset from origin
-    grp.position.set(t.x||0, t.y||0, t.z||0);
-    grp.rotation.set((t.c||0)*r, (t.b||0)*r, (t.a||0)*r, 'ZYX');
     if (!t.name) t.name = 'TCP '+(i+1);
     var isActive = (i === tcpNavIdx);
+
+    // TCP-Offset in Flansch-Lokalkoordinaten → Weltkoordinaten
+    var lo = [t.x||0, t.y||0, t.z||0];
+    var wp = mVec(flanschRot, lo);
+    grp.position.set(flanschPos[0]+wp[0], flanschPos[1]+wp[1], flanschPos[2]+wp[2]);
+
+    // TCP-Rotation: Flansch-Rot × TCP-Euler(A,B,C)
+    var r = Math.PI/180;
+    var Ra = [[Math.cos((t.a||0)*r),-Math.sin((t.a||0)*r),0],[Math.sin((t.a||0)*r),Math.cos((t.a||0)*r),0],[0,0,1]];
+    var Rb = [[Math.cos((t.b||0)*r),0,Math.sin((t.b||0)*r)],[0,1,0],[-Math.sin((t.b||0)*r),0,Math.cos((t.b||0)*r)]];
+    var Rc = [[1,0,0],[0,Math.cos((t.c||0)*r),-Math.sin((t.c||0)*r)],[0,Math.sin((t.c||0)*r),Math.cos((t.c||0)*r)]];
+    var Rt = mMul(flanschRot, mMul(Ra, mMul(Rb, Rc)));
+    grp.quaternion.copy(_mat3ToQuat(Rt));
+
     updateBaseFrameLabel(grp, t.name, isActive);
     grp.traverse(function(obj) {
       if (obj.material) {
@@ -872,6 +885,7 @@ function buildRobotModel(angles) {
   _applyToolMeshPose(angles);
   if (pedestalMesh) pedestalMesh.visible = showPedestalMesh;
   _buildSkeleton(angles);
+  if (tcpFrameGroups.length) syncTcpFrameGroups();
 }
 
 // ── STL loading for axes ──────────────────────────────────────
@@ -1478,11 +1492,10 @@ function tcpNavTo(idx) {
 
 function tcpAddCurrent() {
   var t = tcpGetInputs();
-  var ni = document.getElementById('tcp-name');
-  var tn = tcpList.length + 1;
-  t.name = (ni && ni.value.trim()) ? ni.value.trim() : 'TCP ' + tn;
+  t.name = 'TCP ' + (tcpList.length + 1);
   tcpList.push(t);
   tcpNavIdx = tcpList.length - 1;
+  var ni = document.getElementById('tcp-name');
   if (ni) ni.value = t.name;
   renderTcpNav();
 }
@@ -1570,11 +1583,10 @@ function baseNavTo(idx) {
 
 function baseAddCurrent() {
   var t = baseGetInputs();
-  var ni = document.getElementById('base-name');
-  var n = baseList.length + 1;
-  t.name = (ni && ni.value.trim()) ? ni.value.trim() : 'BASE ' + n;
+  t.name = 'BASE ' + (baseList.length + 1);
   baseList.push(t);
   baseNavIdx = baseList.length - 1;
+  var ni = document.getElementById('base-name');
   if (ni) ni.value = t.name;
   renderBaseNav();
 }
