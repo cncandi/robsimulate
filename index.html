@@ -59,9 +59,7 @@
   <button class="sbtn" id="btn-aplot" title="A-Winkel Diagramm">📈 Map</button>
   <div class="sep"></div>
   <button class="sbtn on" id="btn-grid" title="Grid ein/ausblenden" onclick="toggleGrid()">⊞ Grid</button>
-  <div class="sep"></div>
-  <button class="sbtn on" id="btn-toggle-left"  onclick="toggleLeftPanel()"  title="Linkes Panel ein/ausblenden">◀ Code</button>
-  <button class="sbtn on" id="btn-toggle-right" onclick="toggleRightPanel()" title="Rechtes Panel ein/ausblenden">Info ▶</button>
+
 </div>
 
 <div class="main">
@@ -223,7 +221,9 @@
   </div>
 
   <!-- VIEWPORT -->
-  <div id="ep-resize-handle" class="ep-resize-handle"></div>
+  <div id="ep-resize-handle" class="ep-resize-handle" onclick="toggleLeftPanel()" title="Code-Panel ein/ausblenden">
+    <div id="ep-toggle-btn" style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:20px;height:20px;background:var(--bg3);border:1px solid var(--acc);border-radius:3px;display:flex;align-items:center;justify-content:center;font-size:10px;color:var(--acc);cursor:pointer;user-select:none">◀</div>
+  </div>
   <div class="vp">
     <canvas id="c3d"></canvas>
     <div class="view-btns">
@@ -322,7 +322,9 @@
   </div>
 
   <!-- INFO PANEL -->
-  <div id="ip-resize-handle" class="ip-resize-handle"></div>
+  <div id="ip-resize-handle" class="ip-resize-handle" onclick="toggleRightPanel()" title="Info-Panel ein/ausblenden">
+    <div id="ip-toggle-btn" style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:20px;height:20px;background:var(--bg3);border:1px solid var(--acc);border-radius:3px;display:flex;align-items:center;justify-content:center;font-size:10px;color:var(--acc);cursor:pointer;user-select:none">▶</div>
+  </div>
   <div class="info-panel" id="info-panel">
     <!-- Kinematics -->
     <div class="sec collapsed">
