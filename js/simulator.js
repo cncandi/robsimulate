@@ -524,6 +524,43 @@ const tcpTraceGrp=new THREE.Group();scene.add(tcpTraceGrp);
 // Simulation marker (white sphere + CS arrows, like KUKA sim)
 
 // BASE Koordinatensystem (Weltkoordinaten)
+// ── TCP Frame Groups — eines pro TCP-Eintrag ────────────────────
+const tcpFrameGroups = [];
+
+function syncTcpFrameGroups() {
+  while (tcpFrameGroups.length < tcpList.length) {
+    var idx = tcpFrameGroups.length;
+    var grp = makeBaseFrameGroup(tcpList[idx] ? tcpList[idx].name : 'TCP '+(idx+1));
+    // TCP frames use different colors: X=rot, Y=grün, Z=blau (same axes)
+    grp.visible = showBaseFrame;
+    scene.add(grp);
+    tcpFrameGroups.push(grp);
+  }
+  while (tcpFrameGroups.length > tcpList.length) {
+    scene.remove(tcpFrameGroups.pop());
+  }
+  tcpList.forEach(function(t, i) {
+    var grp = tcpFrameGroups[i];
+    if (!grp) return;
+    var r = Math.PI/180;
+    // TCP position: at TCP offset point (relative to flansch, shown at TCP world pos when FK known)
+    // For now show at offset from origin
+    grp.position.set(t.x||0, t.y||0, t.z||0);
+    grp.rotation.set((t.c||0)*r, (t.b||0)*r, (t.a||0)*r, 'ZYX');
+    if (!t.name) t.name = 'TCP '+(i+1);
+    var isActive = (i === tcpNavIdx);
+    updateBaseFrameLabel(grp, t.name, isActive);
+    grp.traverse(function(obj) {
+      if (obj.material) {
+        obj.material.opacity = isActive ? 1.0 : 0.35;
+        obj.material.transparent = !isActive;
+      }
+    });
+    grp.visible = showBaseFrame;
+    if (grp.userData.labelSprite) grp.userData.labelSprite.visible = showAxisLabels;
+  });
+}
+
 // BASE Koordinatensystem — eines pro BASE-Eintrag
 const baseFrameGrp = new THREE.Group(); // alias für Kompatibilität (zeigt auf aktiven)
 const baseFrameGroups = []; // eine Gruppe pro BASE-Eintrag
@@ -559,7 +596,7 @@ function makeBaseFrameGroup(name) {
 }
 
 function updateAxisLabelsVisibility() {
-  baseFrameGroups.forEach(function(grp) {
+  [].concat(baseFrameGroups, tcpFrameGroups).forEach(function(grp) {
     if (grp && grp.userData.labelSprite) {
       grp.userData.labelSprite.visible = showAxisLabels;
     }
@@ -571,12 +608,8 @@ function updateBaseFrameLabel(grp, name, isActive) {
   if (!canvas) return;
   var ctx = canvas.getContext('2d');
   ctx.clearRect(0,0,256,64);
-  if (isActive) {
-    ctx.fillStyle = 'rgba(37,99,235,0.7)';
-    ctx.roundRect ? ctx.roundRect(0,4,canvas.width,52,6) : ctx.rect(0,4,canvas.width,52);
-    ctx.fill();
-  }
-  ctx.font = (isActive ? 'bold 30px' : '24px') + ' monospace';
+  // transparenter Hintergrund für alle, aktives = heller
+  ctx.font = 'bold ' + (isActive ? '30' : '26') + 'px monospace';
   ctx.fillStyle = isActive ? '#ffffff' : '#93c5fd';
   ctx.fillText(name || 'BASE', 6, 44);
   if (grp.userData.labelSprite) grp.userData.labelSprite.material.map.needsUpdate = true;
@@ -1453,7 +1486,15 @@ function tcpDelCurrent() {
   renderTcpNav();
 }
 
+function tcpNameChanged(val) {
+  if (tcpList[tcpNavIdx]) {
+    tcpList[tcpNavIdx].name = val;
+    syncTcpFrameGroups();
+  }
+}
+
 function renderTcpNav() {
+  syncTcpFrameGroups();
   var n = tcpList.length, i = tcpNavIdx;
   var lbl = document.getElementById('tcp-nav-label');
   var name = (n && tcpList[i]) ? tcpList[i].name || '' : '';
@@ -4089,6 +4130,7 @@ function toggleBaseFrame() {
   showBaseFrame = !showBaseFrame;
   document.getElementById('btn-show-baseframe').classList.toggle('on', showBaseFrame);
   baseFrameGroups.forEach(function(g){g.visible=showBaseFrame;});
+  tcpFrameGroups.forEach(function(g){g.visible=showBaseFrame;});
   updateAxisLabelsVisibility();
 }
 function toggleTCPMarker() {
