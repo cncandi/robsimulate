@@ -1390,6 +1390,22 @@ function applyKinematicData(data, stlBuffers) {
       }
     }
   }
+  // TCP-Liste aus JSON
+  if (data.tcpList && data.tcpList.length) {
+    tcpList = data.tcpList;
+    tcpNavIdx = 0;
+    tcpSetInputs(tcpList[0]);
+    var tni = document.getElementById('tcp-name'); if(tni) tni.value = tcpList[0].name||'TCP 1';
+    renderTcpNav();
+  }
+  // BASE-Liste aus JSON
+  if (data.baseList && data.baseList.length) {
+    baseList = data.baseList;
+    baseNavIdx = 0;
+    baseSetInputs(baseList[0]);
+    var bni2 = document.getElementById('base-name'); if(bni2) bni2.value = baseList[0].name||'BASE 1';
+    renderBaseNav();
+  }
   // TCP aus JSON in Liste
   if (data.tcp) {
     var t = data.tcp;
@@ -1641,6 +1657,86 @@ document.addEventListener('DOMContentLoaded', function() {
   renderBaseNav();
   syncBaseFrameGroups();
 });
+
+
+// ── NEU / LADEN / SPEICHERN (komplette Szene) ─────────────────────
+
+function sceneNeu() {
+  if (!confirm('Alles zurücksetzen? Alle Daten gehen verloren.')) return;
+  // Robot
+  newKinematic();
+  // TCP
+  tcpList = [{ x:0, y:0, z:0, a:0, b:90, c:0, name:'TCP 1' }];
+  tcpNavIdx = 0;
+  tcpSetInputs(tcpList[0]);
+  var tni = document.getElementById('tcp-name'); if(tni) tni.value = 'TCP 1';
+  renderTcpNav();
+  // BASE
+  baseList = [{ x:0, y:0, z:0, a:0, b:0, c:0, name:'BASE 1' }];
+  baseNavIdx = 0;
+  baseSetInputs(baseList[0]);
+  var bni = document.getElementById('base-name'); if(bni) bni.value = 'BASE 1';
+  renderBaseNav();
+  // Szenenmodelle
+  stlObjects.forEach(function(o) { if(o&&o.mesh) stlGrp.remove(o.mesh); });
+  stlObjects.length = 0;
+  stlNavIdx = 0;
+  renderStlNav();
+  setStatus('paused', 'Neue Szene');
+}
+
+function sceneLaden() {
+  var inp = document.getElementById('scene-file-in');
+  inp.onchange = function(e) {
+    var file = e.target.files[0]; if (!file) return;
+    inp.value = '';
+    loadKinematicZIP(file);  // bestehende Funktion — liest JSON + STLs
+  };
+  inp.click();
+}
+
+function sceneSpeichern() {
+  var name = ((document.getElementById('kin-name')&&document.getElementById('kin-name').value) || 'szene').replace(/\s+/g,'_');
+  var zip = new JSZip();
+
+  // 1. Kinematik-JSON erweitert um TCP-/BASE-/Szenenmodell-Listen
+  var data = getKinematicData();
+  data.tcpList  = tcpList.map(function(t){ return Object.assign({},t); });
+  data.baseList = baseList.map(function(b){ return Object.assign({},b); });
+  data.stlScene = stlObjects.filter(Boolean).map(function(o,i){
+    return { name: o.name||('scene_'+(i+1)+'.stl'), displayName: o.displayName||'', offset: Object.assign({},o.offset||{}) };
+  });
+  data.tcp = { x:TCP_DEF.x, y:TCP_DEF.y, z:TCP_DEF.z, a:TCP_DEF.a, b:TCP_DEF.b, c:TCP_DEF.c };
+  zip.file(name + '.json', JSON.stringify(data, null, 2));
+
+  // 2. Achsen-STLs
+  for (var i = 0; i < 6; i++) {
+    var buf = (window._axisSTLBuffers && window._axisSTLBuffers[i]) || window['_axisSTLBuffer'+i];
+    if (buf) zip.file((data.stlFiles['A'+(i+1)].name||('a'+(i+1)))+'.stl', new Uint8Array(buf));
+  }
+
+  // 3. Podest + Tool STL
+  if (window._pedestalSTLBuffer) zip.file('podest.stl', new Uint8Array(window._pedestalSTLBuffer));
+  if (window._toolSTLBuffer) zip.file('tool.stl', new Uint8Array(window._toolSTLBuffer));
+
+  // 4. Szenenmodell-STLs
+  stlObjects.forEach(function(o, i) {
+    if (!o||!o.buf) return;
+    var n = (o.name||('scene_'+(i+1)+'.stl')).replace(/[^a-zA-Z0-9._-]/g,'_');
+    if (!n.match(/\.stl$/i)) n += '.stl';
+    zip.file('scene/' + n, new Uint8Array(o.buf));
+  });
+
+  zip.generateAsync({type:'blob', compression:'DEFLATE', compressionOptions:{level:6}})
+    .then(function(blob) {
+      var url = URL.createObjectURL(blob);
+      var a = document.createElement('a');
+      a.href = url; a.download = name + '.zip';
+      document.body.appendChild(a); a.click();
+      document.body.removeChild(a);
+      setTimeout(function(){ URL.revokeObjectURL(url); }, 2000);
+    });
+}
 
 function newKinematic() {
   if (!confirm(t('confirm_new_kin'))) return;
