@@ -1258,23 +1258,29 @@ function applyKinematicData(data, stlBuffers) {
 
 function toggleLeftPanel() {
   const ep = document.querySelector('.ep');
-  const handle = document.getElementById('ep-resize-handle');
   const btn = document.getElementById('ep-toggle-btn');
-  const hidden = ep.style.display === 'none';
-  ep.style.display = hidden ? '' : 'none';
-  if (handle) { handle.style.width = hidden ? '' : '14px'; handle.style.cursor = 'pointer'; }
-  if (btn) btn.textContent = hidden ? '◀' : '▶';
+  const hidden = ep.style.width === '0px' || ep.style.display === 'none';
+  if (hidden) {
+    ep.style.display = ''; ep.style.width = '';
+    if (btn) btn.textContent = '◀';
+  } else {
+    ep.style.display = 'none';
+    if (btn) { btn.style.position='fixed'; btn.style.left='0'; btn.textContent = '▶'; }
+  }
   window.dispatchEvent(new Event('resize'));
 }
 
 function toggleRightPanel() {
   const ip = document.getElementById('info-panel');
-  const handle = document.getElementById('ip-resize-handle');
   const btn = document.getElementById('ip-toggle-btn');
   const hidden = ip.style.display === 'none';
-  ip.style.display = hidden ? '' : 'none';
-  if (handle) { handle.style.width = hidden ? '' : '14px'; handle.style.cursor = 'pointer'; }
-  if (btn) btn.textContent = hidden ? '▶' : '◀';
+  if (hidden) {
+    ip.style.display = '';
+    if (btn) { btn.style.position=''; btn.style.right=''; btn.textContent = '▶'; }
+  } else {
+    ip.style.display = 'none';
+    if (btn) { btn.style.position='fixed'; btn.style.right='0'; btn.textContent = '◀'; }
+  }
   window.dispatchEvent(new Event('resize'));
 }
 
