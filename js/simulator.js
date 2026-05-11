@@ -2513,7 +2513,7 @@ function renderStlNav() {
   // find valid idx
   var validObjs = stlObjects.map((o,i) => o ? i : -1).filter(i => i >= 0);
   if (!validObjs.length) {
-    navEl.innerHTML = '<div style="display:flex;justify-content:flex-end;margin-bottom:8px"><button onclick="stlAddEntry()" style="min-width:32px;height:28px;font-size:14px;cursor:pointer;background:rgba(37,99,235,.2);border:1px solid rgba(37,99,235,.5);color:#60a5fa;border-radius:4px;padding:0 4px">+</button></div>';
+    navEl.innerHTML = '';
     fldEl.innerHTML = '<div class="empty">Keine STL Szenenmodelle geladen</div>';
     return;
   }
