@@ -1300,6 +1300,81 @@ function toggleRightPanel() {
   window.dispatchEvent(new Event('resize'));
 }
 
+
+// ── TCP Navigation ────────────────────────────────────────────────
+var tcpList = [];   // [{x,y,z,a,b,c,name}]
+var tcpNavIdx = -1; // -1 = kein gespeicherter, direkte Eingabe
+
+function tcpGetInputs() {
+  return {
+    x: parseFloat(document.getElementById('tcp-x')?.value)||0,
+    y: parseFloat(document.getElementById('tcp-y')?.value)||0,
+    z: parseFloat(document.getElementById('tcp-z')?.value)||0,
+    a: parseFloat(document.getElementById('tcp-a')?.value)||0,
+    b: parseFloat(document.getElementById('tcp-b')?.value)||0,
+    c: parseFloat(document.getElementById('tcp-c')?.value)||0,
+  };
+}
+
+function tcpSetInputs(t) {
+  ['x','y','z','a','b','c'].forEach(k => {
+    var el = document.getElementById('tcp-' + k);
+    if (el) el.value = t[k] !== undefined ? t[k] : 0;
+  });
+}
+
+function tcpNavTo(idx) {
+  if (!tcpList.length) return;
+  tcpNavIdx = Math.max(0, Math.min(idx, tcpList.length - 1));
+  tcpSetInputs(tcpList[tcpNavIdx]);
+  renderTcpNav();
+}
+
+function tcpAddCurrent() {
+  var t = tcpGetInputs();
+  t.name = 'TCP ' + (tcpList.length + 1);
+  tcpList.push(t);
+  tcpNavIdx = tcpList.length - 1;
+  renderTcpNav();
+}
+
+function tcpDelCurrent() {
+  if (tcpNavIdx < 0 || !tcpList.length) return;
+  tcpList.splice(tcpNavIdx, 1);
+  tcpNavIdx = Math.min(tcpNavIdx, tcpList.length - 1);
+  if (tcpNavIdx >= 0) tcpSetInputs(tcpList[tcpNavIdx]);
+  renderTcpNav();
+}
+
+function renderTcpNav() {
+  var el = document.getElementById('tcp-nav-ui');
+  if (!el) return;
+  var n = tcpList.length;
+  var i = tcpNavIdx;
+  var btnS = 'min-width:30px;height:28px;font-size:13px;cursor:pointer;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.15);color:#9ab;border-radius:4px;padding:0 4px';
+  var btnD = 'min-width:30px;height:28px;font-size:13px;cursor:default;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.05);color:#3a5a7a;border-radius:4px;padding:0 4px';
+  var nav = function(lbl, fn, dis) { return '<button onclick="'+fn+'()" style="'+(dis?btnD:btnS)+'"'+(dis?' disabled':'')+'>'+lbl+'</button>'; };
+  el.innerHTML =
+    '<div style="display:flex;align-items:center;gap:4px;margin-bottom:4px">' +
+    nav('⏮', 'function(){tcpNavTo(0)}', i<=0 || !n) +
+    nav('◀',  'function(){tcpNavTo(tcpNavIdx-1)}', i<=0 || !n) +
+    '<span style="flex:1;text-align:center;font-family:monospace;font-size:11px;color:#d8e8f0">' + (n ? (i+1)+' / '+n : '—') + '</span>' +
+    nav('▶',  'function(){tcpNavTo(tcpNavIdx+1)}', i>=n-1) +
+    nav('⏭',  'function(){tcpNavTo(tcpList.length-1)}', i>=n-1) +
+    '<button onclick="tcpAddCurrent()" style="min-width:28px;height:28px;font-size:14px;cursor:pointer;background:rgba(37,99,235,.2);border:1px solid rgba(37,99,235,.4);color:#60a5fa;border-radius:4px;padding:0 4px" title="Aktuellen TCP speichern">+</button>' +
+    (n ? '<button onclick="tcpDelCurrent()" style="min-width:28px;height:28px;font-size:13px;cursor:pointer;background:rgba(204,51,51,.15);border:1px solid rgba(204,51,51,.3);color:#f87171;border-radius:4px;padding:0 4px" title="TCP löschen">✕</button>' : '') +
+    '</div>';
+  // Fix onclick (inline functions don't work via string — use data-action pattern)
+  el.querySelectorAll('button[onclick]').forEach(function(b) {
+    var fn = b.getAttribute('onclick');
+    b.removeAttribute('onclick');
+    if (!b.disabled) b.addEventListener('click', new Function(fn));
+  });
+}
+
+// Init
+renderTcpNav();
+
 function newKinematic() {
   if (!confirm(t('confirm_new_kin'))) return;
   JOINTS_DEF.forEach(j => { j.off=[0,0,0]; j.min=-180; j.max=180; });
