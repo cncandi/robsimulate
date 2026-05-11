@@ -590,7 +590,8 @@ function syncBaseFrameGroups() {
     var r = Math.PI/180;
     grp.position.set(b.x||0, b.y||0, b.z||0);
     grp.rotation.set((b.c||0)*r, (b.b||0)*r, (b.a||0)*r, 'ZYX');
-    updateBaseFrameLabel(grp, b.name || ('BASE '+(i+1)));
+    if (!b.name) b.name = 'BASE '+(i+1);
+    updateBaseFrameLabel(grp, b.name);
     grp.visible = showBaseFrame;
   });
 }
@@ -1481,8 +1482,10 @@ function baseNavTo(idx) {
   if (!baseList.length) return;
   baseNavIdx = Math.max(0, Math.min(idx, baseList.length - 1));
   baseSetInputs(baseList[baseNavIdx]);
+  var entry = baseList[baseNavIdx];
+  if (entry && !entry.name) entry.name = 'BASE ' + (baseNavIdx+1);
   var n = document.getElementById('base-name');
-  if (n) n.value = baseList[baseNavIdx].name || '';
+  if (n) n.value = entry ? entry.name : '';
   renderBaseNav();
   updateBaseDef();
 }
@@ -1490,7 +1493,8 @@ function baseNavTo(idx) {
 function baseAddCurrent() {
   var t = baseGetInputs();
   var ni = document.getElementById('base-name');
-  t.name = (ni && ni.value.trim()) ? ni.value.trim() : 'BASE ' + (baseList.length + 1);
+  var n = baseList.length + 1;
+  t.name = (ni && ni.value.trim()) ? ni.value.trim() : 'BASE ' + n;
   baseList.push(t);
   baseNavIdx = baseList.length - 1;
   if (ni) ni.value = t.name;
@@ -1534,6 +1538,7 @@ document.addEventListener('DOMContentLoaded', function() {
 document.addEventListener('DOMContentLoaded', function() {
   if (!baseList.length) {
     baseList.push({ x:0, y:0, z:0, a:0, b:0, c:0, name: 'BASE 1' });
+    var bni = document.getElementById('base-name'); if(bni) bni.value = 'BASE 1';
     baseNavIdx = 0;
   }
   renderBaseNav();
