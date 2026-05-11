@@ -1721,7 +1721,9 @@ function sceneNeu() {
 
   // Code-Editor leeren
   var codeEl = document.getElementById('code-input');
-  if (codeEl) codeEl.value = '';
+  if (codeEl) { codeEl.value = ''; codeEl.dispatchEvent(new Event('input')); }
+  // Gutter leeren
+  var gutEl = document.getElementById('gutter'); if(gutEl) gutEl.innerHTML = '';
 
   // Simulationsdaten
   parsedData = {positions:[], steps:[], finalState:{variables:{},digitalIn:{},digitalOut:{},analogOut:{},analogIn:{}}};
@@ -1731,15 +1733,22 @@ function sceneNeu() {
 
   // Roboter: Kinematik + STLs
   for (var i=0;i<6;i++) {
-    if (axisSTLMeshes[i]) { scene.remove(axisSTLMeshes[i]); axisSTLMeshes[i].geometry.dispose(); axisSTLMeshes[i]=null; }
+    if (axisSTLMeshes[i]) { scene.remove(axisSTLMeshes[i]); axisSTLMeshes[i].geometry.dispose(); axisSTLMeshes[i] = null; }
     axisSTLBase64[i] = null;
     if (window._axisSTLBuffers) window._axisSTLBuffers[i] = null;
+    // UI zurücksetzen
+    var nameEl = document.getElementById('asl-name'+i); if(nameEl) nameEl.textContent = '—';
+    var delEl  = document.getElementById('asl-del'+i);  if(delEl)  delEl.style.display = 'none';
   }
+  axisSTLMode = ['solid','solid','solid','solid','solid','solid'];
   JOINTS_DEF.forEach(function(j){ j.off=[0,0,0]; j.min=-180; j.max=180; });
   var knEl = document.getElementById('kin-name'); if(knEl) knEl.value = 'Neue Szene';
   jointAngles = [0,-90,90,0,0,0];
   buildKinConfig();
   buildRobotModel(jointAngles);
+  // Skeleton + non-pivot children aus robotGrp entfernen
+  var toRemove = robotGrp.children.filter(function(ch){ return axisSTLMeshes.indexOf(ch)===-1 && axisPivots.indexOf(ch)===-1; });
+  toRemove.forEach(function(ch){ robotGrp.remove(ch); });
 
   // Podest + Tool STL
   if (pedestalMesh) { scene.remove(pedestalMesh); pedestalMesh.geometry.dispose(); pedestalMesh=null; }
