@@ -1258,20 +1258,26 @@ function loadKinematicZIP(file) {
 
       // Collect STL buffers from ZIP
       var stlBuffers = {};
+      var sceneBuffers = {}; // scene/name → buffer (mit Pfad)
       var stlPromises = [];
       zip.forEach(function(path, entry) {
         if (!entry.dir && path.toLowerCase().endsWith('.stl')) {
           var fname = path.replace(/.*\//, '').replace(/\.stl$/i, '').toLowerCase();
+          var fullPath = path;
           stlPromises.push(
             entry.async('arraybuffer').then(function(buf) {
               stlBuffers[fname] = buf;
+              if (fullPath.toLowerCase().indexOf('scene/') >= 0) {
+                sceneBuffers[path.replace(/.*scene\//i,'')] = buf;
+                sceneBuffers[fname] = buf;
+              }
             })
           );
         }
       });
 
       Promise.all(stlPromises).then(function() {
-        applyKinematicData(data, stlBuffers);
+        applyKinematicData(data, stlBuffers, sceneBuffers);
       });
     });
   }).catch(function(e) { alert('ZIP Fehler: ' + e.message); });
@@ -1295,8 +1301,9 @@ function parseKinematicXML(xml) {
   return {name, joints};
 }
 
-function applyKinematicData(data, stlBuffers) {
+function applyKinematicData(data, stlBuffers, sceneBuffers) {
   stlBuffers = stlBuffers || {};
+  sceneBuffers = sceneBuffers || {};
   if (data.name) {
     const el = document.getElementById('kin-name');
     if (el) el.value = data.name;
@@ -1421,6 +1428,43 @@ function applyKinematicData(data, stlBuffers) {
     baseNavIdx = 0; renderBaseNav();
   }
   buildRobotModel(jointAngles);
+
+  // Code-Editor wiederherstellen
+  if (data.code !== undefined && data.code !== null) {
+    var codeEl = document.getElementById('code-input');
+    if (codeEl) codeEl.value = data.code;
+  }
+
+  // Szenenmodelle aus stlScene + scene/ STLs
+  if (Array.isArray(data.stlScene) && data.stlScene.length) {
+    // bestehende leeren
+    stlObjects.forEach(function(o){ if(o&&o.mesh) stlGrp.remove(o.mesh); });
+    stlObjects.length = 0;
+    var sceneLoaded = 0;
+    data.stlScene.forEach(function(entry) {
+      var fname = (entry.name||'').replace(/^scene\//i,'');
+      var key = fname.replace(/\.stl$/i,'').toLowerCase();
+      var buf = sceneBuffers[fname] || sceneBuffers[key] || stlBuffers[key];
+      var offset = entry.offset || {};
+      if (buf) {
+        parseGeometry(buf, fname).then(function(geo) {
+          var mat = new THREE.MeshPhongMaterial({color:0x4499cc,shininess:60,side:THREE.DoubleSide});
+          var mesh = new THREE.Mesh(geo, mat);
+          stlGrp.add(mesh);
+          var idx = stlObjects.length;
+          stlObjects.push({mesh:mesh, name:fname, buf:buf, offset:Object.assign({x:0,y:0,z:0,a:0,b:0,c:0},offset), displayName:entry.displayName||''});
+          updateSTL(idx);
+          sceneLoaded++;
+          stlNavIdx = 0; renderStlNav();
+        });
+      } else {
+        // Eintrag ohne STL (nur Parameter)
+        stlObjects.push({mesh:null, name:fname, buf:null, offset:Object.assign({x:0,y:0,z:0,a:0,b:0,c:0},offset), displayName:entry.displayName||''});
+      }
+    });
+    stlNavIdx = 0; renderStlNav();
+  }
+
   setStatus('paused', 'Kinematik geladen');
 }
 
@@ -1823,6 +1867,9 @@ function sceneSpeichern() {
 
   // 1. Kinematik-JSON erweitert um TCP-/BASE-/Szenenmodell-Listen
   var data = getKinematicData();
+  // Code-Editor Inhalt
+  var codeEl = document.getElementById('code-input');
+  data.code = codeEl ? codeEl.value : '';
   data.tcpList  = tcpList.map(function(t){ return Object.assign({},t); });
   data.baseList = baseList.map(function(b){ return Object.assign({},b); });
   data.stlScene = stlObjects.filter(Boolean).map(function(o,i){
