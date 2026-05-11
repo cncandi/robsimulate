@@ -1361,6 +1361,77 @@ function renderTcpNav() {
 // TCP nav init happens via DOMContentLoaded
 document.addEventListener('DOMContentLoaded', renderTcpNav);
 
+
+// ── BASE Navigation ───────────────────────────────────────────────
+var baseList   = [];
+var baseNavIdx = -1;
+
+function baseGetInputs() {
+  return {
+    x: parseFloat(document.getElementById('base-x')?.value)||0,
+    y: parseFloat(document.getElementById('base-y')?.value)||0,
+    z: parseFloat(document.getElementById('base-z')?.value)||0,
+    a: parseFloat(document.getElementById('base-a')?.value)||0,
+    b: parseFloat(document.getElementById('base-b')?.value)||0,
+    c: parseFloat(document.getElementById('base-c')?.value)||0,
+  };
+}
+
+function baseSetInputs(t) {
+  ['x','y','z','a','b','c'].forEach(function(k) {
+    var el = document.getElementById('base-' + k);
+    if (el) el.value = t[k] !== undefined ? t[k] : 0;
+  });
+}
+
+function baseNavTo(idx) {
+  if (!baseList.length) return;
+  baseNavIdx = Math.max(0, Math.min(idx, baseList.length - 1));
+  baseSetInputs(baseList[baseNavIdx]);
+  renderBaseNav();
+}
+
+function baseAddCurrent() {
+  var t = baseGetInputs();
+  t.name = 'BASE ' + (baseList.length + 1);
+  baseList.push(t);
+  baseNavIdx = baseList.length - 1;
+  renderBaseNav();
+}
+
+function baseDelCurrent() {
+  if (baseNavIdx < 0 || !baseList.length) return;
+  baseList.splice(baseNavIdx, 1);
+  baseNavIdx = Math.min(baseNavIdx, baseList.length - 1);
+  if (baseNavIdx >= 0) baseSetInputs(baseList[baseNavIdx]);
+  renderBaseNav();
+}
+
+function renderBaseNav() {
+  var n = baseList.length, i = baseNavIdx;
+  var lbl = document.getElementById('base-nav-label');
+  if (lbl) lbl.textContent = n ? (i+1)+' / '+n : '—';
+  var dis = function(id, d) { var b=document.getElementById(id); if(b) b.disabled=d; };
+  dis('base-nav-first', i<=0||!n);
+  dis('base-nav-prev',  i<=0||!n);
+  dis('base-nav-next',  i>=n-1);
+  dis('base-nav-last',  i>=n-1);
+  dis('base-nav-del',   !n);
+}
+
+function updateBaseDef() {
+  var b = baseGetInputs();
+  var r = Math.PI/180;
+  // BASE-Offset auf baseFrameGrp anwenden
+  baseFrameGrp.position.set(b.x, b.y, b.z);
+  baseFrameGrp.rotation.set(b.c*r, b.b*r, b.a*r, 'ZYX');
+  // Robotergruppe mitverschieben
+  robotGrp.position.set(b.x, b.y, b.z);
+  robotGrp.rotation.set(b.c*r, b.b*r, b.a*r, 'ZYX');
+}
+
+document.addEventListener('DOMContentLoaded', renderBaseNav);
+
 function newKinematic() {
   if (!confirm(t('confirm_new_kin'))) return;
   JOINTS_DEF.forEach(j => { j.off=[0,0,0]; j.min=-180; j.max=180; });
