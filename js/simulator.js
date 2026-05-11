@@ -706,6 +706,12 @@ function _applyToolMeshPose(angles) {
   const Rt   = mMul(fkC.rots[6], [[-1,0,0],[0,-1,0],[0,0,1]]); // × Rz(180°)
   toolMesh.quaternion.copy(_mat3ToQuat(Rt));
   toolMesh.position.set(fkC.pts[6][0], fkC.pts[6][1], fkC.pts[6][2]);
+  // Aktiver Effektor
+  var aEff = effektorMeshes[activeEffNr];
+  if (aEff && aEff.visible) {
+    aEff.quaternion.copy(_mat3ToQuat(Rt));
+    aEff.position.set(fkC.pts[6][0], fkC.pts[6][1], fkC.pts[6][2]);
+  }
 }
 
 // Skelett-Visualisierung aufbauen
@@ -1252,9 +1258,66 @@ function applyKinematicData(data, stlBuffers) {
       }
     }
   }
+  // Endeffektoren aus JSON
+  effektorData = [];
+  if (Array.isArray(data.endeffektoren) && data.endeffektoren.length > 0) {
+    data.endeffektoren.forEach(function(e, i) {
+      var fname = (e.stl || ('endeffektor_'+(i+1)+'.stl')).replace(/.*\//,'').toLowerCase().replace(/\.stl$/i,'');
+      var buf = stlBuffers[fname] || stlBuffers['endeffektor_'+(i+1)] || stlBuffers['endeffektor'];
+      effektorData.push({ name: e.name||('Eff '+(i+1)), offset: {px:e.px||0,py:e.py||0,pz:e.pz||0,rx:e.rx||0,ry:e.ry||0,rz:e.rz||0}, buf: buf||null });
+    });
+  } else if (data.endeffektor) {
+    var e = data.endeffektor;
+    var buf2 = stlBuffers['endeffektor'];
+    effektorData.push({ name: e.name||'Endeffektor', offset: {px:e.px||0,py:e.py||0,pz:e.pz||0,rx:e.rx||0,ry:e.ry||0,rz:e.rz||0}, buf: buf2||null });
+  }
+  rebuildEffektorMeshes();
+  renderEffNrSelector();
   buildRobotModel(jointAngles);
   setStatus('paused', 'Kinematik geladen');
 }
+
+function rebuildEffektorMeshes() {
+  effektorMeshes.forEach(function(m) { if(m){scene.remove(m);m.geometry.dispose();m.material.dispose();} });
+  effektorMeshes = effektorData.map(function(eff) {
+    if (!eff.buf) return null;
+    try {
+      var geo = stlLoader.parse(eff.buf); geo.computeVertexNormals();
+      var mat = new THREE.MeshPhongMaterial({color:0x44aacc,shininess:60,transparent:false,opacity:1,side:THREE.DoubleSide});
+      var m = new THREE.Mesh(geo, mat); m.visible = false;
+      scene.add(m); return m;
+    } catch(e) { return null; }
+  });
+  if (activeEffNr < 0 || activeEffNr >= effektorMeshes.length) activeEffNr = 0;
+  if (effektorMeshes[activeEffNr]) effektorMeshes[activeEffNr].visible = true;
+}
+
+function setActiveEffektor(nr) {
+  effektorMeshes.forEach(function(m) { if(m) m.visible = false; });
+  activeEffNr = Math.max(0, Math.min(nr, effektorMeshes.length-1));
+  if (effektorMeshes[activeEffNr]) effektorMeshes[activeEffNr].visible = true;
+}
+
+function renderEffNrSelector() {
+  var el = document.getElementById('eff-nr-ui');
+  if (!el) return;
+  if (!effektorData.length) {
+    el.style.display = 'none'; return;
+  }
+  el.style.display = 'block';
+  el.innerHTML = '<div style="display:flex;align-items:center;gap:6px;margin-top:8px">'
+    + '<span style="font-size:.82em;color:var(--txt3);white-space:nowrap">Effektor Nr.</span>'
+    + '<input id="eff-nr-inp" type="number" min="1" max="'+effektorData.length+'" value="'+(activeEffNr+1)+'" style="width:52px;background:var(--bg1);border:1px solid var(--bdr);border-radius:2px;color:var(--txt);padding:2px 4px;font-family:inherit;font-size:.82em;text-align:center">'
+    + '<span style="font-size:.75em;color:var(--txt3)">/ '+effektorData.length+' · '+esc(effektorData[activeEffNr]?.name||'')+'</span>'
+    + '</div>';
+  var inp = document.getElementById('eff-nr-inp');
+  if (inp) inp.addEventListener('change', function() {
+    setActiveEffektor(parseInt(inp.value)-1);
+    renderEffNrSelector();
+  });
+}
+
+function esc(s){ var d=document.createElement('div'); d.textContent=s; return d.innerHTML; }
 
 function newKinematic() {
   if (!confirm(t('confirm_new_kin'))) return;
@@ -2079,6 +2142,9 @@ function applyAngles(angles) {
 // TOOL STL
 // ═══════════════════════════════════════════════════
 let toolMesh=null;
+let effektorData=[];   // [{name, offset:{px,py,pz,rx,ry,rz}, buf}]
+let effektorMeshes=[];
+let activeEffNr=0;
 // STLLoader inline (r128 compatible)
 class STLLoader {
   parse(buffer) {
@@ -3149,9 +3215,9 @@ function buildKinConfig(){
   JOINTS_DEF.map((j,i)=>`
     <div class="joint-cfg">
       <span class="jl">A${i+1}</span>
-      <input id="jox${i}" type="number" value="${j.off[0]}" step="1" style="width:100%">
+      <input id="jox${i}" type="number" value="${j.off[2]}" step="1" style="width:100%">
       <input id="joy${i}" type="number" value="${j.off[1]}" step="1" style="width:100%">
-      <input id="joz${i}" type="number" value="${j.off[2]}" step="1" style="width:100%">
+      <input id="joz${i}" type="number" value="${j.off[0]}" step="1" style="width:100%">
       <span style="color:var(--txt3);font-size:.75em">${j.axis}</span>
     </div>`).join('');
 }
@@ -3163,9 +3229,9 @@ function applyKinematicConfig(){
     const ox=parseFloat((document.getElementById('jox'+i)&&document.getElementById('jox'+i).value));
     const oy=parseFloat((document.getElementById('joy'+i)&&document.getElementById('joy'+i).value));
     const oz=parseFloat((document.getElementById('joz'+i)&&document.getElementById('joz'+i).value));
-    if(!isNaN(ox))j.off[0]=ox;  // X-Feld → off[0]
+    if(!isNaN(ox))j.off[2]=ox;  // X-Feld → off[2]
     if(!isNaN(oy))j.off[1]=oy;
-    if(!isNaN(oz))j.off[2]=oz;  // Z-Feld → off[2]
+    if(!isNaN(oz))j.off[0]=oz;  // Z-Feld → off[0]
   });
   buildPivotChain();
   buildRobotModel(jointAngles);
