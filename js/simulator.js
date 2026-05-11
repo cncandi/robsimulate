@@ -1343,14 +1343,18 @@ function tcpNavTo(idx) {
   if (!tcpList.length) return;
   tcpNavIdx = Math.max(0, Math.min(idx, tcpList.length - 1));
   tcpSetInputs(tcpList[tcpNavIdx]);
+  var n = document.getElementById('tcp-name');
+  if (n) n.value = tcpList[tcpNavIdx].name || '';
   renderTcpNav();
 }
 
 function tcpAddCurrent() {
   var t = tcpGetInputs();
-  t.name = 'TCP ' + (tcpList.length + 1);
+  var ni = document.getElementById('tcp-name');
+  t.name = (ni && ni.value.trim()) ? ni.value.trim() : 'TCP ' + (tcpList.length + 1);
   tcpList.push(t);
   tcpNavIdx = tcpList.length - 1;
+  if (ni) ni.value = t.name;
   renderTcpNav();
 }
 
@@ -1365,7 +1369,8 @@ function tcpDelCurrent() {
 function renderTcpNav() {
   var n = tcpList.length, i = tcpNavIdx;
   var lbl = document.getElementById('tcp-nav-label');
-  if (lbl) lbl.textContent = n ? (i+1)+' / '+n : '—';
+  var name = (n && tcpList[i]) ? tcpList[i].name || '' : '';
+  if (lbl) lbl.textContent = n ? (i+1)+'/'+n+(name?' · '+name:'') : '—';
   var dis = function(id, d) { var b=document.getElementById(id); if(b) b.disabled=d; };
   dis('tcp-nav-first', i<=0||!n);
   dis('tcp-nav-prev',  i<=0||!n);
@@ -1417,14 +1422,18 @@ function baseNavTo(idx) {
   if (!baseList.length) return;
   baseNavIdx = Math.max(0, Math.min(idx, baseList.length - 1));
   baseSetInputs(baseList[baseNavIdx]);
+  var n = document.getElementById('base-name');
+  if (n) n.value = baseList[baseNavIdx].name || '';
   renderBaseNav();
 }
 
 function baseAddCurrent() {
   var t = baseGetInputs();
-  t.name = 'BASE ' + (baseList.length + 1);
+  var ni = document.getElementById('base-name');
+  t.name = (ni && ni.value.trim()) ? ni.value.trim() : 'BASE ' + (baseList.length + 1);
   baseList.push(t);
   baseNavIdx = baseList.length - 1;
+  if (ni) ni.value = t.name;
   renderBaseNav();
 }
 
@@ -1439,7 +1448,8 @@ function baseDelCurrent() {
 function renderBaseNav() {
   var n = baseList.length, i = baseNavIdx;
   var lbl = document.getElementById('base-nav-label');
-  if (lbl) lbl.textContent = n ? (i+1)+' / '+n : '—';
+  var name = (n && baseList[i]) ? baseList[i].name || '' : '';
+  if (lbl) lbl.textContent = n ? (i+1)+'/'+n+(name?' · '+name:'') : '—';
   var dis = function(id, d) { var b=document.getElementById(id); if(b) b.disabled=d; };
   dis('base-nav-first', i<=0||!n);
   dis('base-nav-prev',  i<=0||!n);
