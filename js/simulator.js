@@ -582,10 +582,15 @@ function makeBaseFrameGroup(name) {
   ctx.fillStyle = 'rgba(0,0,0,0)';
   ctx.clearRect(0,0,256,64);
   ctx.font = 'bold 28px monospace';
+  ctx.strokeStyle = 'rgba(0,0,0,0.85)';
+  ctx.lineWidth = 5;
+  ctx.lineJoin = 'round';
+  ctx.strokeText(name || 'BASE', 4, 44);
   ctx.fillStyle = '#60a5fa';
   ctx.fillText(name || 'BASE', 4, 44);
   var tex = new THREE.CanvasTexture(canvas);
-  var sprite = new THREE.Sprite(new THREE.SpriteMaterial({map:tex,depthTest:false,transparent:true,alphaTest:0.01}));
+  tex.premultipliedAlpha = false;
+  var sprite = new THREE.Sprite(new THREE.SpriteMaterial({map:tex,depthTest:false,transparent:true,alphaTest:0.01,depthWrite:false}));
   sprite.scale.set(180,44,1);
   sprite.position.set(20,0,-10);
   sprite.userData.isLabel = true;
@@ -610,6 +615,10 @@ function updateBaseFrameLabel(grp, name, isActive) {
   ctx.clearRect(0,0,256,64);
   // transparenter Hintergrund für alle, aktives = heller
   ctx.font = 'bold ' + (isActive ? '30' : '26') + 'px monospace';
+  ctx.strokeStyle = 'rgba(0,0,0,0.85)';
+  ctx.lineWidth = 5;
+  ctx.lineJoin = 'round';
+  ctx.strokeText(name || 'BASE', 6, 44);
   ctx.fillStyle = isActive ? '#ffffff' : '#93c5fd';
   ctx.fillText(name || 'BASE', 6, 44);
   if (grp.userData.labelSprite) grp.userData.labelSprite.material.map.needsUpdate = true;
