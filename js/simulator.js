@@ -1467,6 +1467,9 @@ function updateBaseDef() {
 }
 
 document.addEventListener('DOMContentLoaded', function() {
+  renderStlNav();
+});
+document.addEventListener('DOMContentLoaded', function() {
   if (!baseList.length) {
     baseList.push({ x:0, y:0, z:0, a:0, b:0, c:0, name: 'BASE 1' });
     baseNavIdx = 0;
@@ -2381,25 +2384,87 @@ function loadSTL(file){
   reader.readAsArrayBuffer(file);
 }
 
-function renderSTLEntry(idx){
-  const{mesh,name}=stlObjects[idx];const list=document.getElementById('stl-list');
-  if(list.querySelector('.empty'))list.innerHTML='';
-  const el=document.createElement('div');el.className='stl-entry';el.id='stl-'+idx;
-  el.innerHTML=`<div class="stl-name">${name.replace(/\.stl$/i,'')}<span class="del" onclick="removeSTL(${idx})">✕</span></div>
-    <div class="stl-grid">
-      <span class="stl-lbl">X</span><input class="stl-inp" id="sx${idx}-x" type="number" value="0" step="1"><span class="stl-unit">mm</span>
-      <span class="stl-lbl">Y</span><input class="stl-inp" id="sx${idx}-y" type="number" value="0" step="1"><span class="stl-unit">mm</span>
-      <span class="stl-lbl">Z</span><input class="stl-inp" id="sx${idx}-z" type="number" value="0" step="1"><span class="stl-unit">mm</span>
-      <span class="stl-lbl">A(Z)</span><input class="stl-inp" id="sx${idx}-a" type="number" value="0" step="1"><span class="stl-unit">°</span>
-      <span class="stl-lbl">B(Y)</span><input class="stl-inp" id="sx${idx}-b" type="number" value="0" step="1"><span class="stl-unit">°</span>
-      <span class="stl-lbl">C(X)</span><input class="stl-inp" id="sx${idx}-c" type="number" value="0" step="1"><span class="stl-unit">°</span>
-    </div>`;
-  list.appendChild(el);stlObjects[idx].el=el;
-  for(const ax of['x','y','z','a','b','c'])document.getElementById(`sx${idx}-${ax}`).addEventListener('input',()=>updateSTL(idx));
+let stlNavIdx = 0;
+
+function renderSTLEntry(idx) {
+  stlNavIdx = idx;
+  renderStlNav();
 }
 
-function updateSTL(idx){const mesh=(stlObjects[idx]&&stlObjects[idx].mesh);if(!mesh)return;const g=ax=>parseFloat(document.getElementById(`sx${idx}-${ax}`).value)||0;mesh.position.set(g('x'),g('y'),g('z'));mesh.setRotationFromEuler(kukaEuler(g('a'),g('b'),g('c')));}
-function removeSTL(idx){const obj=stlObjects[idx];if(!obj)return;stlGrp.remove(obj.mesh);obj.mesh.geometry.dispose();obj.mesh.material.dispose();((obj&&obj.el)&&obj.el.remove());stlObjects[idx]=null;if(document.getElementById('stl-list').children.length===0)document.getElementById('stl-list').innerHTML='<div class="empty">' + t('no_stl') + '</div>';}
+function renderStlNav() {
+  var navEl = document.getElementById('stl-nav-ui');
+  var fldEl = document.getElementById('stl-fields');
+  if (!navEl || !fldEl) return;
+  var objs = stlObjects.filter(Boolean);
+  var realIdx = stlNavIdx;
+  // find valid idx
+  var validObjs = stlObjects.map((o,i) => o ? i : -1).filter(i => i >= 0);
+  if (!validObjs.length) {
+    navEl.innerHTML = '';
+    fldEl.innerHTML = '<div class="empty">Keine STL Szenenmodelle geladen</div>';
+    return;
+  }
+  if (!stlObjects[realIdx]) realIdx = validObjs[0];
+  stlNavIdx = realIdx;
+  var pos = validObjs.indexOf(realIdx);
+  var n = validObjs.length;
+  var obj = stlObjects[realIdx];
+  var o = obj.offset || {x:0,y:0,z:0,a:0,b:0,c:0};
+
+  var btnS = 'min-width:32px;height:28px;font-size:14px;cursor:pointer;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.15);color:#9ab;border-radius:4px;padding:0 4px';
+  var btnD = btnS + ';opacity:.3;cursor:default';
+  var nav = function(lbl, cb, dis) {
+    var b = document.createElement('button');
+    b.textContent = lbl; b.style.cssText = dis ? btnD : btnS;
+    if (!dis) b.onclick = cb; else b.disabled = true; return b;
+  };
+
+  navEl.innerHTML = '';
+  var row = document.createElement('div');
+  row.style.cssText = 'display:flex;align-items:center;gap:4px;margin-bottom:8px';
+  row.appendChild(nav('⏮', function(){ stlNavIdx=validObjs[0]; renderStlNav(); }, pos===0));
+  row.appendChild(nav('◀', function(){ stlNavIdx=validObjs[Math.max(0,pos-1)]; renderStlNav(); }, pos===0));
+  var lbl = document.createElement('span');
+  lbl.style.cssText = 'flex:1;text-align:center;font-family:monospace;font-size:12px;color:var(--txt2)';
+  lbl.textContent = (pos+1)+' / '+n+(obj.displayName?' · '+obj.displayName:'');
+  row.appendChild(lbl);
+  row.appendChild(nav('▶', function(){ stlNavIdx=validObjs[Math.min(validObjs.length-1,pos+1)]; renderStlNav(); }, pos===n-1));
+  row.appendChild(nav('⏭', function(){ stlNavIdx=validObjs[validObjs.length-1]; renderStlNav(); }, pos===n-1));
+  var delBtn = document.createElement('button');
+  delBtn.textContent='✕'; delBtn.style.cssText='min-width:32px;height:28px;font-size:14px;cursor:pointer;background:rgba(204,51,51,.15);border:1px solid rgba(204,51,51,.3);color:#f87171;border-radius:4px;padding:0 4px';
+  delBtn.onclick = function(){ removeSTL(realIdx); };
+  row.appendChild(delBtn);
+  navEl.appendChild(row);
+
+  fldEl.innerHTML = `
+    <input id="stl-nav-name" type="text" placeholder="Name" value="${obj.displayName||''}" style="width:100%;background:var(--bg1);border:1px solid var(--bdr);border-radius:3px;padding:3px 6px;font-family:monospace;font-size:.82em;color:var(--txt);margin-bottom:6px;box-sizing:border-box">
+    <div style="font-size:.75em;color:var(--txt3);margin-bottom:4px;font-family:monospace">${obj.name}</div>
+    <div class="stl-grid" style="margin-bottom:4px">
+      <span class="stl-lbl">X</span><input class="stl-inp" id="stl-f-x" type="number" value="${o.x||0}" step="1"><span class="stl-unit">mm</span>
+      <span class="stl-lbl">Y</span><input class="stl-inp" id="stl-f-y" type="number" value="${o.y||0}" step="1"><span class="stl-unit">mm</span>
+      <span class="stl-lbl">Z</span><input class="stl-inp" id="stl-f-z" type="number" value="${o.z||0}" step="1"><span class="stl-unit">mm</span>
+      <span class="stl-lbl">A(Z)</span><input class="stl-inp" id="stl-f-a" type="number" value="${o.a||0}" step="1"><span class="stl-unit">°</span>
+      <span class="stl-lbl">B(Y)</span><input class="stl-inp" id="stl-f-b" type="number" value="${o.b||0}" step="1"><span class="stl-unit">°</span>
+      <span class="stl-lbl">C(X)</span><input class="stl-inp" id="stl-f-c" type="number" value="${o.c||0}" step="1"><span class="stl-unit">°</span>
+    </div>`;
+
+  document.getElementById('stl-nav-name').oninput = function() {
+    stlObjects[realIdx].displayName = this.value;
+    document.querySelector('#stl-nav-ui span') && (document.querySelector('#stl-nav-ui span').textContent = (pos+1)+'/'+n+(this.value?' · '+this.value:''));
+  };
+  for (var ax of ['x','y','z','a','b','c']) {
+    (function(a) {
+      document.getElementById('stl-f-'+a).addEventListener('input', function() {
+        if (!stlObjects[realIdx].offset) stlObjects[realIdx].offset = {};
+        stlObjects[realIdx].offset[a] = parseFloat(this.value)||0;
+        updateSTL(realIdx);
+      });
+    })(ax);
+  }
+}
+
+function updateSTL(idx){var obj=stlObjects[idx];if(!obj||!obj.mesh)return;var o=obj.offset||{};obj.mesh.position.set(o.x||0,o.y||0,o.z||0);obj.mesh.setRotationFromEuler(kukaEuler(o.a||0,o.b||0,o.c||0));}
+function removeSTL(idx){var obj=stlObjects[idx];if(!obj)return;stlGrp.remove(obj.mesh);obj.mesh.geometry.dispose();obj.mesh.material.dispose();stlObjects[idx]=null;renderStlNav();}
 
 // Auto-Load STL Dateien vom Server (stl/ Ordner)
 function autoLoadSTLFiles() {
