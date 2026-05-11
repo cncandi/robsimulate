@@ -17,6 +17,11 @@
 </header>
 
 <div class="tb">
+  <button class="sbtn" onclick="sceneNeu()" style="background:rgba(255,96,0,.2);border-color:rgba(255,96,0,.6);color:#ff8030;font-weight:bold">NEU</button>
+  <button class="sbtn" onclick="sceneLaden()" style="color:#60a5fa">📂 Laden</button>
+  <button class="sbtn" onclick="sceneSpeichern()" style="color:#4ade80">💾 Speichern</button>
+  <input type="file" id="scene-file-in" accept=".zip,.json" style="display:none">
+  <div class="sep"></div>
   <button class="sbtn" id="b-start" title="Zum Anfang">|◀◀</button>
   <button class="sbtn" id="b-playrev" title="Rückwärts">◀ Play</button>
   <button class="sbtn" id="b-steprev" title="Schritt zurück [←]">◀| Step</button>
