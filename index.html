@@ -64,8 +64,7 @@
 
 <div class="main">
   <!-- EDITOR -->
-  <div class="ep" style="position:relative">
-    <button id="ep-toggle-btn" onclick="toggleLeftPanel()" title="Panel ein/ausblenden" style="position:absolute;top:50%;right:-22px;transform:translateY(-50%);z-index:20;width:22px;height:64px;background:var(--bg3);border:1px solid var(--acc);border-left:none;border-radius:0 6px 6px 0;color:var(--acc);font-size:16px;cursor:pointer;padding:0;display:flex;align-items:center;justify-content:center">◀</button>
+  <div class="ep">
     <div class="pt">
       <span id="editor-lang-label">KRL Programm</span>
       <span style="flex:1"></span>
@@ -222,6 +221,7 @@
   </div>
 
   <!-- VIEWPORT -->
+  <button id="ep-toggle-btn" onclick="toggleLeftPanel()" title="Code-Panel ein/ausblenden" style="width:18px;flex-shrink:0;background:var(--bg3);border:none;border-top:1px solid var(--acc);border-bottom:1px solid var(--acc);color:var(--acc);font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;border-right:1px solid var(--acc)">◀</button>
   <div id="ep-resize-handle" class="ep-resize-handle"></div>
   <div class="vp">
     <canvas id="c3d"></canvas>
@@ -322,8 +322,8 @@
 
   <!-- INFO PANEL -->
   <div id="ip-resize-handle" class="ip-resize-handle"></div>
-  <div class="info-panel" id="info-panel" style="position:relative">
-    <button id="ip-toggle-btn" onclick="toggleRightPanel()" title="Panel ein/ausblenden" style="position:absolute;top:50%;left:-22px;transform:translateY(-50%);z-index:20;width:22px;height:64px;background:var(--bg3);border:1px solid var(--acc);border-right:none;border-radius:6px 0 0 6px;color:var(--acc);font-size:16px;cursor:pointer;padding:0;display:flex;align-items:center;justify-content:center">▶</button>
+  <button id="ip-toggle-btn" onclick="toggleRightPanel()" title="Info-Panel ein/ausblenden" style="width:18px;flex-shrink:0;background:var(--bg3);border:none;border-top:1px solid var(--acc);border-bottom:1px solid var(--acc);color:var(--acc);font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;border-left:1px solid var(--acc)">▶</button>
+  <div class="info-panel" id="info-panel">
     <!-- Kinematics -->
     <div class="sec collapsed">
       <div class="sec-t" onclick="toggleSec(this)"><span class="tog">▼</span data-i18n="kin_sec">⚙ Kinematik</div>
