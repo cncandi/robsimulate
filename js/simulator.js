@@ -1425,6 +1425,7 @@ function baseNavTo(idx) {
   var n = document.getElementById('base-name');
   if (n) n.value = baseList[baseNavIdx].name || '';
   renderBaseNav();
+  updateBaseDef();
 }
 
 function baseAddCurrent() {
