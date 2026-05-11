@@ -538,14 +538,12 @@ function syncTcpFrameGroups() {
   while (tcpFrameGroups.length > tcpList.length) {
     scene.remove(tcpFrameGroups.pop());
   }
-  // Flansch-Weltpose aus Three.js-Szenengraph (A6-Pivot)
-  var a6pivot = axisPivots[5] || axisPivots[axisPivots.length-1];
-  var flanschQuat = new THREE.Quaternion();
-  var flanschWorldPos = new THREE.Vector3();
-  if (a6pivot) {
-    a6pivot.getWorldQuaternion(flanschQuat);
-    a6pivot.getWorldPosition(flanschWorldPos);
-  }
+  // Flansch-Weltpose aus FK — identisch zu fkAll()
+  var fkC = fkAll(jointAngles);
+  var rot6 = fkC.rots[6];   // A6 Rohrotation
+  var pos6 = fkC.pts[6];    // A6 Rohposition
+  // Gleiche Flansch-Korrektur wie in fkAll: R_fc = Ry(90°) → Z vorwärts, X unten
+  var R_fc = mRy(Math.PI/2);
 
   tcpList.forEach(function(t, i) {
     var grp = tcpFrameGroups[i];
@@ -553,14 +551,15 @@ function syncTcpFrameGroups() {
     if (!t.name) t.name = 'TCP '+(i+1);
     var isActive = (i === tcpNavIdx);
 
-    // TCP-Offset in Flansch-Lokalkoordinaten → Weltkoordinaten
-    var localOffset = new THREE.Vector3(t.x||0, t.y||0, t.z||0);
-    localOffset.applyQuaternion(flanschQuat);
-    grp.position.copy(flanschWorldPos.clone().add(localOffset));
+    // TCP-Position: exakt wie fkAll für pts[7]
+    var R_usr = rotZYX(t.a||0, t.b||0, t.c||0);
+    var p_local = mVec(R_fc, [t.x||0, t.y||0, t.z||0]);
+    var p_world = mVec(rot6, p_local);
+    grp.position.set(pos6[0]+p_world[0], pos6[1]+p_world[1], pos6[2]+p_world[2]);
 
-    // TCP-Rotation: Flansch-Quaternion × TCP-Euler(A,B,C) per KUKA-Konvention
-    var tcpLocalQuat = new THREE.Quaternion().setFromEuler(kukaEuler(t.a||0, t.b||0, t.c||0));
-    grp.quaternion.copy(flanschQuat.clone().multiply(tcpLocalQuat));
+    // TCP-Rotation: exakt wie fkAll für tcp_rot
+    var R_tcp_world = mMul(rot6, mMul(R_fc, R_usr));
+    grp.quaternion.copy(_mat3ToQuat(R_tcp_world));
 
     updateBaseFrameLabel(grp, t.name, isActive);
     grp.traverse(function(obj) {
