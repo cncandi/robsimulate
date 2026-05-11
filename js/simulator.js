@@ -1714,26 +1714,61 @@ function parseGeometry(arrayBuffer, fileName) {
 
 function sceneNeu() {
   if (!confirm('Alles zurücksetzen? Alle Daten gehen verloren.')) return;
-  // Robot
-  newKinematic();
+
+  // Simulation stoppen
+  pauseSim();
+  setStatus('stopped', 'STOPPED');
+
+  // Code-Editor leeren
+  var codeEl = document.getElementById('code-input');
+  if (codeEl) codeEl.value = '';
+
+  // Simulationsdaten
+  parsedData = {positions:[], steps:[], finalState:{variables:{},digitalIn:{},digitalOut:{},analogOut:{},analogIn:{}}};
+  ikTable = []; trajectory = []; trajMax = 0;
+  buildScene([]);
+  clearTCPTrace();
+
+  // Roboter: Kinematik + STLs
+  for (var i=0;i<6;i++) {
+    if (axisSTLMeshes[i]) { scene.remove(axisSTLMeshes[i]); axisSTLMeshes[i].geometry.dispose(); axisSTLMeshes[i]=null; }
+    axisSTLBase64[i] = null;
+    if (window._axisSTLBuffers) window._axisSTLBuffers[i] = null;
+  }
+  JOINTS_DEF.forEach(function(j){ j.off=[0,0,0]; j.min=-180; j.max=180; });
+  var knEl = document.getElementById('kin-name'); if(knEl) knEl.value = 'Neue Szene';
+  jointAngles = [0,-90,90,0,0,0];
+  buildKinConfig();
+  buildRobotModel(jointAngles);
+
+  // Podest + Tool STL
+  if (pedestalMesh) { scene.remove(pedestalMesh); pedestalMesh.geometry.dispose(); pedestalMesh=null; }
+  if (toolMesh) { markerGrp.remove(toolMesh); toolMesh.geometry.dispose(); toolMesh.material.dispose(); toolMesh=null; }
+  window._pedestalSTLBuffer = null; window._toolSTLBuffer = null;
+
+  // Szenenmodelle
+  stlObjects.forEach(function(o){ if(o&&o.mesh) stlGrp.remove(o.mesh); });
+  stlObjects.length = 0; stlNavIdx = 0;
+  renderStlNav();
+
   // TCP
   tcpList = [{ x:0, y:0, z:0, a:0, b:90, c:0, name:'TCP 1' }];
-  tcpNavIdx = 0;
-  tcpSetInputs(tcpList[0]);
+  tcpNavIdx = 0; tcpSetInputs(tcpList[0]);
   var tni = document.getElementById('tcp-name'); if(tni) tni.value = 'TCP 1';
   renderTcpNav();
+
   // BASE
   baseList = [{ x:0, y:0, z:0, a:0, b:0, c:0, name:'BASE 1' }];
-  baseNavIdx = 0;
-  baseSetInputs(baseList[0]);
+  baseNavIdx = 0; baseSetInputs(baseList[0]);
   var bni = document.getElementById('base-name'); if(bni) bni.value = 'BASE 1';
   renderBaseNav();
-  // Szenenmodelle
-  stlObjects.forEach(function(o) { if(o&&o.mesh) stlGrp.remove(o.mesh); });
-  stlObjects.length = 0;
-  stlNavIdx = 0;
-  renderStlNav();
-  setStatus('paused', 'Neue Szene');
+
+  // Marker + Selektion
+  markerGrp.visible = false;
+  selSphere.visible = false;
+  selectedPosIdx = null;
+
+  setStatus('stopped', 'Neue Szene');
 }
 
 function sceneLaden() {
