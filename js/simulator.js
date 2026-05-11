@@ -524,19 +524,78 @@ const tcpTraceGrp=new THREE.Group();scene.add(tcpTraceGrp);
 // Simulation marker (white sphere + CS arrows, like KUKA sim)
 
 // BASE Koordinatensystem (Weltkoordinaten)
-const baseFrameGrp = new THREE.Group();
-(function() {
+// BASE Koordinatensystem — eines pro BASE-Eintrag
+const baseFrameGrp = new THREE.Group(); // alias für Kompatibilität (zeigt auf aktiven)
+const baseFrameGroups = []; // eine Gruppe pro BASE-Eintrag
+
+function makeBaseFrameGroup(name) {
+  var grp = new THREE.Group();
   var sz = 150;
-  var dirs = [[1,0,0,0xff3333],[0,1,0,0x33ff33],[0,0,1,0x3388ff]];
-  dirs.forEach(function(d) {
-    baseFrameGrp.add(new THREE.ArrowHelper(
+  [[1,0,0,0xff3333],[0,1,0,0x33ff33],[0,0,1,0x3388ff]].forEach(function(d) {
+    grp.add(new THREE.ArrowHelper(
       new THREE.Vector3(d[0],d[1],d[2]),
       new THREE.Vector3(0,0,0),
       sz, d[3], sz*.2, sz*.1
     ));
   });
-})();
-scene.add(baseFrameGrp);
+  // Sprite-Label
+  var canvas = document.createElement('canvas');
+  canvas.width = 256; canvas.height = 64;
+  var ctx = canvas.getContext('2d');
+  ctx.fillStyle = 'rgba(0,0,0,0)';
+  ctx.clearRect(0,0,256,64);
+  ctx.font = 'bold 28px monospace';
+  ctx.fillStyle = '#60a5fa';
+  ctx.fillText(name || 'BASE', 4, 44);
+  var tex = new THREE.CanvasTexture(canvas);
+  var sprite = new THREE.Sprite(new THREE.SpriteMaterial({map:tex,depthTest:false}));
+  sprite.scale.set(200,50,1);
+  sprite.position.set(0,0,180);
+  sprite.userData.isLabel = true;
+  grp.add(sprite);
+  grp.userData.labelSprite = sprite;
+  grp.userData.labelCanvas = canvas;
+  return grp;
+}
+
+function updateBaseFrameLabel(grp, name) {
+  var canvas = grp.userData.labelCanvas;
+  if (!canvas) return;
+  var ctx = canvas.getContext('2d');
+  ctx.clearRect(0,0,256,64);
+  ctx.font = 'bold 28px monospace';
+  ctx.fillStyle = '#60a5fa';
+  ctx.fillText(name || 'BASE', 4, 44);
+  if (grp.userData.labelSprite) grp.userData.labelSprite.material.map.needsUpdate = true;
+}
+
+function syncBaseFrameGroups() {
+  // Sicherstellen dass für jeden BASE-Eintrag eine Gruppe existiert
+  while (baseFrameGroups.length < baseList.length) {
+    var idx = baseFrameGroups.length;
+    var grp = makeBaseFrameGroup(baseList[idx] ? baseList[idx].name : 'BASE '+(idx+1));
+    grp.visible = showBaseFrame;
+    scene.add(grp);
+    baseFrameGroups.push(grp);
+  }
+  // Überschüssige entfernen
+  while (baseFrameGroups.length > baseList.length) {
+    var old = baseFrameGroups.pop();
+    scene.remove(old);
+  }
+  // Labels + Position aktualisieren
+  baseList.forEach(function(b, i) {
+    var grp = baseFrameGroups[i];
+    if (!grp) return;
+    var r = Math.PI/180;
+    grp.position.set(b.x||0, b.y||0, b.z||0);
+    grp.rotation.set((b.c||0)*r, (b.b||0)*r, (b.a||0)*r, 'ZYX');
+    updateBaseFrameLabel(grp, b.name || ('BASE '+(i+1)));
+    grp.visible = showBaseFrame;
+  });
+}
+scene.add(baseFrameGrp); // legacy (wird nicht mehr direkt genutzt)
+baseFrameGrp.visible = false; // hide legacy group
 const markerGrp=new THREE.Group();scene.add(markerGrp);
 const markerVisuals=new THREE.Group();markerGrp.add(markerVisuals);
 {
@@ -1447,6 +1506,7 @@ function baseDelCurrent() {
 }
 
 function renderBaseNav() {
+  syncBaseFrameGroups();
   var n = baseList.length, i = baseNavIdx;
   var lbl = document.getElementById('base-nav-label');
   var name = (n && baseList[i]) ? baseList[i].name || '' : '';
@@ -1461,10 +1521,11 @@ function renderBaseNav() {
 
 function updateBaseDef() {
   var b = baseGetInputs();
-  var r = Math.PI/180;
-  // Nur BASE-Koordinatensystem verschieben — Roboter bleibt unverändert
-  baseFrameGrp.position.set(b.x, b.y, b.z);
-  baseFrameGrp.rotation.set(b.c*r, b.b*r, b.a*r, 'ZYX');
+  if (baseList[baseNavIdx]) {
+    baseList[baseNavIdx].x = b.x; baseList[baseNavIdx].y = b.y; baseList[baseNavIdx].z = b.z;
+    baseList[baseNavIdx].a = b.a; baseList[baseNavIdx].b = b.b; baseList[baseNavIdx].c = b.c;
+  }
+  syncBaseFrameGroups();
 }
 
 document.addEventListener('DOMContentLoaded', function() {
@@ -1476,6 +1537,7 @@ document.addEventListener('DOMContentLoaded', function() {
     baseNavIdx = 0;
   }
   renderBaseNav();
+  syncBaseFrameGroups();
 });
 
 function newKinematic() {
@@ -3982,7 +4044,7 @@ function togglePosFrames() {
 function toggleBaseFrame() {
   showBaseFrame = !showBaseFrame;
   document.getElementById('btn-show-baseframe').classList.toggle('on', showBaseFrame);
-  baseFrameGrp.visible = showBaseFrame;
+  baseFrameGroups.forEach(function(g){g.visible=showBaseFrame;});
 }
 function toggleTCPMarker() {
   showTCPMarker = !showTCPMarker;
