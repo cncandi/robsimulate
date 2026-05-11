@@ -1252,6 +1252,22 @@ function applyKinematicData(data, stlBuffers) {
       }
     }
   }
+  // TCP aus JSON in Liste
+  if (data.tcp) {
+    var t = data.tcp;
+    tcpList = [{ x:t.x||0, y:t.y||0, z:t.z||0, a:t.a||0, b:t.b||0, c:t.c||0, name:'TCP 1' }];
+    tcpNavIdx = 0;
+    tcpSetInputs(tcpList[0]);
+    renderTcpNav();
+  } else if (!tcpList.length) {
+    tcpList = [{ x:0,y:0,z:0,a:0,b:0,c:0, name:'TCP 1' }];
+    tcpNavIdx = 0; renderTcpNav();
+  }
+  // BASE immer mindestens 1 Eintrag
+  if (!baseList.length) {
+    baseList = [{ x:0,y:0,z:0,a:0,b:0,c:0, name:'BASE 1' }];
+    baseNavIdx = 0; renderBaseNav();
+  }
   buildRobotModel(jointAngles);
   setStatus('paused', 'Kinematik geladen');
 }
@@ -1359,7 +1375,20 @@ function renderTcpNav() {
 }
 
 // TCP nav init happens via DOMContentLoaded
-document.addEventListener('DOMContentLoaded', renderTcpNav);
+document.addEventListener('DOMContentLoaded', function() {
+  // Jeder Roboter hat mindestens 1 TCP und 1 BASE
+  if (!tcpList.length) {
+    tcpList.push({ x: parseFloat(document.getElementById('tcp-x')?.value)||364.5,
+                   y: parseFloat(document.getElementById('tcp-y')?.value)||0,
+                   z: parseFloat(document.getElementById('tcp-z')?.value)||46.5,
+                   a: parseFloat(document.getElementById('tcp-a')?.value)||0,
+                   b: parseFloat(document.getElementById('tcp-b')?.value)||90,
+                   c: parseFloat(document.getElementById('tcp-c')?.value)||0,
+                   name: 'TCP 1' });
+    tcpNavIdx = 0;
+  }
+  renderTcpNav();
+});
 
 
 // ── BASE Navigation ───────────────────────────────────────────────
@@ -1427,7 +1456,13 @@ function updateBaseDef() {
   baseFrameGrp.rotation.set(b.c*r, b.b*r, b.a*r, 'ZYX');
 }
 
-document.addEventListener('DOMContentLoaded', renderBaseNav);
+document.addEventListener('DOMContentLoaded', function() {
+  if (!baseList.length) {
+    baseList.push({ x:0, y:0, z:0, a:0, b:0, c:0, name: 'BASE 1' });
+    baseNavIdx = 0;
+  }
+  renderBaseNav();
+});
 
 function newKinematic() {
   if (!confirm(t('confirm_new_kin'))) return;
