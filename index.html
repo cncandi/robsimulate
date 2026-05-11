@@ -399,8 +399,8 @@
         </div>
         <div style="margin-bottom:5px"><button class="sbtn on" onclick="updateTCPDef()" style="width:100%;background:var(--acc);color:#fff;border-color:#c04200;font-weight:bold" data-i18n="overnahme">▶ Übernehmen</button></div>
         <div style="font-size:.7em;color:var(--txt3)">
-          <div style="display:flex;gap:4px;margin-bottom:4px"><button class="sbtn" onclick="saveTCP()" style="flex:1">💾 TCP speichern</button><button class="sbtn" onclick="loadTCP()" style="flex:1">📂 TCP laden</button><input type="file" id="tcp-file-in" accept=".zip,.json,.xml" style="display:none"></div>
-          <button class="sbtn" onclick="loadToolFile()" style="width:100%;margin-top:3px">+ STL Werkzeug laden</button>
+          <div style="display:none"><button class="sbtn" onclick="saveTCP()" style="flex:1">💾 TCP speichern</button><button class="sbtn" onclick="loadTCP()" style="flex:1">📂 TCP laden</button><input type="file" id="tcp-file-in" accept=".zip,.json,.xml" style="display:none"></div>
+          <button class="sbtn" onclick="loadToolFile()" style="display:none;width:100%;margin-top:3px">+ STL Werkzeug laden</button>
           <input type="file" id="tool-file" accept=".stl">
           <div id="tool-controls" style="display:none;margin-top:4px">
             <div class="stl-name"><button class="stl-vis-btn" id="vis-tool" onclick="cycleSTLMode('tool')" title="Sichtbarkeit wechseln"></button><span id="tool-filename"></span><span class="del" onclick="removeToolSTL()">✕</span></div>
