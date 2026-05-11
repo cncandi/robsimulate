@@ -1347,33 +1347,19 @@ function tcpDelCurrent() {
 }
 
 function renderTcpNav() {
-  var el = document.getElementById('tcp-nav-ui');
-  if (!el) return;
-  var n = tcpList.length;
-  var i = tcpNavIdx;
-  var btnS = 'min-width:30px;height:28px;font-size:13px;cursor:pointer;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.15);color:#9ab;border-radius:4px;padding:0 4px';
-  var btnD = 'min-width:30px;height:28px;font-size:13px;cursor:default;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.05);color:#3a5a7a;border-radius:4px;padding:0 4px';
-  var nav = function(lbl, fn, dis) { return '<button onclick="'+fn+'()" style="'+(dis?btnD:btnS)+'"'+(dis?' disabled':'')+'>'+lbl+'</button>'; };
-  el.innerHTML =
-    '<div style="display:flex;align-items:center;gap:4px;margin-bottom:4px">' +
-    nav('⏮', 'function(){tcpNavTo(0)}', i<=0 || !n) +
-    nav('◀',  'function(){tcpNavTo(tcpNavIdx-1)}', i<=0 || !n) +
-    '<span style="flex:1;text-align:center;font-family:monospace;font-size:11px;color:#d8e8f0">' + (n ? (i+1)+' / '+n : '—') + '</span>' +
-    nav('▶',  'function(){tcpNavTo(tcpNavIdx+1)}', i>=n-1) +
-    nav('⏭',  'function(){tcpNavTo(tcpList.length-1)}', i>=n-1) +
-    '<button onclick="tcpAddCurrent()" style="min-width:28px;height:28px;font-size:14px;cursor:pointer;background:rgba(37,99,235,.2);border:1px solid rgba(37,99,235,.4);color:#60a5fa;border-radius:4px;padding:0 4px" title="Aktuellen TCP speichern">+</button>' +
-    (n ? '<button onclick="tcpDelCurrent()" style="min-width:28px;height:28px;font-size:13px;cursor:pointer;background:rgba(204,51,51,.15);border:1px solid rgba(204,51,51,.3);color:#f87171;border-radius:4px;padding:0 4px" title="TCP löschen">✕</button>' : '') +
-    '</div>';
-  // Fix onclick (inline functions don't work via string — use data-action pattern)
-  el.querySelectorAll('button[onclick]').forEach(function(b) {
-    var fn = b.getAttribute('onclick');
-    b.removeAttribute('onclick');
-    if (!b.disabled) b.addEventListener('click', new Function(fn));
-  });
+  var n = tcpList.length, i = tcpNavIdx;
+  var lbl = document.getElementById('tcp-nav-label');
+  if (lbl) lbl.textContent = n ? (i+1)+' / '+n : '—';
+  var dis = function(id, d) { var b=document.getElementById(id); if(b) b.disabled=d; };
+  dis('tcp-nav-first', i<=0||!n);
+  dis('tcp-nav-prev',  i<=0||!n);
+  dis('tcp-nav-next',  i>=n-1);
+  dis('tcp-nav-last',  i>=n-1);
+  dis('tcp-nav-del',   !n);
 }
 
-// Init
-renderTcpNav();
+// TCP nav init happens via DOMContentLoaded
+document.addEventListener('DOMContentLoaded', renderTcpNav);
 
 function newKinematic() {
   if (!confirm(t('confirm_new_kin'))) return;
