@@ -549,8 +549,8 @@ function makeBaseFrameGroup(name) {
   ctx.fillText(name || 'BASE', 4, 44);
   var tex = new THREE.CanvasTexture(canvas);
   var sprite = new THREE.Sprite(new THREE.SpriteMaterial({map:tex,depthTest:false}));
-  sprite.scale.set(200,50,1);
-  sprite.position.set(0,0,180);
+  sprite.scale.set(180,44,1);
+  sprite.position.set(20,0,30);
   sprite.userData.isLabel = true;
   grp.add(sprite);
   grp.userData.labelSprite = sprite;
@@ -558,14 +558,19 @@ function makeBaseFrameGroup(name) {
   return grp;
 }
 
-function updateBaseFrameLabel(grp, name) {
+function updateBaseFrameLabel(grp, name, isActive) {
   var canvas = grp.userData.labelCanvas;
   if (!canvas) return;
   var ctx = canvas.getContext('2d');
   ctx.clearRect(0,0,256,64);
-  ctx.font = 'bold 28px monospace';
-  ctx.fillStyle = '#60a5fa';
-  ctx.fillText(name || 'BASE', 4, 44);
+  if (isActive) {
+    ctx.fillStyle = 'rgba(37,99,235,0.7)';
+    ctx.roundRect ? ctx.roundRect(0,4,canvas.width,52,6) : ctx.rect(0,4,canvas.width,52);
+    ctx.fill();
+  }
+  ctx.font = (isActive ? 'bold 30px' : '24px') + ' monospace';
+  ctx.fillStyle = isActive ? '#ffffff' : '#93c5fd';
+  ctx.fillText(name || 'BASE', 6, 44);
   if (grp.userData.labelSprite) grp.userData.labelSprite.material.map.needsUpdate = true;
 }
 
@@ -591,7 +596,15 @@ function syncBaseFrameGroups() {
     grp.position.set(b.x||0, b.y||0, b.z||0);
     grp.rotation.set((b.c||0)*r, (b.b||0)*r, (b.a||0)*r, 'ZYX');
     if (!b.name) b.name = 'BASE '+(i+1);
-    updateBaseFrameLabel(grp, b.name);
+    var isActive = (i === baseNavIdx);
+    updateBaseFrameLabel(grp, b.name, isActive);
+    // Aktiv: volle Helligkeit; inaktiv: gedimmt
+    grp.traverse(function(obj) {
+      if (obj.material) {
+        obj.material.opacity = isActive ? 1.0 : 0.35;
+        obj.material.transparent = !isActive;
+      }
+    });
     grp.visible = showBaseFrame;
   });
 }
