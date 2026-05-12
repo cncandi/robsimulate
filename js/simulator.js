@@ -957,7 +957,7 @@ function removeAxisSTL(idx) {
   buildRobotModel(jointAngles);
 }
 
-function loadAxisSTLFromBase64(idx, b64, filename, rawBuffer) {
+function loadAxisSTLFromBase64(idx, b64, filename, rawBuffer, color) {
   const buffer = rawBuffer || (() => {
     const bin = atob(b64);
     const buf = new ArrayBuffer(bin.length);
@@ -969,7 +969,7 @@ function loadAxisSTLFromBase64(idx, b64, filename, rawBuffer) {
     const geo  = stlLoader.parse(buffer);
     geo.computeVertexNormals();
     if (axisSTLMeshes[idx]) { scene.remove(axisSTLMeshes[idx]); axisSTLMeshes[idx].geometry.dispose(); }
-    axisSTLMeshes[idx] = new THREE.Mesh(geo, new THREE.MeshPhongMaterial({color:0xe8a020,shininess:80}));
+    axisSTLMeshes[idx] = new THREE.Mesh(geo, new THREE.MeshPhongMaterial({color:color||0xe8a020,shininess:80}));
     scene.add(axisSTLMeshes[idx]);
     if (b64) axisSTLBase64[idx] = b64;
     const nameEl = document.getElementById('asl-name'+idx);
@@ -1353,9 +1353,9 @@ function applyKinematicData(data, stlBuffers, sceneBuffers) {
         if (!window._zipSTLCache) window._zipSTLCache = {};
         window._zipSTLCache[keyLower] = buf;
         var dispName = (fname && fname !== '—' && fname !== '-') ? fname : keyLower;
-        loadAxisSTLFromBase64(idx, null, dispName+'.stl', buf);
+        loadAxisSTLFromBase64(idx, null, dispName+'.stl', buf, val.color);
       } else if (val.data) {
-        loadAxisSTLFromBase64(idx, val.data, val.name || key+'.stl');
+        loadAxisSTLFromBase64(idx, val.data, val.name || key+'.stl', null, val.color);
       }
     });
   }
