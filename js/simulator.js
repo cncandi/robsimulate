@@ -885,13 +885,6 @@ function buildRobotModel(angles) {
   if (pedestalMesh) pedestalMesh.visible = showPedestalMesh;
   _buildSkeleton(angles);
   if (tcpFrameGroups.length) syncTcpFrameGroups();
-  // Live-Farbänderung per Event-Delegation
-  el.addEventListener('input', function(e) {
-    var cp = e.target.closest('.asl-color-pick');
-    if (!cp) return;
-    var idx = parseInt(cp.dataset.aslIdx);
-    if (axisSTLMeshes[idx]) axisSTLMeshes[idx].material.color.set(cp.value);
-  });
 }
 
 // ── STL loading for axes ──────────────────────────────────────
@@ -901,7 +894,6 @@ function buildAxisSTLUI() {
   el.innerHTML = JOINTS_DEF.map((j,i) =>
     `<div class="axis-stl-row">
       <span class="axis-stl-lbl">A${i+1}</span>
-      <input type="color" class="asl-color-pick" data-asl-idx="${i}" value="${axisSTLMeshes[i] ? '#'+axisSTLMeshes[i].material.color.getHexString() : '#e8a020'}" title="Farbe A${i+1}" style="width:22px;height:22px;border:none;border-radius:3px;cursor:pointer;padding:0;background:none;flex-shrink:0">
       <span class="axis-stl-name" id="asl-name${i}">—</span>
       <button class="stl-vis-btn" id="asl-vis${i}" onclick="cycleSTLMode('axis',${i})" title="Klicken zum Wechseln">${svgIconSolid}</button>
       <button class="axis-stl-btn" onclick="pickAxisSTL(${i})">+ STL</button>
@@ -984,8 +976,6 @@ function loadAxisSTLFromBase64(idx, b64, filename, rawBuffer, color) {
     if (nameEl) nameEl.textContent = filename.replace(/\.[^.]+$/i,'');
     const delEl = document.getElementById('asl-del'+idx);
     if (delEl) delEl.style.display = '';
-    const cpEl = document.querySelector('.asl-color-pick[data-asl-idx="'+idx+'"]');
-    if (cpEl && axisSTLMeshes[idx]) cpEl.value = '#'+axisSTLMeshes[idx].material.color.getHexString();
     buildRobotModel(jointAngles);
   } catch(e) { console.error('STL load error A'+(idx+1), e); }
 }
