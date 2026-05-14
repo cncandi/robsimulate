@@ -441,38 +441,6 @@
         <div style="display:none"><button class="sbtn on" onclick="updateBaseDef()" style="width:100%;background:var(--acc);color:#fff;border-color:#c04200;font-weight:bold">▶ Übernehmen</button></div>
       </div>
     </div>
-    <!-- Positionierer -->
-    <div class="sec collapsed">
-      <div class="sec-t" onclick="toggleSec(this)"><span class="tog">▼</span>🔄 Positionierer
-        <button class="add-btn" onclick="event.stopPropagation();openLibPickerModal('positioner')" style="background:rgba(37,99,235,.2);border-color:rgba(37,99,235,.5);color:#60a5fa">+ Library</button>
-      </div>
-      <div class="sec-b" id="positioner-list">
-        <div class="empty">Keine Positionierer geladen</div>
-      </div>
-    </div>
-
-    <!-- Schienen / Rails -->
-    <div class="sec collapsed">
-      <div class="sec-t" onclick="toggleSec(this)"><span class="tog">▼</span>🛤️ Schienen / Rails
-        <button class="add-btn" onclick="event.stopPropagation();openLibPickerModal('rail')" style="background:rgba(37,99,235,.2);border-color:rgba(37,99,235,.5);color:#60a5fa">+ Library</button>
-      </div>
-      <div class="sec-b" id="rail-panel">
-        <div class="empty">Keine Schiene geladen</div>
-      </div>
-    </div>
-
-    <!-- Objekte -->
-    <div class="sec collapsed">
-      <div class="sec-t" onclick="toggleSec(this)"><span class="tog">▼</span>📦 Bewegliche Objekte
-        <button class="add-btn" onclick="event.stopPropagation();openLibPickerModal('object')" style="background:rgba(37,99,235,.2);border-color:rgba(37,99,235,.5);color:#60a5fa">+ Library</button>
-        <button class="add-btn" onclick="event.stopPropagation();document.getElementById('obj-stl-input').click()">+ STL</button>
-        <input type="file" id="obj-stl-input" accept=".stl,.stp,.step" multiple style="display:none">
-      </div>
-      <div class="sec-b" id="object-list">
-        <div class="empty">Keine Objekte geladen</div>
-      </div>
-    </div>
-
     <!-- STL Scene -->
     <div class="sec collapsed">
       <div class="sec-t" onclick="toggleSec(this)"><span class="tog">▼</span>📦 STL Szenenmodelle
