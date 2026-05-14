@@ -823,14 +823,17 @@ function _applySTLMeshPoses(angles) {
   const ref  = fkAll(stlRefAngles);
   const curr = fkAll(angles);
   for (let i = 0; i < 6; i++) {
-    const mesh = axisSTLMeshes[i];
-    if (!mesh) continue;
-    mesh.visible = showSTLRobot && showRobot3D;
-    if (!mesh.visible) continue;
-    const R  = mMul(curr.rots[i+1], mT(ref.rots[i+1]));
-    const rp = mVec(R, ref.pts[i]);
-    mesh.quaternion.copy(_mat3ToQuat(R));
-    mesh.position.set(curr.pts[i][0]-rp[0], curr.pts[i][1]-rp[1], curr.pts[i][2]-rp[2]);
+    const applyToMesh = function(mesh) {
+      if (!mesh) return;
+      mesh.visible = showSTLRobot && showRobot3D;
+      if (!mesh.visible) return;
+      const R  = mMul(curr.rots[i+1], mT(ref.rots[i+1]));
+      const rp = mVec(R, ref.pts[i]);
+      mesh.quaternion.copy(_mat3ToQuat(R));
+      mesh.position.set(curr.pts[i][0]-rp[0], curr.pts[i][1]-rp[1], curr.pts[i][2]-rp[2]);
+    };
+    applyToMesh(axisSTLMeshes[i]);
+    ((window._axisExtraMeshes||{})[i]||[]).forEach(applyToMesh);
   }
 }
 
@@ -1335,28 +1338,56 @@ function applyKinematicData(data, stlBuffers, sceneBuffers) {
     Object.entries(data.stlFiles).forEach(function(entry) {
       var key = entry[0]; var val = entry[1];
       if (!val) return;
-      var idx = parseInt(key.replace('A','')) - 1;
-      if (idx < 0 || idx > 5) return;
-      // Store offset/rotation
-      if (axisSTLOffsets[idx]) {
-        axisSTLOffsets[idx] = {
-          px: val.posx||0, py: val.posy||0, pz: val.posz||0,
-          rx: val.posrx||0, ry: val.posry||0, rz: val.posrz||0
+      var axIdx = parseInt(key.replace('A','')) - 1;
+      if (axIdx < 0 || axIdx > 5) return;
+      // Backward compat: single object → array
+      var parts = Array.isArray(val) ? val : [val];
+      // Store offset/rotation from first part (backward compat)
+      var first = parts[0];
+      if (axisSTLOffsets[axIdx] && first) {
+        axisSTLOffsets[axIdx] = {
+          px: first.posx||0, py: first.posy||0, pz: first.posz||0,
+          rx: first.posrx||0, ry: first.posry||0, rz: first.posrz||0
         };
       }
-      // Try ZIP buffer: use name, then key (a1,a2...), then axis name
-      var fname = (val.name || '').replace(/\.stl$/i,'').toLowerCase();
-      var keyLower = key.toLowerCase(); // 'a1','a2'...
-      var buf = stlBuffers[fname] || stlBuffers[keyLower] || stlBuffers['axis'+keyLower];
-      if (buf) {
-        // Cache for loadDefaultSTLs fallback
-        if (!window._zipSTLCache) window._zipSTLCache = {};
-        window._zipSTLCache[keyLower] = buf;
-        var dispName = (fname && fname !== '—' && fname !== '-') ? fname : keyLower;
-        loadAxisSTLFromBase64(idx, null, dispName+'.stl', buf, val.color);
-      } else if (val.data) {
-        loadAxisSTLFromBase64(idx, val.data, val.name || key+'.stl', null, val.color);
+      // Load each part — remove old meshes first
+      if (axisSTLMeshes[axIdx]) {
+        scene.remove(axisSTLMeshes[axIdx]);
+        axisSTLMeshes[axIdx].geometry.dispose();
+        axisSTLMeshes[axIdx] = null;
       }
+      // Remove extra parts from previous load
+      if (!window._axisExtraMeshes) window._axisExtraMeshes = {};
+      (window._axisExtraMeshes[axIdx]||[]).forEach(function(m){ scene.remove(m); m.geometry.dispose(); });
+      window._axisExtraMeshes[axIdx] = [];
+      var keyLower = key.toLowerCase();
+      parts.forEach(function(p, pi) {
+        var fname = (p.name||'').replace(/\.stl$/i,'').toLowerCase();
+        var buf = stlBuffers[fname] || (pi===0 ? stlBuffers[keyLower]||stlBuffers['axis'+keyLower] : null);
+        if (!buf && p.data) { /* base64 fallback */ }
+        if (!buf) return;
+        if (!window._zipSTLCache) window._zipSTLCache = {};
+        if (pi===0) window._zipSTLCache[keyLower] = buf;
+        var dispName = (fname&&fname!=='—'&&fname!=='-') ? fname+'.stl' : keyLower+'.stl';
+        parseGeometry(buf, dispName).then(function(geo) {
+          var mat = new THREE.MeshPhongMaterial({color: p.color||0xe8a020, shininess:80});
+          var mesh = new THREE.Mesh(geo, mat);
+          scene.add(mesh);
+          if (pi===0) {
+            axisSTLMeshes[axIdx] = mesh;
+            window['_axisSTLBuffer'+axIdx] = buf;
+            if (!window._axisSTLBuffers) window._axisSTLBuffers = {};
+            window._axisSTLBuffers[axIdx] = buf;
+            var nameEl = document.getElementById('asl-name'+axIdx);
+            if (nameEl) nameEl.textContent = dispName.replace(/\.stl$/i,'');
+            var delEl = document.getElementById('asl-del'+axIdx);
+            if (delEl) delEl.style.display='';
+          } else {
+            window._axisExtraMeshes[axIdx].push(mesh);
+          }
+          buildRobotModel(jointAngles);
+        });
+      });
     });
   }
   // Scene models from ZIP
