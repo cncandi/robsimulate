@@ -1947,6 +1947,194 @@ function sceneSpeichern() {
     });
 }
 
+
+// ── Library Picker Modal ──────────────────────────────────────────
+var _libPickerType = null;
+var _libPickerItems = [];
+
+function openLibPickerModal(type) {
+  _libPickerType = type;
+  var titles = {positioner:'🔄 Positionierer', object:'📦 Objekte', station:'🏗️ Stationen'};
+  var el = document.getElementById('libPickerTitle');
+  if (el) el.textContent = titles[type] || 'Library';
+  document.getElementById('libPickerSearch').value = '';
+  document.getElementById('libPickerList').innerHTML = '<div style="color:var(--txt3);padding:8px;font-family:monospace;font-size:12px">Lade…</div>';
+  var m = document.getElementById('libPickerModal');
+  m.style.cssText = 'display:flex;position:fixed;inset:0;z-index:2000;background:rgba(0,0,0,.7);align-items:center;justify-content:center';
+  fetch('https://cnc-technik.de/robsimul/roblib/api.php?action=list')
+    .then(function(r){return r.json();})
+    .then(function(data){
+      _libPickerItems = (data.robots||[]).filter(function(r){return (r.type||'robot')===type;});
+      renderLibPickerList('');
+    }).catch(function(e){
+      document.getElementById('libPickerList').innerHTML = '<div style="color:#f87171;padding:8px;font-family:monospace;font-size:11px">Fehler: '+e.message+'</div>';
+    });
+}
+
+function closeLibPickerModal() {
+  document.getElementById('libPickerModal').style.display = 'none';
+  _libPickerType = null;
+}
+
+function renderLibPickerList(q) {
+  var el = document.getElementById('libPickerList'); if(!el) return;
+  var items = q ? _libPickerItems.filter(function(r){return r.name.toLowerCase().includes(q.toLowerCase());}) : _libPickerItems;
+  if (!items.length) { el.innerHTML='<div style="color:var(--txt3);padding:8px;font-family:monospace;font-size:12px">Keine Einträge.</div>'; return; }
+  el.innerHTML = items.map(function(r,i){return '<div style="display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid rgba(255,255,255,.06)">'
+    +'<div style="flex:1;min-width:0"><div style="font-family:monospace;font-size:12px;color:var(--txt)">'+(r.name||'')+'</div>'
+    +'<div style="font-size:10px;color:var(--txt3)">'+(r.marke||'')+' '+(r.modell||'')+'</div></div>'
+    +'<button data-lib-pick="'+i+'" style="padding:2px 10px;background:rgba(37,99,235,.2);border:1px solid rgba(37,99,235,.4);color:#60a5fa;border-radius:3px;cursor:pointer;font-family:monospace;font-size:11px">Laden</button>'
+    +'</div>';
+  }).join('');
+  el.querySelectorAll('[data-lib-pick]').forEach(function(btn){
+    btn.onclick = function(){ loadLibItem(_libPickerType, _libPickerItems[+btn.dataset.libPick]); closeLibPickerModal(); };
+  });
+}
+
+document.addEventListener('DOMContentLoaded', function(){
+  var si = document.getElementById('libPickerSearch');
+  if (si) si.addEventListener('input', function(){ renderLibPickerList(this.value); });
+  document.getElementById('libPickerModal')?.addEventListener('click', function(e){
+    if (e.target===document.getElementById('libPickerModal')) closeLibPickerModal();
+  });
+  // Objekt STL direkt laden
+  var oi = document.getElementById('obj-stl-input');
+  if (oi) oi.addEventListener('change', function(e){
+    Array.from(e.target.files).forEach(function(file){ loadObjectSTL(file); });
+    e.target.value='';
+  });
+});
+
+// ── Library Item Loading ──────────────────────────────────────────
+var positioners = [];  // {id, name, joints, stlMeshes, angles, grp, offset}
+var objects = [];      // {id, name, mesh, offset}
+
+async function loadLibItem(type, robot) {
+  var resp = await fetch(robot.zip_url);
+  var blob = await resp.blob();
+  var zip = await JSZip.loadAsync(blob);
+  var jsonFile = null;
+  zip.forEach(function(path,entry){ if(!entry.dir&&path.endsWith('.json')) jsonFile=entry; });
+  if (!jsonFile) { setStatus('paused','Kein JSON in ZIP'); return; }
+  var jsonStr = await jsonFile.async('string');
+  var data = JSON.parse(jsonStr);
+  var stlBufs = {};
+  var proms = [];
+  zip.forEach(function(path,entry){
+    if(!entry.dir&&path.toLowerCase().endsWith('.stl')){
+      var fname=path.replace(/.*\//,'').toLowerCase().replace(/\.stl$/i,'');
+      proms.push(entry.async('arraybuffer').then(function(buf){ stlBufs[fname]=buf; }));
+    }
+  });
+  await Promise.all(proms);
+  if (type==='positioner') { await loadPositioner(robot, data, stlBufs); }
+  else if (type==='object') { await loadObjectFromLib(robot, data, stlBufs); }
+  else if (type==='station') { await loadStation(robot, data, stlBufs); }
+}
+
+// ── Positionierer ─────────────────────────────────────────────────
+async function loadPositioner(robot, data, stlBufs) {
+  var pos = { id: robot.id, name: robot.name, grp: new THREE.Group(), stlMeshes: [], angles: [0,0,0,0,0,0], offset:{x:0,y:0,z:0,a:0,b:0,c:0} };
+  scene.add(pos.grp);
+  // Load STL meshes
+  var stlFiles = data.stlFiles || {};
+  for (var ax of ['A1','A2','A3','A4','A5','A6']) {
+    var info = stlFiles[ax]; if (!info) continue;
+    var parts = Array.isArray(info)?info:[info];
+    for (var p of parts) {
+      var fname=(p.name||'').replace(/\.stl$/i,'').toLowerCase();
+      var buf=stlBufs[fname]; if(!buf) continue;
+      var geo=stlLoader.parse(buf); geo.computeVertexNormals();
+      var mat=new THREE.MeshPhongMaterial({color:p.color||0xe8a020,shininess:80});
+      var mesh=new THREE.Mesh(geo,mat); pos.grp.add(mesh); pos.stlMeshes.push(mesh);
+    }
+  }
+  positioners.push(pos);
+  renderPositionerList();
+  setStatus('paused', 'Positionierer geladen: '+robot.name);
+}
+
+function renderPositionerList() {
+  var el = document.getElementById('positioner-list'); if(!el) return;
+  if (!positioners.length) { el.innerHTML='<div class="empty">Keine Positionierer geladen</div>'; return; }
+  el.innerHTML = positioners.map(function(pos,i){
+    var o=pos.offset||{};
+    return '<div style="border:1px solid rgba(255,255,255,.1);border-radius:4px;padding:8px;margin-bottom:6px">'
+      +'<div style="display:flex;align-items:center;gap:6px;margin-bottom:6px">'
+      +'<span style="flex:1;font-family:monospace;font-size:12px;color:var(--txt)">'+pos.name+'</span>'
+      +'<button onclick="removePositioner('+i+')" style="background:rgba(204,51,51,.15);border:1px solid rgba(204,51,51,.3);color:#f87171;border-radius:3px;padding:1px 6px;cursor:pointer;font-size:12px">✕</button></div>'
+      +'<div class="stl-grid">'
+      +'<span class="stl-lbl">X</span><input class="stl-inp" type="number" value="'+(o.x||0)+'" oninput="updatePositionerOffset('+i+','x',this.value)" step="1"><span class="stl-unit">mm</span>'
+      +'<span class="stl-lbl">Y</span><input class="stl-inp" type="number" value="'+(o.y||0)+'" oninput="updatePositionerOffset('+i+','y',this.value)" step="1"><span class="stl-unit">mm</span>'
+      +'<span class="stl-lbl">Z</span><input class="stl-inp" type="number" value="'+(o.z||0)+'" oninput="updatePositionerOffset('+i+','z',this.value)" step="1"><span class="stl-unit">mm</span>'
+      +'<span class="stl-lbl">A</span><input class="stl-inp" type="number" value="'+(o.a||0)+'" oninput="updatePositionerOffset('+i+','a',this.value)" step="1"><span class="stl-unit">°</span>'
+      +'<span class="stl-lbl">B</span><input class="stl-inp" type="number" value="'+(o.b||0)+'" oninput="updatePositionerOffset('+i+','b',this.value)" step="1"><span class="stl-unit">°</span>'
+      +'<span class="stl-lbl">C</span><input class="stl-inp" type="number" value="'+(o.c||0)+'" oninput="updatePositionerOffset('+i+','c',this.value)" step="1"><span class="stl-unit">°</span>'
+      +'</div></div>';
+  }).join('');
+}
+
+function updatePositionerOffset(idx, k, v) {
+  if (!positioners[idx]) return;
+  positioners[idx].offset[k] = parseFloat(v)||0;
+  applyPositionerOffset(idx);
+}
+
+function applyPositionerOffset(idx) {
+  var pos = positioners[idx]; if(!pos) return;
+  var o=pos.offset, r=Math.PI/180;
+  pos.grp.position.set(o.x||0,o.y||0,o.z||0);
+  pos.grp.rotation.set((o.c||0)*r,(o.b||0)*r,(o.a||0)*r,'ZYX');
+}
+
+function removePositioner(idx) {
+  var pos=positioners[idx]; if(!pos) return;
+  scene.remove(pos.grp);
+  positioners.splice(idx,1);
+  renderPositionerList();
+}
+
+// ── Bewegliche Objekte ────────────────────────────────────────────
+async function loadObjectFromLib(robot, data, stlBufs) {
+  var stlFiles = data.stlFiles || {};
+  var firstPart = null;
+  for (var ax of Object.keys(stlFiles)) {
+    var info=stlFiles[ax]; var parts=Array.isArray(info)?info:[info];
+    if (parts[0]) { firstPart=parts[0]; break; }
+  }
+  if (!firstPart) { setStatus('paused','Kein STL im Objekt'); return; }
+  var fname=(firstPart.name||'').replace(/\.stl$/i,'').toLowerCase();
+  var buf=stlBufs[fname]; if(!buf) { setStatus('paused','STL nicht gefunden'); return; }
+  var geo=stlLoader.parse(buf); geo.computeVertexNormals();
+  var mat=new THREE.MeshPhongMaterial({color:firstPart.color||0x4499cc,shininess:60,side:THREE.DoubleSide});
+  var mesh=new THREE.Mesh(geo,mat);
+  stlGrp.add(mesh);
+  stlObjects.push({mesh:mesh,name:robot.name+'.stl',buf:buf,offset:{x:0,y:0,z:0,a:0,b:0,c:0},displayName:robot.name});
+  stlNavIdx=stlObjects.length-1;
+  renderStlNav();
+  setStatus('paused','Objekt geladen: '+robot.name);
+}
+
+async function loadObjectSTL(file) {
+  var buf=await file.arrayBuffer();
+  var geo=await parseGeometry(buf,file.name); geo.computeVertexNormals();
+  var mat=new THREE.MeshPhongMaterial({color:0x4499cc,shininess:60,side:THREE.DoubleSide});
+  var mesh=new THREE.Mesh(geo,mat);
+  stlGrp.add(mesh);
+  stlObjects.push({mesh:mesh,name:file.name,buf:new Uint8Array(buf),offset:{x:0,y:0,z:0,a:0,b:0,c:0},displayName:file.name.replace(/\.stl$/i,'')});
+  stlNavIdx=stlObjects.length-1;
+  renderStlNav();
+}
+
+// ── Station ───────────────────────────────────────────────────────
+async function loadStation(robot, data, stlBufs) {
+  // Station: contains robot JSON → load as kinematic
+  if (data.joints) {
+    applyKinematicData(data, stlBufs);
+    setStatus('paused','Station geladen: '+robot.name);
+  }
+}
+
 function newKinematic() {
   if (!confirm(t('confirm_new_kin'))) return;
   JOINTS_DEF.forEach(j => { j.off=[0,0,0]; j.min=-180; j.max=180; });
