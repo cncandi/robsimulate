@@ -2215,9 +2215,10 @@ function toggleRail(active) {
 function _buildParametricRailMesh() {
   if (parametricRail.mesh) { parametricRail.grp.remove(parametricRail.mesh); parametricRail.mesh.geometry.dispose(); }
   var L=parametricRail.length, H=parametricRail.height, W=parametricRail.width, ax=parametricRail.axis;
-  var geo = (ax==='X+'||ax==='X-') ? new THREE.BoxGeometry(L,H,W) : new THREE.BoxGeometry(W,H,L);
-  var mat = new THREE.MeshPhongMaterial({color:0x2563eb, transparent:true, opacity:0.3, side:THREE.DoubleSide});
-  parametricRail.mesh = new THREE.Mesh(geo, mat);
+  var geo=(ax==='X+'||ax==='X-')?new THREE.BoxGeometry(L,H,W):new THREE.BoxGeometry(W,H,L);
+  var mat=new THREE.MeshPhongMaterial({color:0x2563eb,transparent:true,opacity:0.3,side:THREE.DoubleSide});
+  parametricRail.mesh=new THREE.Mesh(geo,mat);
+  parametricRail.mesh.position.y=-H/2; // top face at robot base (y=0)
   parametricRail.grp.add(parametricRail.mesh);
 }
 
@@ -2283,13 +2284,14 @@ function _applyRailTransform() {
 function _applyRailRobotPosition() {
   var L=parametricRail.length, H=parametricRail.height, p=parametricRail.position;
   var ax=parametricRail.axis, t=parametricRail.transform, r=Math.PI/180;
-  // Rail slides so robot (fixed at origin) appears to travel along rail
-  var cx=0, cy=-H/2, cz=0;
+  // Rail slides so robot (fixed) appears to travel. Box top = robot base (y=0).
+  // mesh is offset -H/2 internally, so railGroup.y=0 puts top at y=0.
+  var cx=0, cz=0;
   if      (ax==='X+') cx =  L/2 - p;
   else if (ax==='X-') cx = -(L/2 - p);
-  else if (ax==='Y+') cz =  L/2 - p;
+  else if (ax==='Z+') cz =  L/2 - p;
   else                cz = -(L/2 - p);
-  parametricRail.grp.position.set(t.x+cx, t.y+cy, t.z+cz);
+  parametricRail.grp.position.set(t.x+cx, t.y, t.z+cz);
   parametricRail.grp.rotation.set(t.rx*r, t.ry*r, t.rz*r, 'XYZ');
 }
 
