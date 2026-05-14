@@ -2131,45 +2131,61 @@ function removePositioner(idx) {
 
 // ── Schienen / Rails ─────────────────────────────────────────────
 async function loadRail(robot, data, stlBufs) {
-  var rail = { id: robot.id, name: robot.name, grp: new THREE.Group(), stlMeshes: [], position: 0, length: data.length_mm||1000, axis: data.axis||'X', offset:{x:0,y:0,z:0,a:0,b:0,c:0} };
-  scene.add(rail.grp);
-  var stlFiles = data.stlFiles || {};
-  for (var ax of Object.keys(stlFiles)) {
-    var info=stlFiles[ax]; var parts=Array.isArray(info)?info:[info];
-    for (var p of parts) {
-      var fname=(p.name||'').replace(/\.stl$/i,'').toLowerCase();
-      var buf=stlBufs[fname]; if(!buf) continue;
-      var geo=stlLoader.parse(buf); geo.computeVertexNormals();
-      var mat=new THREE.MeshPhongMaterial({color:p.color||0x607080,shininess:80});
-      var mesh=new THREE.Mesh(geo,mat); rail.grp.add(mesh); rail.stlMeshes.push(mesh);
-    }
+  if (parametricRail.mesh) { parametricRail.grp.remove(parametricRail.mesh); parametricRail.mesh.geometry.dispose(); parametricRail.mesh=null; }
+  parametricRail.length   = data.length_mm || 2000;
+  parametricRail.height   = data.height_mm || 200;
+  parametricRail.width    = data.width_mm  || 400;
+  parametricRail.axis     = data.axis      || 'X+';
+  parametricRail.name     = robot.name;
+  parametricRail.position = 0;
+  parametricRail.active   = true;
+  parametricRail.transform = {x:0, y:0, z:0, rx:0, ry:0, rz:0};
+  _buildParametricRailMesh();
+  renderRailPanel();
+  _autoPositionRailUnderRobot();
+  _applyRailTransform();
+  _applyRailRobotPosition();
+  setStatus('paused', 'Schiene geladen: ' + robot.name);
+}
+
+function renderRailPanel() {
+  var el = document.getElementById('rail-panel'); if(!el) return;
+  if (!parametricRail.active || !parametricRail.name) {
+    el.innerHTML = '<div class="empty">Keine Schiene geladen</div>';
+    return;
   }
-  rails.push(rail);
-  renderRailList();
-  setStatus('paused','Schiene geladen: '+robot.name);
+  var r = parametricRail;
+  el.innerHTML = '<div style="border:1px solid rgba(255,255,255,.1);border-radius:4px;padding:8px">'
+    +'<div style="display:flex;align-items:center;gap:6px;margin-bottom:6px">'
+    +'<span style="flex:1;font-family:monospace;font-size:12px;color:var(--txt)">🛤️ '+r.name+'</span>'
+    +'<button onclick="removeParametricRail()" style="background:rgba(204,51,51,.15);border:1px solid rgba(204,51,51,.3);color:#f87171;border-radius:3px;padding:1px 6px;cursor:pointer;font-size:12px">✕</button>'
+    +'</div>'
+    +'<div style="font-size:10px;color:var(--txt3);font-family:monospace;margin-bottom:8px">'+r.length+' × '+r.width+' × '+r.height+' mm | '+r.axis+'</div>'
+    +'<div style="font-size:10px;color:var(--txt3);font-family:monospace;letter-spacing:.06em;margin-bottom:4px">ROBOTER-POSITION</div>'
+    +'<div style="display:flex;align-items:center;gap:6px;margin-bottom:8px">'
+    +'<input type="range" id="rail-pos-slider" min="0" max="'+r.length+'" value="'+r.position+'" step="1" oninput="setRailPosition(+this.value)" style="flex:1;accent-color:var(--acc)">'
+    +'<input class="stl-inp" id="rail-pos-val" type="number" value="'+r.position+'" min="0" max="'+r.length+'" step="1" oninput="setRailPosition(+this.value)" style="width:72px">'
+    +'<span class="stl-unit">mm</span></div>'
+    +'<div style="font-size:10px;color:var(--txt3);font-family:monospace;letter-spacing:.06em;margin-bottom:4px">POSITION IM RAUM</div>'
+    +'<div class="stl-grid">'
+    +'<span class="stl-lbl">X</span><input class="stl-inp" id="rail-x" type="number" value="'+Math.round(r.transform.x)+'" step="1" oninput="updateRailTransform()"><span class="stl-unit">mm</span>'
+    +'<span class="stl-lbl">Y</span><input class="stl-inp" id="rail-y" type="number" value="'+Math.round(r.transform.y)+'" step="1" oninput="updateRailTransform()"><span class="stl-unit">mm</span>'
+    +'<span class="stl-lbl">Z</span><input class="stl-inp" id="rail-z" type="number" value="'+Math.round(r.transform.z)+'" step="1" oninput="updateRailTransform()"><span class="stl-unit">mm</span>'
+    +'<span class="stl-lbl">Rx</span><input class="stl-inp" id="rail-rx" type="number" value="'+r.transform.rx+'" step="1" oninput="updateRailTransform()"><span class="stl-unit">°</span>'
+    +'<span class="stl-lbl">Ry</span><input class="stl-inp" id="rail-ry" type="number" value="'+r.transform.ry+'" step="1" oninput="updateRailTransform()"><span class="stl-unit">°</span>'
+    +'<span class="stl-lbl">Rz</span><input class="stl-inp" id="rail-rz" type="number" value="'+r.transform.rz+'" step="1" oninput="updateRailTransform()"><span class="stl-unit">°</span>'
+    +'</div></div>';
 }
 
-function renderRailList() {
-  var el = document.getElementById('rail-list'); if(!el) return;
-  if (!rails.length) { el.innerHTML='<div class="empty">Keine Schienen geladen</div>'; return; }
-  el.innerHTML = rails.map(function(rail,i){
-    var o=rail.offset||{};
-    return '<div style="border:1px solid rgba(255,255,255,.1);border-radius:4px;padding:8px;margin-bottom:6px">'
-      +'<div style="display:flex;align-items:center;gap:6px;margin-bottom:6px">'
-      +'<span style="flex:1;font-family:monospace;font-size:12px;color:var(--txt)">🛤️ '+rail.name+'</span>'
-      +'<button onclick="removeRail('+i+')" style="background:rgba(204,51,51,.15);border:1px solid rgba(204,51,51,.3);color:#f87171;border-radius:3px;padding:1px 6px;cursor:pointer;font-size:12px">✕</button></div>'
-      +'<div class="stl-grid">'
-      +'<span class="stl-lbl">X</span><input class="stl-inp" type="number" value="'+(o.x||0)+'" oninput="updateRailOffset('+i+',&apos;x&apos;,this.value)" step="1"><span class="stl-unit">mm</span>'
-      +'<span class="stl-lbl">Y</span><input class="stl-inp" type="number" value="'+(o.y||0)+'" oninput="updateRailOffset('+i+',&apos;y&apos;,this.value)" step="1"><span class="stl-unit">mm</span>'
-      +'<span class="stl-lbl">Z</span><input class="stl-inp" type="number" value="'+(o.z||0)+'" oninput="updateRailOffset('+i+',&apos;z&apos;,this.value)" step="1"><span class="stl-unit">mm</span>'
-      +'<span class="stl-lbl">A</span><input class="stl-inp" type="number" value="'+(o.a||0)+'" oninput="updateRailOffset('+i+',&apos;a&apos;,this.value)" step="1"><span class="stl-unit">°</span>'
-      +'</div></div>';
-  }).join('');
+function removeParametricRail() {
+  if (parametricRail.mesh) { parametricRail.grp.remove(parametricRail.mesh); parametricRail.mesh.geometry.dispose(); parametricRail.mesh=null; }
+  parametricRail.active=false; parametricRail.name=null;
+  robotGrp.position.set(0,0,0);
+  renderRailPanel();
 }
 
-function updateRailOffset(idx,k,v){ if(!rails[idx])return; rails[idx].offset[k]=parseFloat(v)||0; applyRailOffset(idx); }
-function applyRailOffset(idx){ var r=rails[idx];if(!r)return;var o=r.offset,rad=Math.PI/180;r.grp.position.set(o.x||0,o.y||0,o.z||0);r.grp.rotation.set((o.c||0)*rad,(o.b||0)*rad,(o.a||0)*rad,'ZYX'); }
-function removeRail(idx){ var r=rails[idx];if(!r)return;scene.remove(r.grp);rails.splice(idx,1);renderRailList(); }
+function renderRailList() { renderRailPanel(); }
+
 
 // ── Parametrische Schiene ─────────────────────────────────────────
 var parametricRail = {
@@ -2327,6 +2343,7 @@ window.setRailAxis = setRailAxis;
 window.setRailPosition = setRailPosition;
 window.updateRailGeometry = updateRailGeometry;
 window.updateRailTransform = updateRailTransform;
+window.removeParametricRail = removeParametricRail;
 
 function newKinematic() {
   if (!confirm(t('confirm_new_kin'))) return;
