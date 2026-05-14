@@ -2191,7 +2191,7 @@ function renderRailList() { renderRailPanel(); }
 // ── Parametrische Schiene ─────────────────────────────────────────
 var parametricRail = {
   active: false, mesh: null, grp: null,
-  axis: 'X+', position: 0,
+  axis: 'Y+', position: 0,
   length: 2000, height: 200, width: 400,
   transform: {x:0, y:0, z:0, rx:0, ry:0, rz:0}
 };
