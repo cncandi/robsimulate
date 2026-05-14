@@ -2181,6 +2181,7 @@ function removeParametricRail() {
   if (parametricRail.mesh) { parametricRail.grp.remove(parametricRail.mesh); parametricRail.mesh.geometry.dispose(); parametricRail.mesh=null; }
   parametricRail.active=false; parametricRail.name=null;
   robotGrp.position.set(0,0,0);
+  robotGrp.position.set(0,0,0);
   renderRailPanel();
 }
 
@@ -2279,23 +2280,24 @@ function updateRailTransform() {
 }
 
 function _applyRailTransform() {
-  _applyRailRobotPosition(); // transform + slide combined
+  var t=parametricRail.transform, r=Math.PI/180;
+  parametricRail.grp.position.set(t.x, t.y, t.z);
+  parametricRail.grp.rotation.set(t.rx*r, t.ry*r, t.rz*r, 'XYZ');
 }
 
 function _applyRailRobotPosition() {
-  var L=parametricRail.length, H=parametricRail.height, p=parametricRail.position;
-  var ax=parametricRail.axis, t=parametricRail.transform, r=Math.PI/180;
-  // Rail slides so robot (fixed) appears to travel. Box top = robot base (y=0).
-  // mesh is offset -H/2 internally, so railGroup.y=0 puts top at y=0.
-  var cx=0, cy=0, cz=0;
-  if      (ax==='X+') cx =  L/2 - p;
-  else if (ax==='X-') cx = -(L/2 - p);
-  else if (ax==='Y+') cy =  L/2 - p;
-  else if (ax==='Y-') cy = -(L/2 - p);
-  else if (ax==='Z+') cz =  L/2 - p;
-  else                cz = -(L/2 - p);
-  parametricRail.grp.position.set(t.x+cx, t.y+cy, t.z+cz);
-  parametricRail.grp.rotation.set(t.rx*r, t.ry*r, t.rz*r, 'XYZ');
+  var p=parametricRail.position, ax=parametricRail.axis;
+  var t=parametricRail.transform, r=Math.PI/180;
+  var dir=new THREE.Vector3();
+  if      (ax==='X+') dir.set( 1,0,0);
+  else if (ax==='X-') dir.set(-1,0,0);
+  else if (ax==='Y+') dir.set(0, 1,0);
+  else if (ax==='Y-') dir.set(0,-1,0);
+  else if (ax==='Z+') dir.set(0,0, 1);
+  else                dir.set(0,0,-1);
+  dir.applyEuler(new THREE.Euler(t.rx*r, t.ry*r, t.rz*r, 'XYZ'));
+  robotGrp.position.set(t.x + dir.x*p, t.y + dir.y*p, t.z + dir.z*p);
+  _applyRailTransform();
 }
 
 // ── Bewegliche Objekte ────────────────────────────────────────────
