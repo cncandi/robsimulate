@@ -1952,23 +1952,42 @@ function sceneSpeichern() {
 var _libPickerType = null;
 var _libPickerItems = [];
 
+var _allLibItems = [];
+var _libPickerTabType = 'all';
+
 function openLibPickerModal(type) {
   _libPickerType = type;
-  var titles = {positioner:'🔄 Positionierer', object:'📦 Objekte', station:'🏗️ Stationen'};
+  _libPickerTabType = type === 'all' ? 'all' : type;
+  var titles = {all:'📚 Library', robot:'🦾 Roboter', positioner:'🔄 Positionierer', object:'📦 Objekte', station:'🏗️ Stationen', endeffektor:'🔧 Endeffektoren', umfeld:'🏭 Umfeld'};
   var el = document.getElementById('libPickerTitle');
   if (el) el.textContent = titles[type] || 'Library';
   document.getElementById('libPickerSearch').value = '';
   document.getElementById('libPickerList').innerHTML = '<div style="color:var(--txt3);padding:8px;font-family:monospace;font-size:12px">Lade…</div>';
+  // Set active tab
+  document.querySelectorAll('.lp-tab').forEach(function(b){
+    var active = b.dataset.lpType === _libPickerTabType;
+    b.style.background = active ? 'rgba(37,99,235,.2)' : 'rgba(255,255,255,.05)';
+    b.style.borderColor = active ? 'rgba(37,99,235,.4)' : 'rgba(255,255,255,.15)';
+    b.style.color = active ? '#60a5fa' : '#6a8fa8';
+    b.classList.toggle('on', active);
+  });
   var m = document.getElementById('libPickerModal');
   m.style.cssText = 'display:flex;position:fixed;inset:0;z-index:2000;background:rgba(0,0,0,.7);align-items:center;justify-content:center';
+  if (_allLibItems.length) { applyLibPickerFilter(); return; }
   fetch('https://cnc-technik.de/robsimul/roblib/api.php?action=list')
     .then(function(r){return r.json();})
     .then(function(data){
-      _libPickerItems = (data.robots||[]).filter(function(r){return (r.type||'robot')===type;});
-      renderLibPickerList('');
+      _allLibItems = data.robots||[];
+      applyLibPickerFilter();
     }).catch(function(e){
       document.getElementById('libPickerList').innerHTML = '<div style="color:#f87171;padding:8px;font-family:monospace;font-size:11px">Fehler: '+e.message+'</div>';
     });
+}
+
+function applyLibPickerFilter() {
+  _libPickerItems = _libPickerTabType === 'all' ? _allLibItems :
+    _allLibItems.filter(function(r){ return (r.type||'robot') === _libPickerTabType; });
+  renderLibPickerList(document.getElementById('libPickerSearch').value||'');
 }
 
 function closeLibPickerModal() {
@@ -1987,13 +2006,25 @@ function renderLibPickerList(q) {
     +'</div>';
   }).join('');
   el.querySelectorAll('[data-lib-pick]').forEach(function(btn){
-    btn.onclick = function(){ loadLibItem(_libPickerType, _libPickerItems[+btn.dataset.libPick]); closeLibPickerModal(); };
+    btn.onclick = function(){ var item=_libPickerItems[+btn.dataset.libPick]; loadLibItem(item.type||_libPickerType, item); closeLibPickerModal(); };
   });
 }
 
 document.addEventListener('DOMContentLoaded', function(){
   var si = document.getElementById('libPickerSearch');
   if (si) si.addEventListener('input', function(){ renderLibPickerList(this.value); });
+  document.addEventListener('click', function(e){
+    var tab = e.target.closest('.lp-tab');
+    if (!tab) return;
+    _libPickerTabType = tab.dataset.lpType || 'all';
+    document.querySelectorAll('.lp-tab').forEach(function(b){
+      var active = b.dataset.lpType === _libPickerTabType;
+      b.style.background = active ? 'rgba(37,99,235,.2)' : 'rgba(255,255,255,.05)';
+      b.style.borderColor = active ? 'rgba(37,99,235,.4)' : 'rgba(255,255,255,.15)';
+      b.style.color = active ? '#60a5fa' : '#6a8fa8';
+    });
+    applyLibPickerFilter();
+  });
   document.getElementById('libPickerModal')?.addEventListener('click', function(e){
     if (e.target===document.getElementById('libPickerModal')) closeLibPickerModal();
   });
@@ -2027,9 +2058,11 @@ async function loadLibItem(type, robot) {
     }
   });
   await Promise.all(proms);
-  if (type==='positioner') { await loadPositioner(robot, data, stlBufs); }
-  else if (type==='object') { await loadObjectFromLib(robot, data, stlBufs); }
-  else if (type==='station') { await loadStation(robot, data, stlBufs); }
+  var t = type || (data.type) || 'robot';
+  if (t==='positioner') { await loadPositioner(robot, data, stlBufs); }
+  else if (t==='object') { await loadObjectFromLib(robot, data, stlBufs); }
+  else if (t==='station') { await loadStation(robot, data, stlBufs); }
+  else { applyKinematicData(data, stlBufs); setStatus('paused','Geladen: '+robot.name); }
 }
 
 // ── Positionierer ─────────────────────────────────────────────────
@@ -2064,12 +2097,12 @@ function renderPositionerList() {
       +'<span style="flex:1;font-family:monospace;font-size:12px;color:var(--txt)">'+pos.name+'</span>'
       +'<button onclick="removePositioner('+i+')" style="background:rgba(204,51,51,.15);border:1px solid rgba(204,51,51,.3);color:#f87171;border-radius:3px;padding:1px 6px;cursor:pointer;font-size:12px">✕</button></div>'
       +'<div class="stl-grid">'
-      +'<span class="stl-lbl">X</span><input class="stl-inp" type="number" value="'+(o.x||0)+'" oninput="updatePositionerOffset('+i+','x',this.value)" step="1"><span class="stl-unit">mm</span>'
-      +'<span class="stl-lbl">Y</span><input class="stl-inp" type="number" value="'+(o.y||0)+'" oninput="updatePositionerOffset('+i+','y',this.value)" step="1"><span class="stl-unit">mm</span>'
-      +'<span class="stl-lbl">Z</span><input class="stl-inp" type="number" value="'+(o.z||0)+'" oninput="updatePositionerOffset('+i+','z',this.value)" step="1"><span class="stl-unit">mm</span>'
-      +'<span class="stl-lbl">A</span><input class="stl-inp" type="number" value="'+(o.a||0)+'" oninput="updatePositionerOffset('+i+','a',this.value)" step="1"><span class="stl-unit">°</span>'
-      +'<span class="stl-lbl">B</span><input class="stl-inp" type="number" value="'+(o.b||0)+'" oninput="updatePositionerOffset('+i+','b',this.value)" step="1"><span class="stl-unit">°</span>'
-      +'<span class="stl-lbl">C</span><input class="stl-inp" type="number" value="'+(o.c||0)+'" oninput="updatePositionerOffset('+i+','c',this.value)" step="1"><span class="stl-unit">°</span>'
+      +'<span class="stl-lbl">X</span><input class="stl-inp" type="number" value="'+(o.x||0)+'" oninput="updatePositionerOffset('+i+',&apos;x&apos;,this.value)" step="1"><span class="stl-unit">mm</span>'
+      +'<span class="stl-lbl">Y</span><input class="stl-inp" type="number" value="'+(o.y||0)+'" oninput="updatePositionerOffset('+i+',&apos;y&apos;,this.value)" step="1"><span class="stl-unit">mm</span>'
+      +'<span class="stl-lbl">Z</span><input class="stl-inp" type="number" value="'+(o.z||0)+'" oninput="updatePositionerOffset('+i+',&apos;z&apos;,this.value)" step="1"><span class="stl-unit">mm</span>'
+      +'<span class="stl-lbl">A</span><input class="stl-inp" type="number" value="'+(o.a||0)+'" oninput="updatePositionerOffset('+i+',&apos;a&apos;,this.value)" step="1"><span class="stl-unit">°</span>'
+      +'<span class="stl-lbl">B</span><input class="stl-inp" type="number" value="'+(o.b||0)+'" oninput="updatePositionerOffset('+i+',&apos;b&apos;,this.value)" step="1"><span class="stl-unit">°</span>'
+      +'<span class="stl-lbl">C</span><input class="stl-inp" type="number" value="'+(o.c||0)+'" oninput="updatePositionerOffset('+i+',&apos;c&apos;,this.value)" step="1"><span class="stl-unit">°</span>'
       +'</div></div>';
   }).join('');
 }
