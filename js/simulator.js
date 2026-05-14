@@ -1958,7 +1958,7 @@ var _libPickerTabType = 'all';
 function openLibPickerModal(type) {
   _libPickerType = type;
   _libPickerTabType = type === 'all' ? 'all' : type;
-  var titles = {all:'📚 Library', robot:'🦾 Roboter', positioner:'🔄 Positionierer', object:'📦 Objekte', station:'🏗️ Stationen', endeffektor:'🔧 Endeffektoren', umfeld:'🏭 Umfeld'};
+  var titles = {all:'📚 Library', robot:'🦾 Roboter', positioner:'🔄 Positionierer', rail:'🛤️ Schienen', object:'📦 Objekte', station:'🏗️ Stationen', endeffektor:'🔧 Endeffektoren', umfeld:'🏭 Umfeld'};
   var el = document.getElementById('libPickerTitle');
   if (el) el.textContent = titles[type] || 'Library';
   document.getElementById('libPickerSearch').value = '';
@@ -2037,6 +2037,7 @@ document.addEventListener('DOMContentLoaded', function(){
 });
 
 // ── Library Item Loading ──────────────────────────────────────────
+var rails = [];  // {id, name, stlMeshes, grp, offset, position, length, axis}
 var positioners = [];  // {id, name, joints, stlMeshes, angles, grp, offset}
 var objects = [];      // {id, name, mesh, offset}
 
@@ -2060,6 +2061,7 @@ async function loadLibItem(type, robot) {
   await Promise.all(proms);
   var t = type || (data.type) || 'robot';
   if (t==='positioner') { await loadPositioner(robot, data, stlBufs); }
+  else if (t==='rail') { await loadRail(robot, data, stlBufs); }
   else if (t==='object') { await loadObjectFromLib(robot, data, stlBufs); }
   else if (t==='station') { await loadStation(robot, data, stlBufs); }
   else { applyKinematicData(data, stlBufs); setStatus('paused','Geladen: '+robot.name); }
@@ -2126,6 +2128,48 @@ function removePositioner(idx) {
   positioners.splice(idx,1);
   renderPositionerList();
 }
+
+// ── Schienen / Rails ─────────────────────────────────────────────
+async function loadRail(robot, data, stlBufs) {
+  var rail = { id: robot.id, name: robot.name, grp: new THREE.Group(), stlMeshes: [], position: 0, length: data.length_mm||1000, axis: data.axis||'X', offset:{x:0,y:0,z:0,a:0,b:0,c:0} };
+  scene.add(rail.grp);
+  var stlFiles = data.stlFiles || {};
+  for (var ax of Object.keys(stlFiles)) {
+    var info=stlFiles[ax]; var parts=Array.isArray(info)?info:[info];
+    for (var p of parts) {
+      var fname=(p.name||'').replace(/\.stl$/i,'').toLowerCase();
+      var buf=stlBufs[fname]; if(!buf) continue;
+      var geo=stlLoader.parse(buf); geo.computeVertexNormals();
+      var mat=new THREE.MeshPhongMaterial({color:p.color||0x607080,shininess:80});
+      var mesh=new THREE.Mesh(geo,mat); rail.grp.add(mesh); rail.stlMeshes.push(mesh);
+    }
+  }
+  rails.push(rail);
+  renderRailList();
+  setStatus('paused','Schiene geladen: '+robot.name);
+}
+
+function renderRailList() {
+  var el = document.getElementById('rail-list'); if(!el) return;
+  if (!rails.length) { el.innerHTML='<div class="empty">Keine Schienen geladen</div>'; return; }
+  el.innerHTML = rails.map(function(rail,i){
+    var o=rail.offset||{};
+    return '<div style="border:1px solid rgba(255,255,255,.1);border-radius:4px;padding:8px;margin-bottom:6px">'
+      +'<div style="display:flex;align-items:center;gap:6px;margin-bottom:6px">'
+      +'<span style="flex:1;font-family:monospace;font-size:12px;color:var(--txt)">🛤️ '+rail.name+'</span>'
+      +'<button onclick="removeRail('+i+')" style="background:rgba(204,51,51,.15);border:1px solid rgba(204,51,51,.3);color:#f87171;border-radius:3px;padding:1px 6px;cursor:pointer;font-size:12px">✕</button></div>'
+      +'<div class="stl-grid">'
+      +'<span class="stl-lbl">X</span><input class="stl-inp" type="number" value="'+(o.x||0)+'" oninput="updateRailOffset('+i+',&apos;x&apos;,this.value)" step="1"><span class="stl-unit">mm</span>'
+      +'<span class="stl-lbl">Y</span><input class="stl-inp" type="number" value="'+(o.y||0)+'" oninput="updateRailOffset('+i+',&apos;y&apos;,this.value)" step="1"><span class="stl-unit">mm</span>'
+      +'<span class="stl-lbl">Z</span><input class="stl-inp" type="number" value="'+(o.z||0)+'" oninput="updateRailOffset('+i+',&apos;z&apos;,this.value)" step="1"><span class="stl-unit">mm</span>'
+      +'<span class="stl-lbl">A</span><input class="stl-inp" type="number" value="'+(o.a||0)+'" oninput="updateRailOffset('+i+',&apos;a&apos;,this.value)" step="1"><span class="stl-unit">°</span>'
+      +'</div></div>';
+  }).join('');
+}
+
+function updateRailOffset(idx,k,v){ if(!rails[idx])return; rails[idx].offset[k]=parseFloat(v)||0; applyRailOffset(idx); }
+function applyRailOffset(idx){ var r=rails[idx];if(!r)return;var o=r.offset,rad=Math.PI/180;r.grp.position.set(o.x||0,o.y||0,o.z||0);r.grp.rotation.set((o.c||0)*rad,(o.b||0)*rad,(o.a||0)*rad,'ZYX'); }
+function removeRail(idx){ var r=rails[idx];if(!r)return;scene.remove(r.grp);rails.splice(idx,1);renderRailList(); }
 
 // ── Bewegliche Objekte ────────────────────────────────────────────
 async function loadObjectFromLib(robot, data, stlBufs) {
