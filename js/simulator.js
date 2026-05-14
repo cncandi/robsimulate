@@ -2212,6 +2212,12 @@ async function loadStation(robot, data, stlBufs) {
   }
 }
 
+window.toggleRail = toggleRail;
+window.setRailAxis = setRailAxis;
+window.setRailPosition = setRailPosition;
+window.updateRailGeometry = updateRailGeometry;
+window.updateRailTransform = updateRailTransform;
+
 function newKinematic() {
   if (!confirm(t('confirm_new_kin'))) return;
   JOINTS_DEF.forEach(j => { j.off=[0,0,0]; j.min=-180; j.max=180; });
