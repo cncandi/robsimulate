@@ -451,6 +451,16 @@
       </div>
     </div>
 
+    <!-- Schienen / Rails -->
+    <div class="sec collapsed">
+      <div class="sec-t" onclick="toggleSec(this)"><span class="tog">▼</span>🛤️ Schienen / Rails
+        <button class="add-btn" onclick="event.stopPropagation();openLibPickerModal('rail')" style="background:rgba(37,99,235,.2);border-color:rgba(37,99,235,.5);color:#60a5fa">+ Library</button>
+      </div>
+      <div class="sec-b" id="rail-list">
+        <div class="empty">Keine Schienen geladen</div>
+      </div>
+    </div>
+
     <!-- Objekte -->
     <div class="sec collapsed">
       <div class="sec-t" onclick="toggleSec(this)"><span class="tog">▼</span>📦 Bewegliche Objekte
@@ -834,6 +844,7 @@ function loadRobotFromLib(r) {
       <button class="lp-tab" data-lp-type="positioner" style="font-size:10px;padding:2px 8px;border-radius:3px;cursor:pointer;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.15);color:#6a8fa8;font-family:monospace">🔄</button>
       <button class="lp-tab" data-lp-type="object" style="font-size:10px;padding:2px 8px;border-radius:3px;cursor:pointer;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.15);color:#6a8fa8;font-family:monospace">📦</button>
       <button class="lp-tab" data-lp-type="station" style="font-size:10px;padding:2px 8px;border-radius:3px;cursor:pointer;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.15);color:#6a8fa8;font-family:monospace">🏗️</button>
+      <button class="lp-tab" data-lp-type="rail" style="font-size:10px;padding:2px 8px;border-radius:3px;cursor:pointer;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.15);color:#6a8fa8;font-family:monospace">🛤️</button>
       <button class="lp-tab" data-lp-type="endeffektor" style="font-size:10px;padding:2px 8px;border-radius:3px;cursor:pointer;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.15);color:#6a8fa8;font-family:monospace">🔧</button>
       <button class="lp-tab" data-lp-type="umfeld" style="font-size:10px;padding:2px 8px;border-radius:3px;cursor:pointer;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.15);color:#6a8fa8;font-family:monospace">🏭</button>
     </div>
