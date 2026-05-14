@@ -2224,16 +2224,12 @@ function _buildParametricRailMesh() {
 function _autoPositionRailUnderRobot() {
   var t=parametricRail.transform;
   if (t.rx||t.ry||t.rz) return;
-  var L=parametricRail.length, H=parametricRail.height, p=parametricRail.position, ax=parametricRail.axis;
-  var ty=robotGrp.position.y - H/2, tx, tz;
-  if      (ax==='X+') { tx=robotGrp.position.x-(p-L/2); tz=robotGrp.position.z; }
-  else if (ax==='X-') { tx=robotGrp.position.x-(L/2-p); tz=robotGrp.position.z; }
-  else if (ax==='Y+') { tx=robotGrp.position.x; tz=robotGrp.position.z-(p-L/2); }
-  else                { tx=robotGrp.position.x; tz=robotGrp.position.z-(L/2-p); }
-  t.x=tx; t.y=ty; t.z=tz;
-  document.getElementById('rail-x').value=Math.round(tx);
-  document.getElementById('rail-y').value=Math.round(ty);
-  document.getElementById('rail-z').value=Math.round(tz);
+  // Robot stays at origin; set base offset to 0 (rail will slide via _applyRailRobotPosition)
+  t.x=0; t.y=0; t.z=0;
+  var el;
+  if((el=document.getElementById('rail-x'))) el.value=0;
+  if((el=document.getElementById('rail-y'))) el.value=0;
+  if((el=document.getElementById('rail-z'))) el.value=0;
 }
 
 function updateRailGeometry() {
@@ -2281,20 +2277,20 @@ function updateRailTransform() {
 }
 
 function _applyRailTransform() {
-  var t=parametricRail.transform, r=Math.PI/180;
-  parametricRail.grp.position.set(t.x, t.y, t.z);
-  parametricRail.grp.rotation.set(t.rx*r, t.ry*r, t.rz*r, 'XYZ');
+  _applyRailRobotPosition(); // transform + slide combined
 }
 
 function _applyRailRobotPosition() {
-  var L=parametricRail.length, H=parametricRail.height, p=parametricRail.position, ax=parametricRail.axis;
-  var local=new THREE.Vector3();
-  if      (ax==='X+') local.set(p-L/2, H/2, 0);
-  else if (ax==='X-') local.set(L/2-p, H/2, 0);
-  else if (ax==='Y+') local.set(0, H/2, p-L/2);
-  else                local.set(0, H/2, L/2-p);
-  parametricRail.grp.localToWorld(local);
-  robotGrp.position.copy(local);
+  var L=parametricRail.length, H=parametricRail.height, p=parametricRail.position;
+  var ax=parametricRail.axis, t=parametricRail.transform, r=Math.PI/180;
+  // Rail slides so robot (fixed at origin) appears to travel along rail
+  var cx=0, cy=-H/2, cz=0;
+  if      (ax==='X+') cx =  L/2 - p;
+  else if (ax==='X-') cx = -(L/2 - p);
+  else if (ax==='Y+') cz =  L/2 - p;
+  else                cz = -(L/2 - p);
+  parametricRail.grp.position.set(t.x+cx, t.y+cy, t.z+cz);
+  parametricRail.grp.rotation.set(t.rx*r, t.ry*r, t.rz*r, 'XYZ');
 }
 
 // ── Bewegliche Objekte ────────────────────────────────────────────
