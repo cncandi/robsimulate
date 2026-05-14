@@ -2171,6 +2171,116 @@ function updateRailOffset(idx,k,v){ if(!rails[idx])return; rails[idx].offset[k]=
 function applyRailOffset(idx){ var r=rails[idx];if(!r)return;var o=r.offset,rad=Math.PI/180;r.grp.position.set(o.x||0,o.y||0,o.z||0);r.grp.rotation.set((o.c||0)*rad,(o.b||0)*rad,(o.a||0)*rad,'ZYX'); }
 function removeRail(idx){ var r=rails[idx];if(!r)return;scene.remove(r.grp);rails.splice(idx,1);renderRailList(); }
 
+// ── Parametrische Schiene ─────────────────────────────────────────
+var parametricRail = {
+  active: false, mesh: null, grp: null,
+  axis: 'X+', position: 0,
+  length: 2000, height: 200, width: 400,
+  transform: {x:0, y:0, z:0, rx:0, ry:0, rz:0}
+};
+(function(){ parametricRail.grp = new THREE.Group(); scene.add(parametricRail.grp); })();
+
+function toggleRail(active) {
+  parametricRail.active = active;
+  if (!active) {
+    if (parametricRail.mesh) { parametricRail.grp.remove(parametricRail.mesh); parametricRail.mesh.geometry.dispose(); parametricRail.mesh=null; }
+    return;
+  }
+  parametricRail.length = parseFloat(document.getElementById('rail-length').value)||2000;
+  parametricRail.height = parseFloat(document.getElementById('rail-height').value)||200;
+  parametricRail.width  = parseFloat(document.getElementById('rail-width').value)||400;
+  var slider=document.getElementById('rail-pos-slider'); if(slider) slider.max=parametricRail.length;
+  _buildParametricRailMesh();
+  _autoPositionRailUnderRobot();
+  _applyRailTransform();
+  _applyRailRobotPosition();
+}
+
+function _buildParametricRailMesh() {
+  if (parametricRail.mesh) { parametricRail.grp.remove(parametricRail.mesh); parametricRail.mesh.geometry.dispose(); }
+  var L=parametricRail.length, H=parametricRail.height, W=parametricRail.width, ax=parametricRail.axis;
+  var geo = (ax==='X+'||ax==='X-') ? new THREE.BoxGeometry(L,H,W) : new THREE.BoxGeometry(W,H,L);
+  var mat = new THREE.MeshPhongMaterial({color:0x2563eb, transparent:true, opacity:0.3, side:THREE.DoubleSide});
+  parametricRail.mesh = new THREE.Mesh(geo, mat);
+  parametricRail.grp.add(parametricRail.mesh);
+}
+
+function _autoPositionRailUnderRobot() {
+  var t=parametricRail.transform;
+  if (t.rx||t.ry||t.rz) return;
+  var L=parametricRail.length, H=parametricRail.height, p=parametricRail.position, ax=parametricRail.axis;
+  var ty=robotGrp.position.y - H/2, tx, tz;
+  if      (ax==='X+') { tx=robotGrp.position.x-(p-L/2); tz=robotGrp.position.z; }
+  else if (ax==='X-') { tx=robotGrp.position.x-(L/2-p); tz=robotGrp.position.z; }
+  else if (ax==='Y+') { tx=robotGrp.position.x; tz=robotGrp.position.z-(p-L/2); }
+  else                { tx=robotGrp.position.x; tz=robotGrp.position.z-(L/2-p); }
+  t.x=tx; t.y=ty; t.z=tz;
+  document.getElementById('rail-x').value=Math.round(tx);
+  document.getElementById('rail-y').value=Math.round(ty);
+  document.getElementById('rail-z').value=Math.round(tz);
+}
+
+function updateRailGeometry() {
+  parametricRail.length = parseFloat(document.getElementById('rail-length').value)||2000;
+  parametricRail.height = parseFloat(document.getElementById('rail-height').value)||200;
+  parametricRail.width  = parseFloat(document.getElementById('rail-width').value)||400;
+  var slider=document.getElementById('rail-pos-slider'); if(slider) slider.max=parametricRail.length;
+  if (!parametricRail.active) return;
+  _buildParametricRailMesh();
+  _applyRailRobotPosition();
+}
+
+function setRailAxis(ax) {
+  parametricRail.axis = ax;
+  document.querySelectorAll('.rail-axis-btn').forEach(function(btn){
+    var on=btn.dataset.railAxis===ax;
+    btn.style.background=on?'rgba(37,99,235,.2)':'rgba(255,255,255,.05)';
+    btn.style.border=on?'1px solid rgba(37,99,235,.4)':'1px solid rgba(255,255,255,.15)';
+    btn.style.color=on?'#60a5fa':'#6a8fa8';
+  });
+  if (!parametricRail.active) return;
+  _buildParametricRailMesh();
+  _applyRailRobotPosition();
+}
+
+function setRailPosition(val) {
+  parametricRail.position = parseFloat(val)||0;
+  var slider=document.getElementById('rail-pos-slider'), inp=document.getElementById('rail-pos-val');
+  if(slider) slider.value=parametricRail.position;
+  if(inp)    inp.value=parametricRail.position;
+  if (!parametricRail.active) return;
+  _applyRailRobotPosition();
+}
+
+function updateRailTransform() {
+  var t=parametricRail.transform;
+  t.x  = parseFloat(document.getElementById('rail-x').value)||0;
+  t.y  = parseFloat(document.getElementById('rail-y').value)||0;
+  t.z  = parseFloat(document.getElementById('rail-z').value)||0;
+  t.rx = parseFloat(document.getElementById('rail-rx').value)||0;
+  t.ry = parseFloat(document.getElementById('rail-ry').value)||0;
+  t.rz = parseFloat(document.getElementById('rail-rz').value)||0;
+  _applyRailTransform();
+  if (parametricRail.active) _applyRailRobotPosition();
+}
+
+function _applyRailTransform() {
+  var t=parametricRail.transform, r=Math.PI/180;
+  parametricRail.grp.position.set(t.x, t.y, t.z);
+  parametricRail.grp.rotation.set(t.rx*r, t.ry*r, t.rz*r, 'XYZ');
+}
+
+function _applyRailRobotPosition() {
+  var L=parametricRail.length, H=parametricRail.height, p=parametricRail.position, ax=parametricRail.axis;
+  var local=new THREE.Vector3();
+  if      (ax==='X+') local.set(p-L/2, H/2, 0);
+  else if (ax==='X-') local.set(L/2-p, H/2, 0);
+  else if (ax==='Y+') local.set(0, H/2, p-L/2);
+  else                local.set(0, H/2, L/2-p);
+  parametricRail.grp.localToWorld(local);
+  robotGrp.position.copy(local);
+}
+
 // ── Bewegliche Objekte ────────────────────────────────────────────
 async function loadObjectFromLib(robot, data, stlBufs) {
   var stlFiles = data.stlFiles || {};
@@ -5571,4 +5681,5 @@ window.addEventListener('load', function() {
   FormatRegistry.setActive('kuka-form');
   if (typeof fvBuild === 'function') fvBuild(-1);
 });
+
 
