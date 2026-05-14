@@ -441,6 +441,28 @@
         <div style="display:none"><button class="sbtn on" onclick="updateBaseDef()" style="width:100%;background:var(--acc);color:#fff;border-color:#c04200;font-weight:bold">▶ Übernehmen</button></div>
       </div>
     </div>
+    <!-- Positionierer -->
+    <div class="sec collapsed">
+      <div class="sec-t" onclick="toggleSec(this)"><span class="tog">▼</span>🔄 Positionierer
+        <button class="add-btn" onclick="event.stopPropagation();openLibPickerModal('positioner')" style="background:rgba(37,99,235,.2);border-color:rgba(37,99,235,.5);color:#60a5fa">+ Library</button>
+      </div>
+      <div class="sec-b" id="positioner-list">
+        <div class="empty">Keine Positionierer geladen</div>
+      </div>
+    </div>
+
+    <!-- Objekte -->
+    <div class="sec collapsed">
+      <div class="sec-t" onclick="toggleSec(this)"><span class="tog">▼</span>📦 Bewegliche Objekte
+        <button class="add-btn" onclick="event.stopPropagation();openLibPickerModal('object')" style="background:rgba(37,99,235,.2);border-color:rgba(37,99,235,.5);color:#60a5fa">+ Library</button>
+        <button class="add-btn" onclick="event.stopPropagation();document.getElementById('obj-stl-input').click()">+ STL</button>
+        <input type="file" id="obj-stl-input" accept=".stl,.stp,.step" multiple style="display:none">
+      </div>
+      <div class="sec-b" id="object-list">
+        <div class="empty">Keine Objekte geladen</div>
+      </div>
+    </div>
+
     <!-- STL Scene -->
     <div class="sec collapsed">
       <div class="sec-t" onclick="toggleSec(this)"><span class="tog">▼</span>📦 STL Szenenmodelle
@@ -798,6 +820,18 @@ function loadRobotFromLib(r) {
   xhr.send();
 }
 </script>
+
+<!-- Library Picker Modal -->
+<div id="libPickerModal" style="display:none;position:fixed;inset:0;z-index:2000;background:rgba(0,0,0,.7);align-items:center;justify-content:center">
+  <div style="background:var(--bg2);border:1px solid var(--acc);border-radius:8px;padding:20px;width:440px;max-height:80vh;overflow-y:auto">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+      <h3 id="libPickerTitle" style="margin:0;color:var(--acc);font-family:monospace;font-size:14px">Library</h3>
+      <button onclick="closeLibPickerModal()" style="background:none;border:none;color:var(--txt3);font-size:18px;cursor:pointer">✕</button>
+    </div>
+    <input id="libPickerSearch" type="text" placeholder="Suchen…" style="width:100%;background:var(--bg1);border:1px solid var(--bdr);border-radius:3px;padding:5px 8px;font-family:monospace;font-size:12px;color:var(--txt);margin-bottom:8px;box-sizing:border-box">
+    <div id="libPickerList" style="max-height:400px;overflow-y:auto"></div>
+  </div>
+</div>
 
 </body>
 </html>
