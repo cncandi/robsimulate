@@ -2060,9 +2060,27 @@ async function loadLibItem(type, robot) {
   });
   await Promise.all(proms);
   var t = type || (data.type) || 'robot';
+  // items-Array: mehrere Elemente desselben Typs
+  if (data.items && Array.isArray(data.items)) {
+    for (var ii=0; ii<data.items.length; ii++) {
+      var item = data.items[ii];
+      var it = item.type || t;
+      if (it==='positioner') await loadPositioner(robot, item, stlBufs);
+      else if (it==='rail')  await loadRail(robot, item, stlBufs);
+      else if (it==='object'||it==='label') await loadObjectFromLib(robot, item, stlBufs);
+      else if (it==='fixture') loadFixture(item);
+      else if (it==='endeffektor') await loadEndeffektor(robot, item, stlBufs);
+      else if (it==='umfeld') await loadUmfeld(robot, item, stlBufs);
+    }
+    setStatus('paused', 'Geladen: '+robot.name+' ('+data.items.length+'×)');
+    return;
+  }
   if (t==='positioner') { await loadPositioner(robot, data, stlBufs); }
   else if (t==='rail') { await loadRail(robot, data, stlBufs); }
-  else if (t==='object') { await loadObjectFromLib(robot, data, stlBufs); }
+  else if (t==='object'||t==='label') { await loadObjectFromLib(robot, data, stlBufs); }
+  else if (t==='fixture') { loadFixture(data); setStatus('paused','Geladen: '+robot.name); }
+  else if (t==='endeffektor') { await loadEndeffektor(robot, data, stlBufs); }
+  else if (t==='umfeld') { await loadUmfeld(robot, data, stlBufs); }
   else if (t==='station') { await loadStation(robot, data, stlBufs); }
   else { applyKinematicData(data, stlBufs); setStatus('paused','Geladen: '+robot.name); }
 }
@@ -2334,11 +2352,89 @@ async function loadObjectSTL(file) {
 
 // ── Station ───────────────────────────────────────────────────────
 async function loadStation(robot, data, stlBufs) {
-  // Station: contains robot JSON → load as kinematic
-  if (data.joints) {
-    applyKinematicData(data, stlBufs);
-    setStatus('paused','Station geladen: '+robot.name);
+  var c = data.components || {};
+  // Robot
+  if (c.robot && c.robot.joints) { applyKinematicData(c.robot, stlBufs); }
+  else if (data.joints) { applyKinematicData(data, stlBufs); }
+  // Rail
+  if (c.rail) { await loadRail(robot, c.rail, stlBufs); }
+  // Positioners
+  if (Array.isArray(c.positioners)) {
+    for (var i=0;i<c.positioners.length;i++) await loadPositioner(robot, c.positioners[i], stlBufs);
   }
+  // Fixtures (feste Objekte)
+  if (Array.isArray(c.fixtures)) { c.fixtures.forEach(loadFixture); }
+  // Labels (bewegliche Objekte) – als statische STL/Objekte laden
+  if (Array.isArray(c.labels)) {
+    for (var i=0;i<c.labels.length;i++) await loadObjectFromLib(robot, c.labels[i], stlBufs);
+  }
+  // Endeffektoren
+  if (Array.isArray(c.effectors)) {
+    for (var i=0;i<c.effectors.length;i++) await loadEndeffektor(robot, c.effectors[i], stlBufs);
+  }
+  // Umfeld
+  if (Array.isArray(c.environment)) {
+    for (var i=0;i<c.environment.length;i++) await loadUmfeld(robot, c.environment[i], stlBufs);
+  }
+  setStatus('paused','Station geladen: '+robot.name);
+}
+
+// ── Fixture (festes Objekt, Primitiv) ────────────────────────────
+function loadFixture(data) {
+  var geo;
+  if ((data.objectType||'box') === 'cylinder') {
+    geo = new THREE.CylinderGeometry(
+      data.radius||200, data.radius||200,
+      data.height||500, 32
+    );
+  } else {
+    geo = new THREE.BoxGeometry(
+      data.length||500, data.height||500, data.width||500
+    );
+  }
+  var col = parseInt((data.color||'#607080').replace('#',''), 16);
+  var mat = new THREE.MeshPhongMaterial({color:col, shininess:40, transparent:true, opacity:0.75, side:THREE.DoubleSide});
+  var mesh = new THREE.Mesh(geo, mat);
+  mesh.position.set(data.x||0, data.y||0, data.z||0);
+  mesh.setRotationFromEuler(kukaEuler(data.rz||0, data.ry||0, data.rx||0));
+  stlGrp.add(mesh);
+  stlObjects.push({mesh:mesh, name:(data.name||'fixture'), buf:null, offset:{x:data.x||0,y:data.y||0,z:data.z||0,a:data.rz||0,b:data.ry||0,c:data.rx||0}, displayName:data.name||'Fixture'});
+  renderStlNav();
+}
+
+// ── Endeffektor ───────────────────────────────────────────────────
+async function loadEndeffektor(robot, data, stlBufs) {
+  var stlKey = (data.stlFile||'').replace(/.*\//,'').replace(/\.stl$/i,'').toLowerCase();
+  var buf = stlBufs[stlKey];
+  if (!buf) { setStatus('paused','Endeffektor STL nicht gefunden: '+stlKey); return; }
+  var geo = stlLoader.parse(buf); geo.computeVertexNormals();
+  var mat = new THREE.MeshPhongMaterial({color:0xdd9944, shininess:60, side:THREE.DoubleSide});
+  if (toolMesh) { scene.remove(toolMesh); toolMesh.geometry.dispose(); toolMesh.material.dispose(); }
+  toolMesh = new THREE.Mesh(geo, mat);
+  scene.add(toolMesh);
+  window._toolSTLBuffer = buf;
+  var o = data.offset||{};
+  sceneSTLOffsets.tool = {x:o.x||0, y:o.y||0, z:o.z||0, a:o.rz||0, b:o.ry||0, c:o.rx||0, name:stlKey};
+  var el = document.getElementById('tool-filename'); if(el) el.textContent = stlKey;
+  var ec = document.getElementById('tool-controls'); if(ec) ec.style.display='block';
+  setStatus('paused','Endeffektor geladen: '+(data.name||stlKey));
+}
+
+// ── Umfeld (Umgebungsobjekt, STL) ─────────────────────────────────
+async function loadUmfeld(robot, data, stlBufs) {
+  var stlKey = (data.stlFile||'').replace(/.*\//,'').replace(/\.stl$/i,'').toLowerCase();
+  var buf = stlBufs[stlKey];
+  if (!buf) { setStatus('paused','Umfeld STL nicht gefunden: '+stlKey); return; }
+  var geo = stlLoader.parse(buf); geo.computeVertexNormals();
+  var mat = new THREE.MeshPhongMaterial({color:0x607080, shininess:40, transparent:true, opacity:0.6, side:THREE.DoubleSide});
+  var mesh = new THREE.Mesh(geo, mat);
+  var o = data.offset||{};
+  mesh.position.set(o.x||0, o.y||0, o.z||0);
+  mesh.setRotationFromEuler(kukaEuler(o.rz||0, o.ry||0, o.rx||0));
+  stlGrp.add(mesh);
+  stlObjects.push({mesh:mesh, name:stlKey, buf:buf, offset:{x:o.x||0,y:o.y||0,z:o.z||0,a:o.rz||0,b:o.ry||0,c:o.rx||0}, displayName:data.name||stlKey});
+  renderStlNav();
+  setStatus('paused','Umfeld geladen: '+(data.name||stlKey));
 }
 
 window.toggleRail = toggleRail;
@@ -5701,5 +5797,6 @@ window.addEventListener('load', function() {
   FormatRegistry.setActive('kuka-form');
   if (typeof fvBuild === 'function') fvBuild(-1);
 });
+
 
 
