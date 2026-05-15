@@ -2053,9 +2053,12 @@ async function loadLibItem(type, robot) {
   var stlBufs = {};
   var proms = [];
   zip.forEach(function(path,entry){
-    if(!entry.dir&&path.toLowerCase().endsWith('.stl')){
-      var fname=path.replace(/.*\//,'').toLowerCase().replace(/\.stl$/i,'');
-      proms.push(entry.async('arraybuffer').then(function(buf){ stlBufs[fname]=buf; }));
+    var lp=path.toLowerCase();
+    if(!entry.dir&&(lp.endsWith('.stl')||lp.endsWith('.osd'))){
+      var fname=path.replace(/.*\//,'').toLowerCase().replace(/\.(stl|osd)$/i,'');
+      proms.push(entry.async('arraybuffer').then(function(buf){
+        stlBufs[fname]=lp.endsWith('.osd')?osdToBinaryStl(buf):buf;
+      }));
     }
   });
   await Promise.all(proms);
@@ -3289,6 +3292,47 @@ class STLLoader {
   }
 }
 const stlLoader = new STLLoader();
+
+// ── OSD → Binary STL ─────────────────────────────────────────────
+function osdToBinaryStl(arrayBuffer) {
+  var data=new Uint8Array(arrayBuffer),view=new DataView(arrayBuffer);
+  if(!data.length)return new ArrayBuffer(84);
+  var hdr=new TextDecoder('utf-8',{fatal:false}).decode(data.slice(0,100));
+  var isV2=hdr.includes('+SprutCAM: OpenGL stream file (version 2.00)');
+  var headerSize=isV2?105:165;
+  var CMD=[4,0,12,12,12,isV2?1:0,64,128,48,72,104];
+  var LINE={1:1,2:1,3:1};
+  var prims=[],cur=null,snx=0,sny=0,snz=0;
+  for(var i=headerSize;i<data.length;){
+    var code=data[i],ls=i+1,cs=CMD[code]||0; i+=1+cs;
+    if(code===0){var t=view.getInt32(ls,true);if(t<10){cur={t:t,vx:[],vy:[],vz:[],nx:[],ny:[],nz:[]};prims.push(cur);}}
+    else if(code===1){if(cur){for(var j=0;j<cur.vx.length;j++){var x=cur.vx[j],y=cur.vy[j],z=cur.vz[j];cur.vx[j]=-z;cur.vy[j]=x;cur.vz[j]=y;}for(var j=0;j<cur.nx.length;j++){var x=cur.nx[j],y=cur.ny[j],z=cur.nz[j];cur.nx[j]=-z;cur.ny[j]=x;cur.nz[j]=y;}}cur=null;}
+    else if(code===2){snx=view.getFloat32(ls,true);sny=view.getFloat32(ls+4,true);snz=view.getFloat32(ls+8,true);if(cur){cur.nx.push(snx);cur.ny.push(sny);cur.nz.push(snz);}}
+    else if(code===3){if(cur){cur.vx.push(view.getFloat32(ls,true));cur.vy.push(view.getFloat32(ls+4,true));cur.vz.push(view.getFloat32(ls+8,true));if(cur.nx.length<cur.vx.length){cur.nx.push(snx);cur.ny.push(sny);cur.nz.push(snz);}}}
+  }
+  var tris=[];
+  function cn(ax,ay,az,bx,by,bz,cx,cy,cz){var ux=bx-ax,uy=by-ay,uz=bz-az,vx=cx-ax,vy=cy-ay,vz=cz-az,nx=uy*vz-uz*vy,ny=uz*vx-ux*vz,nz=ux*vy-uy*vx,l=Math.sqrt(nx*nx+ny*ny+nz*nz);return l>1e-10?[nx/l,ny/l,nz/l]:[0,0,1];}
+  for(var pi=0;pi<prims.length;pi++){
+    var p=prims[pi]; if(LINE[p.t])continue;
+    var n=p.vx.length; if(n<3)continue;
+    var idx;
+    if(p.t===5){idx=[];for(var i=0;i<n-2;i++){if(i%2===0){idx.push(i,i+1,i+2);}else{idx.push(i+1,i,i+2);}}}
+    else if(p.t===6){idx=[];for(var i=1;i<n-1;i++)idx.push(0,i,i+1);}
+    else{idx=[];for(var i=0;i<n;i++)idx.push(i);}
+    for(var i=0;i+2<idx.length;i+=3){
+      var ia=idx[i],ib=idx[i+1],ic=idx[i+2];
+      var ax=p.vx[ia],ay=p.vy[ia],az=p.vz[ia],bx=p.vx[ib],by=p.vy[ib],bz=p.vz[ib],cx=p.vx[ic],cy=p.vy[ic],cz=p.vz[ic];
+      var fn; if(p.nx.length===n){fn=[p.nx[ia],p.ny[ia],p.nz[ia]];var l=Math.sqrt(fn[0]*fn[0]+fn[1]*fn[1]+fn[2]*fn[2]);if(l>1e-10){fn=[fn[0]/l,fn[1]/l,fn[2]/l];}else fn=cn(ax,ay,az,bx,by,bz,cx,cy,cz);}else fn=cn(ax,ay,az,bx,by,bz,cx,cy,cz);
+      tris.push(fn[0],fn[1],fn[2],ax,ay,az,bx,by,bz,cx,cy,cz);
+      tris.push(-fn[0],-fn[1],-fn[2],ax,ay,az,cx,cy,cz,bx,by,bz);
+    }
+  }
+  var tc=tris.length/12,out=new ArrayBuffer(84+tc*50),dv=new DataView(out);
+  dv.setUint32(80,tc,true);
+  var off=84;
+  for(var i=0;i<tris.length;i+=12){for(var j=0;j<12;j++){dv.setFloat32(off,tris[i+j],true);off+=4;}dv.setUint16(off,0,true);off+=2;}
+  return out;
+}
 
 function loadToolFile(){document.getElementById('tool-file').click();}
 document.getElementById('tool-file').addEventListener('change',function(){if(this.files[0])loadToolSTL(this.files[0]);this.value='';});
