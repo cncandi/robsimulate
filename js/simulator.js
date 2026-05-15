@@ -1977,7 +1977,7 @@ function openLibPickerModal(type) {
   fetch('https://cnc-technik.de/robsimul/roblib/api.php?action=list')
     .then(function(r){return r.json();})
     .then(function(data){
-      _allLibItems = data.robots||[];
+      _allLibItems = (data.robots||[]).filter(function(r){ var t=r.type||'robot'; return t==='robot'||t==='station'; });
       applyLibPickerFilter();
     }).catch(function(e){
       document.getElementById('libPickerList').innerHTML = '<div style="color:#f87171;padding:8px;font-family:monospace;font-size:11px">Fehler: '+e.message+'</div>';
@@ -2060,28 +2060,7 @@ async function loadLibItem(type, robot) {
   });
   await Promise.all(proms);
   var t = type || (data.type) || 'robot';
-  // items-Array: mehrere Elemente desselben Typs
-  if (data.items && Array.isArray(data.items)) {
-    for (var ii=0; ii<data.items.length; ii++) {
-      var item = data.items[ii];
-      var it = item.type || t;
-      if (it==='positioner') await loadPositioner(robot, item, stlBufs);
-      else if (it==='rail')  await loadRail(robot, item, stlBufs);
-      else if (it==='object'||it==='label') await loadObjectFromLib(robot, item, stlBufs);
-      else if (it==='fixture') loadFixture(item);
-      else if (it==='endeffektor') await loadEndeffektor(robot, item, stlBufs);
-      else if (it==='umfeld') await loadUmfeld(robot, item, stlBufs);
-    }
-    setStatus('paused', 'Geladen: '+robot.name+' ('+data.items.length+'×)');
-    return;
-  }
-  if (t==='positioner') { await loadPositioner(robot, data, stlBufs); }
-  else if (t==='rail') { await loadRail(robot, data, stlBufs); }
-  else if (t==='object'||t==='label') { await loadObjectFromLib(robot, data, stlBufs); }
-  else if (t==='fixture') { loadFixture(data); setStatus('paused','Geladen: '+robot.name); }
-  else if (t==='endeffektor') { await loadEndeffektor(robot, data, stlBufs); }
-  else if (t==='umfeld') { await loadUmfeld(robot, data, stlBufs); }
-  else if (t==='station') { await loadStation(robot, data, stlBufs); }
+  if (t==='station') { await loadStation(robot, data, stlBufs); }
   else { applyKinematicData(data, stlBufs); setStatus('paused','Geladen: '+robot.name); }
 }
 
