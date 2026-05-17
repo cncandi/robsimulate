@@ -4017,19 +4017,24 @@ function updateTween(dt) {
 let lastTs=null;
 // Simulationsgeschwindigkeit für aktuellen Satz berechnen
 function _simCalcSpeed(pos, curPosIdx, nextPosIdx) {
-  const curVelCP = (pos[curPosIdx] && pos[curPosIdx].velCP) ? pos[curPosIdx].velCP : 0.167;
-  if (!_realtimeMode) return { speed: simSpeed(), velCP: curVelCP };
+  // VEL.CP gilt für den Zielpunkt (nextPosIdx), nicht den Ausgangspunkt
+  const curVelCP = (pos[nextPosIdx] && pos[nextPosIdx].velCP) ? pos[nextPosIdx].velCP : 0.167;
   const p0 = pos[curPosIdx], p1 = pos[nextPosIdx];
   const segDist = (p0 && p1 && nextPosIdx !== curPosIdx)
     ? Math.sqrt((p1.X-p0.X)**2+(p1.Y-p0.Y)**2+(p1.Z-p0.Z)**2) : 0;
+  if (!_realtimeMode) {
+    // Tatsächliche Simulationsgeschwindigkeit: simSpeed [Segmente/s] × segDist [mm] → mm/s
+    const actualMmS = simSpeed() * segDist;
+    return { speed: simSpeed(), velCP: curVelCP, displayMmMin: Math.round(actualMmS * 60) };
+  }
   const velMmS = curVelCP * 1000;
   const N = pos.length;
   const speed = Math.max(0.01, segDist > 1 ? velMmS/segDist : (N > 1 ? velMmS/100 : simSpeed()));
-  return { speed, velCP: curVelCP };
+  return { speed, velCP: curVelCP, displayMmMin: Math.round(velMmS * 60) };
 }
 
 // Simulationszeit um dt vorrücken; rendert selbst und gibt false zurück wenn frame() nicht weiterrendern soll
-function _simAdvance(N, dt, speed, velCP) {
+function _simAdvance(N, dt, speed, velCP, displayMmMin) {
   const prevT = sim.t;
   let newT;
   if (sim.stepTarget !== null) {
@@ -4046,7 +4051,7 @@ function _simAdvance(N, dt, speed, velCP) {
     if (bp !== null) { pauseSim(); applySimT(bp); setStatus('bp','● BREAKPOINT'); renderer.render(scene, activeCam); return false; }
     if      (newT >= N-1) { newT = N-1; pauseSim(); setStatus('end','END ✓'); }
     else if (newT <= 0)   { newT = 0;   pauseSim(); setStatus('paused','START'); }
-    else { setStatus('playing', (sim.dir>0?'▶':'◀') + '  ' + Math.round(velCP*60000) + ' mm/min'); }
+    else { setStatus('playing', (sim.dir>0?'▶':'◀') + '  ' + (displayMmMin??Math.round(velCP*60000)) + ' mm/min'); }
   }
   applySimT(newT);
   return true;
@@ -4062,10 +4067,10 @@ function frame(ts) {
     const pos = parsedData.positions;
     const i0  = Math.min(Math.floor(sim.t), pos.length-1);
     const i1  = Math.min(i0+1, pos.length-1);
-    const { speed, velCP } = _simCalcSpeed(pos, i0, i1);
+    const { speed, velCP, displayMmMin } = _simCalcSpeed(pos, i0, i1);
     const velEl = document.getElementById('tcp-vel-v');
-    if (velEl) velEl.textContent = Math.round(velCP*60000) + ' mm/min';
-    _simAdvance(N, dt, speed, velCP);
+    if (velEl) velEl.textContent = displayMmMin + ' mm/min';
+    _simAdvance(N, dt, speed, velCP, displayMmMin);
   }
   renderer.render(scene, activeCam);
 }
