@@ -5849,3 +5849,181 @@ window.addEventListener('load', function() {
 
 
 
+
+// ═══════════════════════════════════════════════════
+// FORMAT SAVE / LOAD
+// ═══════════════════════════════════════════════════
+
+var _FMT_EXT = {
+  'kuka-form': '.pfg.xml', 'kuka': '.src', 'abb': '.mod', 'fanuc': '.ls',
+  'yaskawa': '.jbi', 'kawasaki': '.pg', 'staubli': '.pgx', 'ur': '.script',
+  'adept': '.v2', 'omron': '.v2', 'epson': '.prg', 'comau': '.pdl',
+  'aubo': '.aubo', 'dobot': '.dobot', 'denso': '.pcs', 'nachi': '.fdr',
+  'hanwha': '.txt', 'igus': '.txt', 'estun': '.txt', 'neura': '.cpp', 'mabi': '.txt'
+};
+
+// ── Formular → XML ─────────────────────────────────────────────────
+function parsedDataToXml(pd) {
+  if (!pd) return '';
+  var lines = ['<?xml version="1.0" encoding="UTF-8"?>'];
+  lines.push('<PFGProgram version="1.0">');
+
+  // Positions
+  lines.push('  <Positions>');
+  (pd.positions || []).forEach(function(p, i) {
+    lines.push('    <Pos idx="' + i + '" type="' + (p.type||'LIN') + '"' +
+      ' X="' + p.X.toFixed(4) + '" Y="' + p.Y.toFixed(4) + '" Z="' + p.Z.toFixed(4) +
+      '" A="' + p.A.toFixed(4) + '" B="' + p.B.toFixed(4) + '" C="' + p.C.toFixed(4) +
+      '" velCP="' + (p.velCP || 0.167).toFixed(4) + '"' +
+      (p.S != null ? ' S="' + p.S + '"' : '') +
+      (p.T != null ? ' T="' + p.T + '"' : '') + '/>');
+  });
+  lines.push('  </Positions>');
+
+  // Steps
+  lines.push('  <Steps>');
+  (pd.steps || []).forEach(function(s) {
+    var esc = function(v) { return String(v||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;'); };
+    switch (s.type) {
+      case 'tool':    lines.push('    <Tool n="' + s.n + '"/>'); break;
+      case 'base':    lines.push('    <Base n="' + s.n + '"/>'); break;
+      case 'velcp':   lines.push('    <VelCP v="' + (s.v||0.167).toFixed(4) + '"/>'); break;
+      case 'velptp':  lines.push('    <VelPTP v="' + (s.v||1).toFixed(2) + '"/>'); break;
+      case 'var':     lines.push('    <Var type="' + esc(s.varType||'REAL') + '" name="' + esc(s.name) + '" value="' + esc(s.val||'') + '"/>'); break;
+      case 'move':    lines.push('    <Move posIdx="' + s.posIdx + '" moveType="' + (s.moveType||'LIN') + '" label="' + (s.label||'') + '"/>'); break;
+      case 'circ':    lines.push('    <Circ viaIdx="' + s.viaIdx + '" posIdx="' + s.posIdx + '"/>'); break;
+      case 'halt':    lines.push('    <Halt/>'); break;
+      case 'brake':   lines.push('    <Brake/>'); break;
+      case 'wait':    lines.push('    <Wait t="' + (s.t||0) + '"/>'); break;
+      case 'waitFor': lines.push('    <WaitFor cond="' + esc(s.cond||'') + '"/>'); break;
+      case 'din':     lines.push('    <DIn n="' + s.n + '"/>'); break;
+      case 'dout':    lines.push('    <DOut n="' + s.n + '" v="' + esc(s.v||'FALSE') + '"/>'); break;
+      case 'ain':     lines.push('    <AIn n="' + s.n + '"/>'); break;
+      case 'aout':    lines.push('    <AOut n="' + s.n + '" v="' + (s.v||0) + '"/>'); break;
+      case 'calc':    lines.push('    <Calc target="' + esc(s.target||'') + '" expr="' + esc(s.expr||'') + '"/>'); break;
+      case 'comment': lines.push('    <Comment text="' + esc(s.text||'') + '"/>'); break;
+      case 'ptpAxis': lines.push('    <PTPAxis angles="' + (s.angles||[]).join(',') + '"/>'); break;
+      default:        if (s.raw) lines.push('    <Other raw="' + esc(s.raw) + '"/>'); break;
+    }
+  });
+  lines.push('  </Steps>');
+  lines.push('</PFGProgram>');
+  return lines.join('\n');
+}
+
+// ── XML → parsedData ────────────────────────────────────────────────
+function xmlToParsedData(xmlText) {
+  var parser = new DOMParser();
+  var doc = parser.parseFromString(xmlText, 'application/xml');
+  var positions = [], steps = [];
+
+  var posEls = doc.querySelectorAll('Positions > Pos');
+  posEls.forEach(function(el) {
+    positions.push({
+      type:  el.getAttribute('type') || 'LIN',
+      X:     parseFloat(el.getAttribute('X')) || 0,
+      Y:     parseFloat(el.getAttribute('Y')) || 0,
+      Z:     parseFloat(el.getAttribute('Z')) || 0,
+      A:     parseFloat(el.getAttribute('A')) || 0,
+      B:     parseFloat(el.getAttribute('B')) || 0,
+      C:     parseFloat(el.getAttribute('C')) || 0,
+      velCP: parseFloat(el.getAttribute('velCP')) || 0.167,
+      S:     el.hasAttribute('S') ? parseInt(el.getAttribute('S')) : null,
+      T:     el.hasAttribute('T') ? parseInt(el.getAttribute('T')) : null,
+    });
+  });
+
+  var stepEls = doc.querySelectorAll('Steps > *');
+  stepEls.forEach(function(el) {
+    var tag = el.tagName;
+    switch (tag) {
+      case 'Tool':    steps.push({type:'tool',   n: parseInt(el.getAttribute('n'))||1}); break;
+      case 'Base':    steps.push({type:'base',   n: parseInt(el.getAttribute('n'))||1}); break;
+      case 'VelCP':   steps.push({type:'velcp',  v: parseFloat(el.getAttribute('v'))||0.167}); break;
+      case 'VelPTP':  steps.push({type:'velptp', v: parseFloat(el.getAttribute('v'))||1}); break;
+      case 'Var':     steps.push({type:'var',    varType: el.getAttribute('type')||'REAL', name: el.getAttribute('name')||'v', val: el.getAttribute('value')||''}); break;
+      case 'Move':    steps.push({type:'move',   posIdx: parseInt(el.getAttribute('posIdx'))||0, moveType: el.getAttribute('moveType')||'LIN', label: el.getAttribute('label')||''}); break;
+      case 'Circ':    steps.push({type:'circ',   viaIdx: parseInt(el.getAttribute('viaIdx'))||0, posIdx: parseInt(el.getAttribute('posIdx'))||0}); break;
+      case 'Halt':    steps.push({type:'halt'}); break;
+      case 'Brake':   steps.push({type:'brake'}); break;
+      case 'Wait':    steps.push({type:'wait',   t: parseFloat(el.getAttribute('t'))||0}); break;
+      case 'WaitFor': steps.push({type:'waitFor',cond: el.getAttribute('cond')||''}); break;
+      case 'DIn':     steps.push({type:'din',    n: parseInt(el.getAttribute('n'))||1}); break;
+      case 'DOut':    steps.push({type:'dout',   n: parseInt(el.getAttribute('n'))||1, v: el.getAttribute('v')||'FALSE'}); break;
+      case 'AIn':     steps.push({type:'ain',    n: parseInt(el.getAttribute('n'))||1}); break;
+      case 'AOut':    steps.push({type:'aout',   n: parseInt(el.getAttribute('n'))||1, v: parseFloat(el.getAttribute('v'))||0}); break;
+      case 'Calc':    steps.push({type:'calc',   target: el.getAttribute('target')||'v', expr: el.getAttribute('expr')||'0'}); break;
+      case 'Comment': steps.push({type:'comment',text: el.getAttribute('text')||''}); break;
+      case 'PTPAxis': steps.push({type:'ptpAxis',angles: (el.getAttribute('angles')||'').split(',').map(Number)}); break;
+      case 'Other':   steps.push({type:'other',  raw: el.getAttribute('raw')||''}); break;
+    }
+  });
+
+  return {positions: positions, steps: steps, finalState: {variables:{}, digitalIn:{}, digitalOut:{}, analogOut:{}, analogIn:{}}};
+}
+
+// ── Save ────────────────────────────────────────────────────────────
+function fmtSaveFile() {
+  var id = (typeof FormatRegistry !== 'undefined' && FormatRegistry.getActiveId) ? FormatRegistry.getActiveId() : 'kuka';
+  var ext = _FMT_EXT[id] || '.txt';
+  var baseName = 'robsimul_' + id;
+  var content, mime;
+
+  if (id === 'kuka-form') {
+    // Formular → XML
+    content = parsedDataToXml(parsedData);
+    mime = 'application/xml';
+    baseName = 'robsimul_formular';
+  } else {
+    // Alle anderen → Editor-Inhalt
+    var ci = document.getElementById('code-input');
+    content = ci ? ci.value : '';
+    mime = 'text/plain';
+  }
+
+  var blob = new Blob([content], {type: mime + ';charset=utf-8'});
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = baseName + ext;
+  document.body.appendChild(a); a.click();
+  setTimeout(function() { URL.revokeObjectURL(a.href); a.remove(); }, 500);
+}
+
+// ── Load ────────────────────────────────────────────────────────────
+function fmtLoadFile() {
+  var inp = document.getElementById('fmt-load-input');
+  if (!inp) return;
+  var id = (typeof FormatRegistry !== 'undefined' && FormatRegistry.getActiveId) ? FormatRegistry.getActiveId() : 'kuka';
+  inp.accept = (id === 'kuka-form') ? '.xml,.pfg.xml' : '.src,.mod,.ls,.jbi,.pg,.pgx,.script,.v2,.prg,.pdl,.aubo,.dobot,.pcs,.fdr,.txt,.cpp,.as,.erd,.erp,.krl';
+  inp.onchange = function() {
+    var file = inp.files[0]; if (!file) return;
+    var reader = new FileReader();
+    reader.onload = function(e) {
+      var text = e.target.result;
+      var activeId = (typeof FormatRegistry !== 'undefined' && FormatRegistry.getActiveId) ? FormatRegistry.getActiveId() : 'kuka';
+      if (activeId === 'kuka-form') {
+        // XML → parsedData laden → Formular aufbauen
+        try {
+          var pd = xmlToParsedData(text);
+          if (!pd.positions.length && !pd.steps.length) { alert('XML konnte nicht gelesen werden.'); return; }
+          parsedData = pd;
+          _krlSnapshot = generateKRL ? (generateKRL(pd)||'') : '';
+          _krlSnapshotParsed = true;
+          if (typeof FormatRegistry !== 'undefined') FormatRegistry.setActive('kuka-form');
+        } catch(err) { alert('Fehler beim Laden: ' + err.message); }
+      } else {
+        // Text direkt in Editor laden + KRL-Snapshot aktualisieren
+        var ci = document.getElementById('code-input');
+        if (ci) {
+          ci.value = text;
+          if (typeof rebuildGutter === 'function') rebuildGutter();
+          // Wenn KUKA-Format: sofort parsen
+          if (activeId === 'kuka') parseAndLoad();
+        }
+      }
+      inp.value = '';
+    };
+    reader.readAsText(file);
+  };
+  inp.click();
+}
