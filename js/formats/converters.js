@@ -232,6 +232,27 @@
     };
   }
 
+  // Beim Verlassen eines Formats: Editor-Code zurück in parsedData parsen
+  function makeDeactivate(impl) {
+    return function () {
+      if (!impl || !impl._parse) return;
+      var ci = document.getElementById('code-input');
+      if (!ci || !ci.value.trim()) return;
+      try {
+        var pd = impl._parse(ci.value);
+        if (!pd || (!pd.positions.length && !pd.steps.length)) return;
+        if (typeof parsedData !== 'undefined') {
+          parsedData = pd;
+          // KRL-Snapshot aktualisieren damit parseAndLoad korrekte Daten hat
+          if (typeof generateKRL === 'function') {
+            var krl = generateKRL(pd);
+            if (krl) { _krlSnapshot = krl; _krlSnapshotParsed = false; }
+          }
+        }
+      } catch(e) { /* parse error — parsedData unveraendert */ }
+    };
+  }
+
   // ══════════════════════════════════════════════════════════════════════════
   // FORMAT IMPLEMENTATIONS
   // ══════════════════════════════════════════════════════════════════════════
@@ -407,6 +428,141 @@
       ftr.split('\n').forEach(function(l) { lines.push(l); });
       return lines.join('\n');
     }
+  };
+
+
+  IMPLS.abb._parse = function(text) {
+    var positions = [], steps = [], posMap = {};
+    var lines = text.split(/\r?\n/);
+    // Pass 1: robtarget Deklarationen sammeln
+    lines.forEach(function(raw) {
+      var l = raw.trim().replace(/;$/, '');
+      // CONST/VAR/PERS robtarget p1 := [[X,Y,Z],[q0,q1,q2,q3],...]
+      var m = l.match(/(?:CONST|VAR|PERS)\s+robtarget\s+(\w+)\s*:=\s*\[\[([^\]]+)\],\[([^\]]+)\]/i);
+      if (m) {
+        var xyz = m[2].split(',').map(Number);
+        var q = m[3].split(',').map(Number);
+        // Quaternion [w,x,y,z] → ZYX Euler in Grad (KUKA ABC Konvention)
+        var w=q[0],x=q[1],y=q[2],z=q[3];
+        var sinB = Math.max(-1,Math.min(1, 2*(w*y - z*x)));
+        var A = Math.atan2(2*(w*z+x*y), 1-2*(y*y+z*z)) * 180/Math.PI;
+        var B = Math.asin(sinB) * 180/Math.PI;
+        var C = Math.atan2(2*(w*x+y*z), 1-2*(x*x+y*y)) * 180/Math.PI;
+        posMap[m[1]] = positions.length;
+        positions.push({type:'LIN',X:xyz[0]||0,Y:xyz[1]||0,Z:xyz[2]||0,A:A,B:B,C:C,velCP:0.167});
+      }
+    });
+    // Pass 2: Bewegungen und I/O
+    lines.forEach(function(raw) {
+      var l = raw.trim().replace(/;$/, '');
+      var m;
+      // MoveJ
+      m = l.match(/MoveJ\s+(\w+),\s*v(\d+)/i);
+      if (m && posMap[m[1]] !== undefined) {
+        var i=posMap[m[1]]; positions[i].type='PTP'; positions[i].velCP=parseInt(m[2])/1000||0.1;
+        steps.push({type:'move',posIdx:i,moveType:'PTP'}); return;
+      }
+      // MoveL
+      m = l.match(/MoveL\s+(\w+),\s*v(\d+)/i);
+      if (m && posMap[m[1]] !== undefined) {
+        var i=posMap[m[1]]; positions[i].type='LIN'; positions[i].velCP=parseInt(m[2])/1000||0.1;
+        steps.push({type:'move',posIdx:i,moveType:'LIN'}); return;
+      }
+      // MoveC via to
+      m = l.match(/MoveC\s+(\w+),\s*(\w+),\s*v(\d+)/i);
+      if (m && posMap[m[1]] !== undefined && posMap[m[2]] !== undefined) {
+        positions[posMap[m[1]]].type='CIRC_AUX';
+        positions[posMap[m[2]]].type='CIRC';
+        steps.push({type:'circ',viaIdx:posMap[m[1]],posIdx:posMap[m[2]]}); return;
+      }
+      // WaitDI di1, 1
+      m = l.match(/WaitDI\s+(\w+),\s*1/i);
+      if (m) { steps.push({type:'din',n:parseInt(m[1].replace(/\D/g,''))||1}); return; }
+      // SetDO do1, 1/0
+      m = l.match(/SetDO\s+(\w+),\s*(1|0)/i);
+      if (m) { steps.push({type:'dout',n:parseInt(m[1].replace(/\D/g,''))||1,v:m[2]==='1'?'TRUE':'FALSE'}); return; }
+      // SetAO ao1, val
+      m = l.match(/SetAO\s+(\w+),\s*([\d.]+)/i);
+      if (m) { steps.push({type:'aout',n:parseInt(m[1].replace(/\D/g,''))||1,v:parseFloat(m[2])}); return; }
+      // WaitTime
+      m = l.match(/WaitTime\s+([\d.]+)/i);
+      if (m) { steps.push({type:'wait',t:parseFloat(m[1])}); return; }
+      // Stop
+      if (/^Stop$/i.test(l)) { steps.push({type:'halt'}); return; }
+      // Tool/Base aus Kommentar
+      m = l.match(/!\s*Tool:\s*tool(\d+)/i);
+      if (m) { steps.push({type:'tool',n:parseInt(m[1])||1}); return; }
+      m = l.match(/!\s*WObj:\s*wobj(\d+)/i);
+      if (m) { steps.push({type:'base',n:parseInt(m[1])||1}); return; }
+    });
+    return {positions:positions,steps:steps,finalState:{variables:{},digitalIn:{},digitalOut:{},analogOut:{},analogIn:{}}};
+  };
+
+  IMPLS.fanuc._parse = function(text) {
+    var positions = [], steps = [], posMap = {};
+    // /POS Sektion: P[n] { ... X = xxx  mm, Y = yyy  mm, Z = zzz  mm, W = www  deg, P = ppp  deg, R = rrr  deg }
+    var posSec = text.match(/\/POS([\s\S]*?)(\/END|$)/i);
+    if (posSec) {
+      var pRx = /P\[(\d+)\][^{]*\{[^}]*X\s*=\s*([\d.\-+]+)[^,}]*mm[^}]*Y\s*=\s*([\d.\-+]+)[^,}]*mm[^}]*Z\s*=\s*([\d.\-+]+)[^,}]*mm[^}]*W\s*=\s*([\d.\-+]+)[^,}]*deg[^}]*P\s*=\s*([\d.\-+]+)[^,}]*deg[^}]*R\s*=\s*([\d.\-+]+)[^,}]*deg/gi;
+      var pm;
+      while ((pm = pRx.exec(posSec[1])) !== null) {
+        posMap[parseInt(pm[1])] = positions.length;
+        positions.push({type:'LIN',X:parseFloat(pm[2]),Y:parseFloat(pm[3]),Z:parseFloat(pm[4]),
+          A:parseFloat(pm[5]),B:parseFloat(pm[6]),C:parseFloat(pm[7]),velCP:0.167});
+      }
+    }
+    // /MN Sektion
+    var mnSec = text.match(/\/MN([\s\S]*?)(\/POS|\/END|$)/i);
+    if (mnSec) {
+      // FANUC CIRC braucht zwei Zeilen; vorherige J/C Zeile merken
+      var prevC = null;
+      mnSec[1].split(/\r?\n/).forEach(function(rawLine) {
+        var l = rawLine.trim().replace(/\s*;\s*$/, '').replace(/^\s*\d+:\s*/, '');
+        var m;
+        if (!l) return;
+        // J P[n] pct% FINE
+        m = l.match(/^J\s+P\[(\d+)\]\s+([\d.]+)%/i);
+        if (m) {
+          var n=parseInt(m[1]),pct=parseFloat(m[2]);
+          if (posMap[n]!==undefined) { var i=posMap[n]; positions[i].type='PTP'; positions[i].velCP=pct/100*2.0; steps.push({type:'move',posIdx:i,moveType:'PTP'}); }
+          prevC=null; return;
+        }
+        // L P[n] mmm/sec FINE|CNT
+        m = l.match(/^L\s+P\[(\d+)\]\s+([\d.]+)mm\/sec\s+(FINE|CNT\d*)/i);
+        if (m) {
+          var n=parseInt(m[1]),vel=parseFloat(m[2])/1000,isCnt=/^CNT/i.test(m[3]);
+          if (posMap[n]!==undefined) { var i=posMap[n]; positions[i].type=isCnt?'SLIN':'LIN'; positions[i].velCP=vel; steps.push({type:'move',posIdx:i,moveType:isCnt?'SLIN':'LIN'}); }
+          prevC=null; return;
+        }
+        // C P[via] (first line of arc) or P[end] (second line)
+        m = l.match(/^C\s+P\[(\d+)\]/i);
+        if (m) { prevC=parseInt(m[1]); return; }
+        m = l.match(/^\s*P\[(\d+)\]/i);
+        if (m && prevC !== null) {
+          var via=prevC, end=parseInt(m[1]); prevC=null;
+          if (posMap[via]!==undefined && posMap[end]!==undefined) {
+            positions[posMap[via]].type='CIRC_AUX'; positions[posMap[end]].type='CIRC';
+            steps.push({type:'circ',viaIdx:posMap[via],posIdx:posMap[end]});
+          }
+          return;
+        }
+        prevC=null;
+        // UTOOL / UFRAME
+        m = l.match(/^UTOOL_NUM=(\d+)/i); if (m) { steps.push({type:'tool',n:parseInt(m[1])}); return; }
+        m = l.match(/^UFRAME_NUM=(\d+)/i); if (m) { steps.push({type:'base',n:parseInt(m[1])}); return; }
+        // DO / DI / AO / Wait
+        m = l.match(/^DO\[(\d+)\]=(ON|OFF)/i);
+        if (m) { steps.push({type:'dout',n:parseInt(m[1]),v:m[2]==='ON'?'TRUE':'FALSE'}); return; }
+        m = l.match(/^WAIT\s+DI\[(\d+)\]=ON/i);
+        if (m) { steps.push({type:'din',n:parseInt(m[1])}); return; }
+        m = l.match(/^WAIT\s+([\d.]+)\(sec\)/i);
+        if (m) { steps.push({type:'wait',t:parseFloat(m[1])}); return; }
+        m = l.match(/^AO\[(\d+)\]=([\d.]+)/i);
+        if (m) { steps.push({type:'aout',n:parseInt(m[1]),v:parseFloat(m[2])}); return; }
+        if (/^PAUSE$/i.test(l)) { steps.push({type:'halt'}); return; }
+      });
+    }
+    return {positions:positions,steps:steps,finalState:{variables:{},digitalIn:{},digitalOut:{},analogOut:{},analogIn:{}}};
   };
 
   // Yaskawa INFORM JBI — POINT_TABLE_THEN_INST
@@ -1455,7 +1611,7 @@
       label: meta.label,
       icon:  logo(meta.file),
       activate:   makeActivate(impl),
-      deactivate: function () {},
+      deactivate: makeDeactivate(impl),
       _generate:  impl._generate,
     });
   });
