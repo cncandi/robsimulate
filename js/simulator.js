@@ -6050,10 +6050,14 @@ var _MAPPING_KEYS = [
   {key:'varBool',label:'VarBool / DECL BOOL',hint:'{NAME} {INITVAL}'},
   {key:'call',   label:'Call / CALL',        hint:'{PROG} {ARGS}'},
   {key:'calc',   label:'Calc / =',           hint:'{TARGET} {EXPR}'},
+  {key:'velcp',  label:'Geschwindigkeit / VEL',hint:'{VEL_MMS} {VEL_PCT} {VEL_MS}'},
+  {key:'comment',label:'Kommentar',            hint:'{TEXT}'},
+  {key:'moveS',  label:'MoveS / SLIN / Spline',hint:'{N} {X}{Y}{Z} {VEL_MMS}'},
 ];
 
 // Eingebaute Formate
 var _MAPPING_FMTS_BUILTIN = [
+  {id:'pfg',label:'Formular PFG'},
   {id:'kuka',label:'KUKA KRL'},{id:'abb',label:'ABB RAPID'},{id:'fanuc',label:'FANUC TP'},
   {id:'yaskawa',label:'Yaskawa INFORM'},{id:'kawasaki',label:'Kawasaki AS'},
   {id:'staubli',label:'Stäubli VAL3'},{id:'ur',label:'Universal Robots'},
@@ -6066,6 +6070,12 @@ var _MAPPING_FMTS_BUILTIN = [
 var _MAPPING_FMTS_CUSTOM = [];
 
 function _allFmts() { return _MAPPING_FMTS_BUILTIN.concat(_MAPPING_FMTS_CUSTOM); }
+
+// Custom Befehlszeilen
+var _MAPPING_KEYS_CUSTOM = [];
+try { var _ck=localStorage.getItem('robsimul_custom_keys'); if(_ck) _MAPPING_KEYS_CUSTOM=JSON.parse(_ck); } catch(e){}
+function _saveCustomKeys(){try{localStorage.setItem('robsimul_custom_keys',JSON.stringify(_MAPPING_KEYS_CUSTOM));}catch(e){}}
+function _allKeys(){ return _MAPPING_KEYS.concat(_MAPPING_KEYS_CUSTOM); }
 
 // Filter-Zustand: Set von sichtbaren Format-IDs (null = alle)
 var _mappingVisible = null;
@@ -6185,6 +6195,35 @@ function addCustomFormat(label, logo, commentSyntax) {
   return id;
 }
 
+function addCustomKey(key, label) {
+  if(!key||!label){alert('Key und Label erforderlich.');return;}
+  key=key.replace(/[^a-z0-9_]/gi,'_');
+  if(_allKeys().find(function(k){return k.key===key;})){alert('Key bereits vorhanden: '+key);return;}
+  _MAPPING_KEYS_CUSTOM.push({key:key,label:label,hint:''});
+  _saveCustomKeys();
+  _buildMappingTable();
+}
+function deleteCustomKey(key) {
+  if(!confirm('Befehlszeile "'+key+'" löschen?')) return;
+  _MAPPING_KEYS_CUSTOM=_MAPPING_KEYS_CUSTOM.filter(function(k){return k.key!==key;});
+  _saveCustomKeys();
+  _buildMappingTable();
+}
+function openAddKeyDialog(){
+  var d=document.getElementById('add-key-dialog'); if(d){d.style.display='flex';document.getElementById('add-key-id').focus();}
+}
+function closeAddKeyDialog(){ var d=document.getElementById('add-key-dialog'); if(d) d.style.display='none'; }
+function submitAddKey(){
+  var key=(document.getElementById('add-key-id').value||'').trim();
+  var label=(document.getElementById('add-key-label').value||'').trim();
+  addCustomKey(key,label);
+  if(document.getElementById('add-key-dialog')) {
+    document.getElementById('add-key-id').value='';
+    document.getElementById('add-key-label').value='';
+    closeAddKeyDialog();
+  }
+}
+
 function deleteCustomFormat(id) {
   _MAPPING_FMTS_CUSTOM = _MAPPING_FMTS_CUSTOM.filter(function(e){return e.id!==id;});
   saveCustomFormats();
@@ -6253,101 +6292,48 @@ function mappingFilterToggle(id) {
 }
 
 // Tabelle aufbauen
-// Spaltenbreiten: {fmtId: px}
-var _colWidths = {};
-try { var _cw=localStorage.getItem('robsimul_col_widths'); if(_cw) _colWidths=JSON.parse(_cw); } catch(e){}
-function _saveColWidths(){try{localStorage.setItem('robsimul_col_widths',JSON.stringify(_colWidths));}catch(e){}}
-
-// Resize-Drag-State
-var _resizeCol=null, _resizeStartX=0, _resizeStartW=0;
-function _colResizeStart(e){
-  e.preventDefault(); e.stopPropagation();
-  _resizeCol=e.target.getAttribute('data-col');
-  _resizeStartX=e.clientX;
-  _resizeStartW=_colWidths[_resizeCol]||((_resizeCol==='__label')?160:180);
-  document.addEventListener('mousemove',_colResizeMove);
-  document.addEventListener('mouseup',_colResizeEnd);
-  document.body.style.cursor='col-resize';
-}
-function _colResizeMove(e){
-  if(!_resizeCol) return;
-  var newW=Math.max(60,_resizeStartW+(e.clientX-_resizeStartX));
-  _colWidths[_resizeCol]=newW;
-  // Live: alle Zellen dieser Spalte anpassen
-  var tbl=document.getElementById('mapping-table'); if(!tbl) return;
-  if(_resizeCol==='__label'){
-    tbl.querySelectorAll('th[data-col="__label"], td:first-child').forEach(function(el){el.style.width=newW+'px';});
-  } else {
-    var idx=-1;
-    var ths=tbl.querySelectorAll('thead th');
-    for(var i=0;i<ths.length;i++){if(ths[i].getAttribute('data-col')===_resizeCol){idx=i;break;}}
-    if(idx>=0){
-      tbl.querySelectorAll('tr').forEach(function(row){
-        var cells=row.children; if(cells[idx]){cells[idx].style.width=newW+'px';}
-        // Textarea in body-Zellen anpassen
-        var ta=cells[idx]&&cells[idx].querySelector('textarea');
-        if(ta) ta.style.width=Math.max(40,newW-4)+'px';
-      });
-    }
-  }
-}
-function _colResizeEnd(){
-  document.removeEventListener('mousemove',_colResizeMove);
-  document.removeEventListener('mouseup',_colResizeEnd);
-  document.body.style.cursor='';
-  _saveColWidths();
-  _resizeCol=null;
-}
-
 function _buildMappingTable() {
   var tbl = document.getElementById('mapping-table');
   if (!tbl) return;
   var fmts = _allFmts().filter(function(f){ return _mappingVisible===null||_mappingVisible.has(f.id); });
-  var labelW = _colWidths['__label'] || 160;
 
-  var head = '<thead><tr>'
-    + '<th data-col="__label" style="position:sticky;left:0;z-index:2;background:var(--bg2);padding:4px 8px;border:1px solid var(--bdr);width:'+labelW+'px;min-width:60px;position:relative;user-select:none">'
-    + 'Befehl<span class="col-resize" data-col="__label" style="position:absolute;right:0;top:0;width:6px;height:100%;cursor:col-resize;z-index:3"></span></th>';
-
+  var head = '<thead><tr><th style="position:sticky;left:0;z-index:2;background:var(--bg2);padding:4px 8px;border:1px solid var(--bdr);min-width:160px">Befehl</th>';
   fmts.forEach(function(f) {
     var isCustom = !!_MAPPING_FMTS_CUSTOM.find(function(e){return e.id===f.id;});
-    var w = _colWidths[f.id] || 180;
-    head += '<th data-col="'+f.id+'" style="padding:3px 6px;border:1px solid var(--bdr);width:'+w+'px;min-width:60px;background:var(--bg2);position:relative;'+(isCustom?'font-style:italic;color:var(--acc);':'')+'user-select:none">'
+    head += '<th style="padding:3px 6px;border:1px solid var(--bdr);min-width:180px;background:var(--bg2);'+(isCustom?'font-style:italic;color:var(--acc);':'')+'">'
       + f.label
       + ' <button onclick="mappingResetFormat(\'' + f.id + '\')" title="Zurücksetzen" style="background:none;border:none;color:var(--txt3);cursor:pointer;font-size:10px;padding:0 2px">↺</button>'
-      + (isCustom?' <button onclick="mappingDeleteCustom(\'' + f.id + '\')" title="Löschen" style="background:none;border:none;color:#f87171;cursor:pointer;font-size:10px;padding:0 2px">✕</button>':'')
-      + '<span class="col-resize" data-col="'+f.id+'" style="position:absolute;right:0;top:0;width:6px;height:100%;cursor:col-resize;z-index:3"></span>'
+      + (isCustom ? ' <button onclick="mappingDeleteCustom(\'' + f.id + '\')" title="Hersteller löschen" style="background:none;border:none;color:#f87171;cursor:pointer;font-size:10px;padding:0 2px">✕</button>' : '')
       + '</th>';
   });
   head += '</tr></thead>';
 
   var body = '<tbody>';
-  _MAPPING_KEYS.forEach(function(mk) {
-    body += '<tr><td style="position:sticky;left:0;z-index:1;background:var(--bg2);padding:4px 8px;border:1px solid var(--bdr);font-weight:600;color:var(--acc);width:'+labelW+'px">'
-      + mk.label + '<br><span style="color:var(--txt3);font-weight:400;font-size:10px">' + mk.hint + '</span></td>';
+  _allKeys().forEach(function(mk) {
+    var isCustomKey = !!_MAPPING_KEYS_CUSTOM.find(function(k){return k.key===mk.key;});
+    body += '<tr><td style="position:sticky;left:0;z-index:1;background:var(--bg2);padding:4px 8px;border:1px solid var(--bdr);font-weight:600;color:var(--acc)">'
+      + mk.label
+      + (isCustomKey?' <button onclick="deleteCustomKey(\''+mk.key+'\')" title="Zeile löschen" style="background:none;border:none;color:#f87171;cursor:pointer;font-size:10px">✕</button>':'')
+      + '<br><span style="color:var(--txt3);font-weight:400;font-size:10px">' + mk.hint + '</span></td>';
     fmts.forEach(function(f) {
-      var w = _colWidths[f.id] || 180;
-      var taW = Math.max(40, w - 4);
       var defVal = (typeof FMT_CMD_DEFAULTS!=='undefined'&&FMT_CMD_DEFAULTS[f.id]) ? (FMT_CMD_DEFAULTS[f.id][mk.key]||'') : '';
       var storedVal = '';
       try { var s=localStorage.getItem('robsimul_cmd_'+f.id); if(s){var o=JSON.parse(s);if(o[mk.key]!==undefined)storedVal=o[mk.key];} } catch(e){}
       var val = storedVal!==''?storedVal:defVal;
-      var isEmpty = val==='', isChanged = storedVal!=='';
-      var bg = isEmpty?'rgba(220,60,60,.12)':isChanged?'rgba(60,180,100,.08)':'';
-      body += '<td style="border:1px solid var(--bdr);padding:2px;vertical-align:top;background:'+bg+';width:'+w+'px">'
-        +'<textarea id="mc_'+f.id+'_'+mk.key+'" data-default="'+defVal.replace(/"/g,'&quot;')+'" spellcheck="false" oninput="mappingCellChanged(this)"'
-        +' style="width:'+taW+'px;height:44px;resize:vertical;background:transparent;border:none;color:var(--txt1);font-family:monospace;font-size:10px;padding:2px;outline:none">'
+      var isCustom = storedVal!=='';
+      var isEmpty = val==='';
+      var bg = isEmpty?'rgba(220,60,60,.12)':isCustom?'rgba(60,180,100,.08)':'';
+      body += '<td style="border:1px solid var(--bdr);padding:2px;vertical-align:top;background:'+bg+'">'
+        +'<textarea id="mc_'+f.id+'_'+mk.key+'" data-default="'+defVal.replace(/"/g,'&quot;')+'" spellcheck="false"'
+        +' oninput="mappingCellChanged(this)"'
+        +' style="width:176px;height:44px;resize:vertical;background:transparent;border:none;color:var(--txt1);font-family:monospace;font-size:10px;padding:2px;outline:none">'
         +val.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')+'</textarea></td>';
     });
     body += '</tr>';
   });
   body += '</tbody>';
   tbl.innerHTML = head + body;
-
-  // Resize-Handles binden
-  tbl.querySelectorAll('.col-resize').forEach(function(h){ h.addEventListener('mousedown',_colResizeStart); });
 }
-
 
 function mappingCellChanged(ta) {
   var isDefault = ta.value === ta.dataset.default;
@@ -6357,7 +6343,7 @@ function mappingCellChanged(ta) {
 function mappingApplyAll() {
   _allFmts().forEach(function(f) {
     var cmds={}, hasChange=false;
-    _MAPPING_KEYS.forEach(function(mk) {
+    _allKeys().forEach(function(mk) {
       var cell=document.getElementById('mc_'+f.id+'_'+mk.key);
       if(!cell) return;
       cmds[mk.key]=cell.value;
@@ -6384,7 +6370,7 @@ function mappingApplyAll() {
 function mappingResetFormat(fmtId) {
   try{localStorage.removeItem('robsimul_cmd_'+fmtId);}catch(e){}
   var defaults=(typeof FMT_CMD_DEFAULTS!=='undefined')?(FMT_CMD_DEFAULTS[fmtId]||{}):{};
-  _MAPPING_KEYS.forEach(function(mk) {
+  _allKeys().forEach(function(mk) {
     var cell=document.getElementById('mc_'+fmtId+'_'+mk.key);
     if(!cell) return;
     cell.value=defaults[mk.key]||'';
