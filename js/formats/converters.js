@@ -88,9 +88,13 @@
     function t(key, vars2, fallback) {
       if (fmtId && typeof applyTpl === 'function') {
         var r = applyTpl(fmtId, key, vars2);
-        if (r !== null) return r;
+        if (r !== null) return r === '' ? null : r;  // '' = explizit deaktiviert
       }
-      return fallback ? fallback() : null;
+      if (fallback) return fallback();
+      // Kein Template, kein Fallback → auskommentiert ausgeben
+      var cmt = cfg.comment || function(txt) { return '; ' + txt; };
+      var desc = key + (vars2 ? ' ' + JSON.stringify(vars2) : '');
+      return cmt('[NICHT UNTERSTÜTZT] ' + desc);
     }
 
     // Wenn steps vorhanden: steps-basiert (vollständig mit I/O)
