@@ -81,6 +81,11 @@
         <button id="fmt-edit-btn" title="Programmkopf / Programmfuß bearbeiten"
           onclick="fmtHfOpenEditor()"
           style="background:var(--bg2);color:var(--txt2);border:1px solid var(--bdr);border-radius:3px;padding:3px 7px;cursor:pointer;font-size:.85em;line-height:1">✎</button>
+        <button onclick="fmtSaveFile()" title="Format speichern"
+          style="background:var(--bg2);color:var(--txt2);border:1px solid var(--bdr);border-radius:3px;padding:3px 7px;cursor:pointer;font-size:.85em;line-height:1">💾</button>
+        <button onclick="fmtLoadFile()" title="Format laden"
+          style="background:var(--bg2);color:var(--txt2);border:1px solid var(--bdr);border-radius:3px;padding:3px 7px;cursor:pointer;font-size:.85em;line-height:1">📂</button>
+        <input type="file" id="fmt-load-input" style="display:none">
       </div>
       <!-- Postprozessor Einstellungen Popup -->
       <div id="fmt-hf-popup" style="display:none;position:fixed;z-index:9999;background:var(--bg2);border:1px solid var(--acc);border-radius:5px;box-shadow:0 4px 24px rgba(0,0,0,.75);width:640px;font-family:monospace;user-select:none">
