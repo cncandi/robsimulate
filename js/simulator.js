@@ -6027,3 +6027,199 @@ function fmtLoadFile() {
   };
   inp.click();
 }
+
+// ═══════════════════════════════════════════════════
+// GLOBALE MAPPING-TABELLE
+// ═══════════════════════════════════════════════════
+
+var _MAPPING_KEYS = [
+  {key:'moveJ',  label:'MoveJ / PTP',       hint:'{N} {X}{Y}{Z}{A}{B}{C} {VEL_MMS} {VEL_PCT} {TOOL} {BASE}'},
+  {key:'moveL',  label:'MoveL / LIN',       hint:'{N} {X}{Y}{Z}{A}{B}{C} {VEL_MMS} {TOOL} {BASE}'},
+  {key:'moveC',  label:'MoveC / CIRC',      hint:'{N} {VN} {X}{Y}{Z} {VX}{VY}{VZ} {VEL_MMS}'},
+  {key:'halt',   label:'Stop / HALT',       hint:''},
+  {key:'brake',  label:'Pause / BRAKE',     hint:''},
+  {key:'dout',   label:'SetDO / $OUT',      hint:'{CH} {VAL}'},
+  {key:'din',    label:'WaitDI / $IN',      hint:'{CH}'},
+  {key:'aout',   label:'SetAO / $ANOUT',    hint:'{CH} {VAL_F}'},
+  {key:'ain',    label:'GetAI / $ANIN',     hint:'{CH}'},
+  {key:'wait',   label:'WaitTime / WAIT SEC',hint:'{T} {T_MS}'},
+  {key:'tool',   label:'SetTool / $TOOL',   hint:'{N}'},
+  {key:'base',   label:'SetBase / $BASE',   hint:'{N}'},
+  {key:'varInt', label:'VarInt / DECL INT', hint:'{NAME} {INITVAL}'},
+  {key:'varReal',label:'VarReal / DECL REAL',hint:'{NAME} {INITVAL}'},
+  {key:'varBool',label:'VarBool / DECL BOOL',hint:'{NAME} {INITVAL}'},
+  {key:'call',   label:'Call / CALL',       hint:'{PROG} {ARGS}'},
+  {key:'calc',   label:'Calc / =',          hint:'{TARGET} {EXPR}'},
+];
+
+var _MAPPING_FMTS = [
+  {id:'kuka',     label:'KUKA KRL'},
+  {id:'abb',      label:'ABB RAPID'},
+  {id:'fanuc',    label:'FANUC TP'},
+  {id:'yaskawa',  label:'Yaskawa INFORM'},
+  {id:'kawasaki', label:'Kawasaki AS'},
+  {id:'staubli',  label:'Stäubli VAL3'},
+  {id:'ur',       label:'Universal Robots'},
+  {id:'adept',    label:'Adept V+'},
+  {id:'omron',    label:'Omron V+'},
+  {id:'epson',    label:'Epson SPEL+'},
+  {id:'comau',    label:'Comau PDL2'},
+  {id:'aubo',     label:'AUBO Script'},
+  {id:'dobot',    label:'Dobot Script'},
+  {id:'denso',    label:'Denso PACScript'},
+  {id:'nachi',    label:'Nachi FD'},
+  {id:'hanwha',   label:'Hanwha HCR'},
+  {id:'igus',     label:'igus iRC'},
+  {id:'estun',    label:'Estun ER'},
+  {id:'neura',    label:'NEURA SDK'},
+  {id:'mabi',     label:'MABI'},
+];
+
+function openMappingTable() {
+  var ov = document.getElementById('mapping-overlay');
+  if (!ov) return;
+  ov.style.display = 'flex';
+  _buildMappingTable();
+}
+
+function closeMappingTable() {
+  var ov = document.getElementById('mapping-overlay');
+  if (ov) ov.style.display = 'none';
+}
+
+function _buildMappingTable() {
+  var tbl = document.getElementById('mapping-table');
+  if (!tbl) return;
+
+  // Header-Zeile
+  var head = '<thead><tr><th style="position:sticky;left:0;z-index:2;background:var(--bg2);padding:4px 8px;border:1px solid var(--bdr);min-width:160px">Befehl</th>';
+  _MAPPING_FMTS.forEach(function(f) {
+    head += '<th style="padding:3px 6px;border:1px solid var(--bdr);min-width:180px;background:var(--bg2)">' + f.label +
+      ' <button onclick="mappingResetFormat(\'' + f.id + '\')" title="Format zurücksetzen" style="background:none;border:none;color:var(--txt3);cursor:pointer;font-size:10px;padding:0 2px">↺</button></th>';
+  });
+  head += '</tr></thead>';
+
+  // Body
+  var body = '<tbody>';
+  _MAPPING_KEYS.forEach(function(mk) {
+    body += '<tr>';
+    body += '<td style="position:sticky;left:0;z-index:1;background:var(--bg2);padding:4px 8px;border:1px solid var(--bdr);font-weight:600;color:var(--acc)">' +
+      mk.label + '<br><span style="color:var(--txt3);font-weight:400;font-size:10px">' + mk.hint + '</span></td>';
+
+    _MAPPING_FMTS.forEach(function(f) {
+      var defVal = (typeof FMT_CMD_DEFAULTS !== 'undefined' && FMT_CMD_DEFAULTS[f.id]) ? (FMT_CMD_DEFAULTS[f.id][mk.key] || '') : '';
+      var storedVal = '';
+      try {
+        var stored = localStorage.getItem('robsimul_cmd_' + f.id);
+        if (stored) { var obj = JSON.parse(stored); if (obj[mk.key] !== undefined) storedVal = obj[mk.key]; }
+      } catch(e) {}
+      var currentVal = storedVal !== '' ? storedVal : defVal;
+      var isCustom = storedVal !== '';
+      var isEmpty = currentVal === '';
+      var bg = isEmpty ? 'rgba(220,60,60,.12)' : isCustom ? 'rgba(60,180,100,.08)' : '';
+      body += '<td style="border:1px solid var(--bdr);padding:2px;vertical-align:top;background:' + bg + '">' +
+        '<textarea id="mc_' + f.id + '_' + mk.key + '"' +
+        ' data-default="' + defVal.replace(/"/g,'&quot;') + '"' +
+        ' spellcheck="false"' +
+        ' style="width:176px;height:44px;resize:vertical;background:transparent;border:none;color:var(--txt1);font-family:monospace;font-size:10px;padding:2px;outline:none"' +
+        ' oninput="mappingCellChanged(this)">' +
+        currentVal.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;') +
+        '</textarea></td>';
+    });
+    body += '</tr>';
+  });
+  body += '</tbody>';
+  tbl.innerHTML = head + body;
+}
+
+function mappingCellChanged(ta) {
+  var isDefault = ta.value === ta.dataset.default;
+  var isEmpty = ta.value.trim() === '';
+  ta.parentElement.style.background = isEmpty ? 'rgba(220,60,60,.12)' : !isDefault ? 'rgba(60,180,100,.08)' : '';
+}
+
+function mappingApplyAll() {
+  _MAPPING_FMTS.forEach(function(f) {
+    var cmds = {};
+    var hasChange = false;
+    _MAPPING_KEYS.forEach(function(mk) {
+      var cell = document.getElementById('mc_' + f.id + '_' + mk.key);
+      if (!cell) return;
+      cmds[mk.key] = cell.value;
+      if (cell.value !== cell.dataset.default) hasChange = true;
+    });
+    if (hasChange) {
+      try { localStorage.setItem('robsimul_cmd_' + f.id, JSON.stringify(cmds)); } catch(e) {}
+    } else {
+      try { localStorage.removeItem('robsimul_cmd_' + f.id); } catch(e) {}
+    }
+  });
+  // Aktives Format neu generieren
+  if (typeof FormatRegistry !== 'undefined' && FormatRegistry.setActive && FormatRegistry.getActiveId) {
+    var id = FormatRegistry.getActiveId();
+    if (id && id !== 'kuka' && id !== 'kuka-form') {
+      var fmts = FormatRegistry._allFormats ? FormatRegistry._allFormats() : [];
+      var fmt = fmts.find(function(f){return f.id===id;});
+      if (fmt && fmt._generate && typeof parsedData !== 'undefined') {
+        var ci = document.getElementById('code-input');
+        if (ci) { ci.value = fmt._generate(parsedData); if (typeof rebuildGutter==='function') rebuildGutter(); }
+      }
+    }
+  }
+  closeMappingTable();
+}
+
+function mappingResetFormat(fmtId) {
+  try { localStorage.removeItem('robsimul_cmd_' + fmtId); } catch(e) {}
+  var defaults = (typeof FMT_CMD_DEFAULTS !== 'undefined') ? (FMT_CMD_DEFAULTS[fmtId] || {}) : {};
+  _MAPPING_KEYS.forEach(function(mk) {
+    var cell = document.getElementById('mc_' + fmtId + '_' + mk.key);
+    if (!cell) return;
+    cell.value = defaults[mk.key] || '';
+    cell.parentElement.style.background = '';
+  });
+}
+
+function mappingResetAll() {
+  if (!confirm('Alle Mapping-Einstellungen auf Standard zurücksetzen?')) return;
+  _MAPPING_FMTS.forEach(function(f) {
+    try { localStorage.removeItem('robsimul_cmd_' + f.id); } catch(e) {}
+  });
+  _buildMappingTable();
+}
+
+function mappingExport() {
+  var data = {};
+  _MAPPING_FMTS.forEach(function(f) {
+    try {
+      var stored = localStorage.getItem('robsimul_cmd_' + f.id);
+      if (stored) data[f.id] = JSON.parse(stored);
+    } catch(e) {}
+  });
+  var blob = new Blob([JSON.stringify(data, null, 2)], {type:'application/json'});
+  var a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+  a.download = 'robsimul_mapping.json'; document.body.appendChild(a); a.click();
+  setTimeout(function(){URL.revokeObjectURL(a.href);a.remove();},500);
+}
+
+function mappingImport() {
+  var inp = document.getElementById('mapping-import-input');
+  if (!inp) return;
+  inp.onchange = function() {
+    var file = inp.files[0]; if (!file) return;
+    var reader = new FileReader();
+    reader.onload = function(e) {
+      try {
+        var data = JSON.parse(e.target.result);
+        Object.keys(data).forEach(function(fmtId) {
+          localStorage.setItem('robsimul_cmd_' + fmtId, JSON.stringify(data[fmtId]));
+        });
+        _buildMappingTable();
+        alert('Mapping importiert.');
+      } catch(err) { alert('Fehler: ' + err.message); }
+      inp.value = '';
+    };
+    reader.readAsText(file);
+  };
+  inp.click();
+}
