@@ -4541,8 +4541,19 @@ function updateTCPDef(){
 // ═══════════════════════════════════════════════════
 // PARSE & LOAD
 // ═══════════════════════════════════════════════════
+var _krlSnapshot = '';   // letzter valider KRL-Code vor Format-Wechsel
+
 function parseAndLoad(){
-  const code=document.getElementById('code-input').value;
+  var _activeId = (typeof FormatRegistry !== 'undefined' && FormatRegistry.getActiveId) ? FormatRegistry.getActiveId() : null;
+  var _isKRL = !_activeId || _activeId === 'kuka' || _activeId === 'kuka-form';
+  var code;
+  if (_isKRL) {
+    code = document.getElementById('code-input').value;
+    _krlSnapshot = code;           // Snapshot immer aktuell halten
+  } else {
+    if (!_krlSnapshot) return;     // Noch kein KRL geladen — nichts zu tun
+    code = _krlSnapshot;           // Snapshot für Simulation verwenden
+  }
   parsedData=parseKRL(code);const N=parsedData.positions.length;
   posLineNums=new Set(parsedData.positions.map(p=>p.lineNum).filter(n=>n!==undefined));
   for(const bp of[...breakpoints])if(!posLineNums.has(bp))breakpoints.delete(bp);
