@@ -1,4 +1,4 @@
-const APP_VERSION = 'V0.79';
+const APP_VERSION = 'V0.80';
 
 
 // ── Splash Screen ─────────────────────────────────────────────
@@ -2621,11 +2621,7 @@ async function _3dp_saveZip() {
 
 function saveProgram() {
   var code = document.getElementById('code-input').value;
-  if (confirm('Als ABB 3DP ZIP speichern?\n\nJA = ABB 3DP ZIP\nNEIN = KRL .src Text')) {
-    _3dp_saveZip();
-  } else {
-    downloadFile(code, 'programm.src');
-  }
+  downloadFile(code, 'programm.src');
 }
 
 function loadProgram() {
