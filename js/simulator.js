@@ -6029,56 +6029,183 @@ function fmtLoadFile() {
 }
 
 // ═══════════════════════════════════════════════════
-// GLOBALE MAPPING-TABELLE
+// CUSTOM FORMATS + GLOBALE MAPPING-TABELLE
 // ═══════════════════════════════════════════════════
 
 var _MAPPING_KEYS = [
-  {key:'moveJ',  label:'MoveJ / PTP',       hint:'{N} {X}{Y}{Z}{A}{B}{C} {VEL_MMS} {VEL_PCT} {TOOL} {BASE}'},
-  {key:'moveL',  label:'MoveL / LIN',       hint:'{N} {X}{Y}{Z}{A}{B}{C} {VEL_MMS} {TOOL} {BASE}'},
-  {key:'moveC',  label:'MoveC / CIRC',      hint:'{N} {VN} {X}{Y}{Z} {VX}{VY}{VZ} {VEL_MMS}'},
-  {key:'halt',   label:'Stop / HALT',       hint:''},
-  {key:'brake',  label:'Pause / BRAKE',     hint:''},
-  {key:'dout',   label:'SetDO / $OUT',      hint:'{CH} {VAL}'},
-  {key:'din',    label:'WaitDI / $IN',      hint:'{CH}'},
-  {key:'aout',   label:'SetAO / $ANOUT',    hint:'{CH} {VAL_F}'},
-  {key:'ain',    label:'GetAI / $ANIN',     hint:'{CH}'},
+  {key:'moveJ',  label:'MoveJ / PTP',        hint:'{N} {X}{Y}{Z}{A}{B}{C} {VEL_MMS} {VEL_PCT} {TOOL} {BASE}'},
+  {key:'moveL',  label:'MoveL / LIN',        hint:'{N} {X}{Y}{Z}{A}{B}{C} {VEL_MMS} {TOOL} {BASE}'},
+  {key:'moveC',  label:'MoveC / CIRC',       hint:'{N} {VN} {X}{Y}{Z} {VX}{VY}{VZ} {VEL_MMS}'},
+  {key:'halt',   label:'Stop / HALT',        hint:''},
+  {key:'brake',  label:'Pause / BRAKE',      hint:''},
+  {key:'dout',   label:'SetDO / $OUT',       hint:'{CH} {VAL}'},
+  {key:'din',    label:'WaitDI / $IN',       hint:'{CH}'},
+  {key:'aout',   label:'SetAO / $ANOUT',     hint:'{CH} {VAL_F}'},
+  {key:'ain',    label:'GetAI / $ANIN',      hint:'{CH}'},
   {key:'wait',   label:'WaitTime / WAIT SEC',hint:'{T} {T_MS}'},
-  {key:'tool',   label:'SetTool / $TOOL',   hint:'{N}'},
-  {key:'base',   label:'SetBase / $BASE',   hint:'{N}'},
-  {key:'varInt', label:'VarInt / DECL INT', hint:'{NAME} {INITVAL}'},
+  {key:'tool',   label:'SetTool / $TOOL',    hint:'{N}'},
+  {key:'base',   label:'SetBase / $BASE',    hint:'{N}'},
+  {key:'varInt', label:'VarInt / DECL INT',  hint:'{NAME} {INITVAL}'},
   {key:'varReal',label:'VarReal / DECL REAL',hint:'{NAME} {INITVAL}'},
   {key:'varBool',label:'VarBool / DECL BOOL',hint:'{NAME} {INITVAL}'},
-  {key:'call',   label:'Call / CALL',       hint:'{PROG} {ARGS}'},
-  {key:'calc',   label:'Calc / =',          hint:'{TARGET} {EXPR}'},
+  {key:'call',   label:'Call / CALL',        hint:'{PROG} {ARGS}'},
+  {key:'calc',   label:'Calc / =',           hint:'{TARGET} {EXPR}'},
 ];
 
-var _MAPPING_FMTS = [
-  {id:'kuka',     label:'KUKA KRL'},
-  {id:'abb',      label:'ABB RAPID'},
-  {id:'fanuc',    label:'FANUC TP'},
-  {id:'yaskawa',  label:'Yaskawa INFORM'},
-  {id:'kawasaki', label:'Kawasaki AS'},
-  {id:'staubli',  label:'Stäubli VAL3'},
-  {id:'ur',       label:'Universal Robots'},
-  {id:'adept',    label:'Adept V+'},
-  {id:'omron',    label:'Omron V+'},
-  {id:'epson',    label:'Epson SPEL+'},
-  {id:'comau',    label:'Comau PDL2'},
-  {id:'aubo',     label:'AUBO Script'},
-  {id:'dobot',    label:'Dobot Script'},
-  {id:'denso',    label:'Denso PACScript'},
-  {id:'nachi',    label:'Nachi FD'},
-  {id:'hanwha',   label:'Hanwha HCR'},
-  {id:'igus',     label:'igus iRC'},
-  {id:'estun',    label:'Estun ER'},
-  {id:'neura',    label:'NEURA SDK'},
-  {id:'mabi',     label:'MABI'},
+// Eingebaute Formate
+var _MAPPING_FMTS_BUILTIN = [
+  {id:'kuka',label:'KUKA KRL'},{id:'abb',label:'ABB RAPID'},{id:'fanuc',label:'FANUC TP'},
+  {id:'yaskawa',label:'Yaskawa INFORM'},{id:'kawasaki',label:'Kawasaki AS'},
+  {id:'staubli',label:'Stäubli VAL3'},{id:'ur',label:'Universal Robots'},
+  {id:'adept',label:'Adept V+'},{id:'omron',label:'Omron V+'},{id:'epson',label:'Epson SPEL+'},
+  {id:'comau',label:'Comau PDL2'},{id:'aubo',label:'AUBO Script'},{id:'dobot',label:'Dobot Script'},
+  {id:'denso',label:'Denso PACScript'},{id:'nachi',label:'Nachi FD'},{id:'hanwha',label:'Hanwha HCR'},
+  {id:'igus',label:'igus iRC'},{id:'estun',label:'Estun ER'},{id:'neura',label:'NEURA SDK'},{id:'mabi',label:'MABI'},
 ];
+// Custom Formate (aus localStorage)
+var _MAPPING_FMTS_CUSTOM = [];
 
+function _allFmts() { return _MAPPING_FMTS_BUILTIN.concat(_MAPPING_FMTS_CUSTOM); }
+
+// Filter-Zustand: Set von sichtbaren Format-IDs (null = alle)
+var _mappingVisible = null;
+
+// ── Custom Format Generator ─────────────────────────────────────────
+function _makeCustomGenerate(id, commentSyntax) {
+  var cmt = commentSyntax || '; ';
+  return function(pd) {
+    if (!pd) return '';
+    pd = (typeof _pfgNormalize === 'function') ? _pfgNormalize(pd) : pd;
+    var positions = pd.positions||[], steps = pd.steps||[];
+    var lines = [], curVel=0.167, toolN=1, baseN=1;
+    var hf = (typeof fmtHfLoad==='function') ? fmtHfLoad(id) : null;
+    if (hf && hf.header) hf.header.split('\n').forEach(function(l){lines.push(l);});
+
+    function tpl(key, vars) {
+      if (typeof applyTpl==='function') {
+        var r = applyTpl(id, key, vars);
+        if (r !== null) return r===''?null:r;
+      }
+      return null;
+    }
+    function pushOrCmt(val, key, vars) {
+      if (val != null) lines.push(val);
+      else lines.push(cmt + '[NICHT UNTERSTÜTZT] ' + key + (vars?' '+JSON.stringify(vars):''));
+    }
+    steps.forEach(function(s) {
+      var velMms=Math.max(1,Math.round((curVel||0.167)*1000));
+      var velPct=Math.max(1,Math.min(100,Math.round((curVel||0.167)/2.0*100)));
+      var pos, pv, pt, mv, cv;
+      switch(s.type) {
+        case 'tool':  curVel=curVel; toolN=s.n; pushOrCmt(tpl('tool',{N:s.n,TOOL:s.n}),'tool',{N:s.n}); break;
+        case 'base':  baseN=s.n; pushOrCmt(tpl('base',{N:s.n,BASE:s.n}),'base',{N:s.n}); break;
+        case 'velcp': curVel=s.v||0.167; velMms=Math.max(1,Math.round(curVel*1000)); break;
+        case 'halt':  pushOrCmt(tpl('halt',{}),'halt'); break;
+        case 'brake': pushOrCmt(tpl('brake',{})||tpl('halt',{}),'brake'); break;
+        case 'wait':  pushOrCmt(tpl('wait',{T:parseFloat(s.t||0).toFixed(1),T_MS:Math.round(parseFloat(s.t||0)*1000)}),'wait',{T:s.t}); break;
+        case 'din':   pushOrCmt(tpl('din',{CH:s.n}),'din',{CH:s.n}); break;
+        case 'dout':{ var dv=s.v==='TRUE'||s.v==='1'; pushOrCmt(tpl('dout',{CH:s.n,VAL:dv?'TRUE':'FALSE'}),'dout',{CH:s.n}); break; }
+        case 'aout':  pushOrCmt(tpl('aout',{CH:s.n,VAL_F:parseFloat(s.v||0).toFixed(2)}),'aout',{CH:s.n}); break;
+        case 'ain':   pushOrCmt(tpl('ain',{CH:s.n}),'ain',{CH:s.n}); break;
+        case 'var': { var vt=s.varType||'REAL',vi=s.val||(vt==='BOOL'?'FALSE':vt==='INT'?'0':'0.0'); var vk=vt==='INT'?'varInt':vt==='BOOL'?'varBool':'varReal'; pushOrCmt(tpl(vk,{TYPE:vt,NAME:s.name||'v',INITVAL:vi}),vk); break; }
+        case 'calc':  pushOrCmt(tpl('calc',{TARGET:s.target||'v',EXPR:s.expr||'0'}),'calc'); break;
+        case 'move': {
+          pos=positions[s.posIdx]; if(!pos) break;
+          var isLin=s.moveType==='LIN'||s.moveType==='SLIN';
+          mv={N:(s.posIdx||0)+1,X:pos.X.toFixed(3),Y:pos.Y.toFixed(3),Z:pos.Z.toFixed(3),
+            A:pos.A.toFixed(3),B:pos.B.toFixed(3),C:pos.C.toFixed(3),
+            VEL_MMS:velMms,VEL_PCT:velPct,VEL_MS:(curVel||0.167).toFixed(4),TOOL:toolN,BASE:baseN};
+          pushOrCmt(tpl(isLin?'moveL':'moveJ',mv),isLin?'moveL':'moveJ',mv); break;
+        }
+        case 'circ': {
+          pv=positions[s.viaIdx]; pt=positions[s.posIdx]; if(!pv||!pt) break;
+          cv={N:(s.posIdx||0)+1,VN:(s.viaIdx||0)+1,
+            X:pt.X.toFixed(3),Y:pt.Y.toFixed(3),Z:pt.Z.toFixed(3),
+            A:pt.A.toFixed(3),B:pt.B.toFixed(3),C:pt.C.toFixed(3),
+            VX:pv.X.toFixed(3),VY:pv.Y.toFixed(3),VZ:pv.Z.toFixed(3),
+            VEL_MMS:velMms,TOOL:toolN,BASE:baseN};
+          pushOrCmt(tpl('moveC',cv),'moveC',cv); break;
+        }
+      }
+    });
+    if (hf && hf.footer) hf.footer.split('\n').forEach(function(l){lines.push(l);});
+    return lines.join('\n');
+  };
+}
+
+// ── Custom Format registrieren ──────────────────────────────────────
+function _registerCustomFmt(entry) {
+  if (typeof FormatRegistry === 'undefined') return;
+  var existing = FormatRegistry._allFormats ? FormatRegistry._allFormats().find(function(f){return f.id===entry.id;}) : null;
+  if (existing) return;
+  var logoHtml = entry.logo
+    ? '<img src="' + entry.logo + '" height="14" style="vertical-align:middle;margin-right:6px;max-width:56px;object-fit:contain" onerror="this.style.display=\'none\'">'
+    : '';
+  var genFn = _makeCustomGenerate(entry.id, entry.comment||'; ');
+  FormatRegistry.register({
+    id:         entry.id,
+    label:      entry.label,
+    icon:       logoHtml,
+    activate:   (function(gfn){ return function(){
+      var ci=document.getElementById('code-input'), gt=document.getElementById('gutter');
+      var fv=document.getElementById('krl-form-view'), fw=document.getElementById('fv-form-wrap');
+      if(ci) ci.style.display=''; if(gt) gt.style.display='';
+      if(fv) fv.style.display='none'; if(fw) fw.style.display='none';
+      var pd=(typeof parsedData!=='undefined')?parsedData:{positions:[],steps:[],finalState:{}};
+      if(ci){ ci.value=gfn(pd); if(typeof rebuildGutter==='function') rebuildGutter(); }
+    };})(genFn),
+    deactivate: function(){},
+    _generate:  genFn,
+  });
+}
+
+// ── Custom Formate laden ────────────────────────────────────────────
+function loadCustomFormats() {
+  try {
+    var stored = localStorage.getItem('robsimul_custom_fmts');
+    if (!stored) return;
+    var list = JSON.parse(stored);
+    _MAPPING_FMTS_CUSTOM = list;
+    list.forEach(function(entry) { _registerCustomFmt(entry); });
+  } catch(e) {}
+}
+
+function saveCustomFormats() {
+  try { localStorage.setItem('robsimul_custom_fmts', JSON.stringify(_MAPPING_FMTS_CUSTOM)); } catch(e) {}
+}
+
+// Custom Format hinzufügen
+function addCustomFormat(label, logo, commentSyntax) {
+  var id = 'custom_' + label.toLowerCase().replace(/[^a-z0-9]/g,'_').replace(/__+/g,'_');
+  if (_MAPPING_FMTS_CUSTOM.find(function(e){return e.id===id;})) { alert('ID bereits vorhanden: ' + id); return; }
+  var entry = {id:id, label:label, logo:logo||'', comment:commentSyntax||'; '};
+  _MAPPING_FMTS_CUSTOM.push(entry);
+  saveCustomFormats();
+  _registerCustomFmt(entry);
+  return id;
+}
+
+function deleteCustomFormat(id) {
+  _MAPPING_FMTS_CUSTOM = _MAPPING_FMTS_CUSTOM.filter(function(e){return e.id!==id;});
+  saveCustomFormats();
+  try { localStorage.removeItem('robsimul_cmd_' + id); } catch(e){}
+  try { localStorage.removeItem('robsimul_hf_' + id); } catch(e){}
+}
+
+// Beim Start laden
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', loadCustomFormats);
+} else {
+  loadCustomFormats();
+}
+
+// ── Mapping-Tabelle ─────────────────────────────────────────────────
 function openMappingTable() {
   var ov = document.getElementById('mapping-overlay');
   if (!ov) return;
+  if (_mappingVisible === null) _mappingVisible = new Set(_allFmts().map(function(f){return f.id;}));
   ov.style.display = 'flex';
+  _buildFilterBar();
   _buildMappingTable();
 }
 
@@ -6087,44 +6214,78 @@ function closeMappingTable() {
   if (ov) ov.style.display = 'none';
 }
 
+// Filter-Bar aufbauen
+function _buildFilterBar() {
+  var bar = document.getElementById('mapping-filter-bar');
+  if (!bar) return;
+  var fmts = _allFmts();
+  var allVis = _mappingVisible === null || _mappingVisible.size === fmts.length;
+  var html = '<button onclick="mappingFilterAll()" style="margin-right:4px;padding:2px 8px;border-radius:3px;cursor:pointer;font-size:11px;'+(allVis?'background:var(--acc);color:#000;border:none':'background:var(--bg3);color:var(--txt2);border:1px solid var(--bdr)')+'">ALLE</button>';
+  fmts.forEach(function(f) {
+    var vis = _mappingVisible===null || _mappingVisible.has(f.id);
+    var isCustom = _MAPPING_FMTS_CUSTOM.find(function(e){return e.id===f.id;});
+    var label = f.label.split(' ')[0];  // Kurzname
+    html += '<button onclick="mappingFilterToggle(\'' + f.id + '\')" title="' + f.label + '" style="margin:2px;padding:2px 7px;border-radius:3px;cursor:pointer;font-size:10px;'
+      +(vis?'background:var(--acc);color:#000;border:none;':'background:var(--bg3);color:var(--txt3);border:1px solid var(--bdr);')
+      +(isCustom?'font-style:italic;':'')
+      +'">'+ label +'</button>';
+  });
+  bar.innerHTML = html;
+}
+
+function mappingFilterAll() {
+  var fmts = _allFmts();
+  var allVis = _mappingVisible===null || _mappingVisible.size===fmts.length;
+  if (allVis) {
+    _mappingVisible = new Set([fmts[0].id]);  // nur ersten behalten
+  } else {
+    _mappingVisible = null;
+  }
+  _buildFilterBar(); _buildMappingTable();
+}
+
+function mappingFilterToggle(id) {
+  if (_mappingVisible === null) _mappingVisible = new Set(_allFmts().map(function(f){return f.id;}));
+  if (_mappingVisible.has(id)) { _mappingVisible.delete(id); }
+  else { _mappingVisible.add(id); }
+  if (_mappingVisible.size === 0) _mappingVisible.add(id);
+  _buildFilterBar(); _buildMappingTable();
+}
+
+// Tabelle aufbauen
 function _buildMappingTable() {
   var tbl = document.getElementById('mapping-table');
   if (!tbl) return;
+  var fmts = _allFmts().filter(function(f){ return _mappingVisible===null||_mappingVisible.has(f.id); });
 
-  // Header-Zeile
   var head = '<thead><tr><th style="position:sticky;left:0;z-index:2;background:var(--bg2);padding:4px 8px;border:1px solid var(--bdr);min-width:160px">Befehl</th>';
-  _MAPPING_FMTS.forEach(function(f) {
-    head += '<th style="padding:3px 6px;border:1px solid var(--bdr);min-width:180px;background:var(--bg2)">' + f.label +
-      ' <button onclick="mappingResetFormat(\'' + f.id + '\')" title="Format zurücksetzen" style="background:none;border:none;color:var(--txt3);cursor:pointer;font-size:10px;padding:0 2px">↺</button></th>';
+  fmts.forEach(function(f) {
+    var isCustom = !!_MAPPING_FMTS_CUSTOM.find(function(e){return e.id===f.id;});
+    head += '<th style="padding:3px 6px;border:1px solid var(--bdr);min-width:180px;background:var(--bg2);'+(isCustom?'font-style:italic;color:var(--acc);':'')+'">'
+      + f.label
+      + ' <button onclick="mappingResetFormat(\'' + f.id + '\')" title="Zurücksetzen" style="background:none;border:none;color:var(--txt3);cursor:pointer;font-size:10px;padding:0 2px">↺</button>'
+      + (isCustom ? ' <button onclick="mappingDeleteCustom(\'' + f.id + '\')" title="Hersteller löschen" style="background:none;border:none;color:#f87171;cursor:pointer;font-size:10px;padding:0 2px">✕</button>' : '')
+      + '</th>';
   });
   head += '</tr></thead>';
 
-  // Body
   var body = '<tbody>';
   _MAPPING_KEYS.forEach(function(mk) {
-    body += '<tr>';
-    body += '<td style="position:sticky;left:0;z-index:1;background:var(--bg2);padding:4px 8px;border:1px solid var(--bdr);font-weight:600;color:var(--acc)">' +
-      mk.label + '<br><span style="color:var(--txt3);font-weight:400;font-size:10px">' + mk.hint + '</span></td>';
-
-    _MAPPING_FMTS.forEach(function(f) {
-      var defVal = (typeof FMT_CMD_DEFAULTS !== 'undefined' && FMT_CMD_DEFAULTS[f.id]) ? (FMT_CMD_DEFAULTS[f.id][mk.key] || '') : '';
+    body += '<tr><td style="position:sticky;left:0;z-index:1;background:var(--bg2);padding:4px 8px;border:1px solid var(--bdr);font-weight:600;color:var(--acc)">'
+      + mk.label + '<br><span style="color:var(--txt3);font-weight:400;font-size:10px">' + mk.hint + '</span></td>';
+    fmts.forEach(function(f) {
+      var defVal = (typeof FMT_CMD_DEFAULTS!=='undefined'&&FMT_CMD_DEFAULTS[f.id]) ? (FMT_CMD_DEFAULTS[f.id][mk.key]||'') : '';
       var storedVal = '';
-      try {
-        var stored = localStorage.getItem('robsimul_cmd_' + f.id);
-        if (stored) { var obj = JSON.parse(stored); if (obj[mk.key] !== undefined) storedVal = obj[mk.key]; }
-      } catch(e) {}
-      var currentVal = storedVal !== '' ? storedVal : defVal;
-      var isCustom = storedVal !== '';
-      var isEmpty = currentVal === '';
-      var bg = isEmpty ? 'rgba(220,60,60,.12)' : isCustom ? 'rgba(60,180,100,.08)' : '';
-      body += '<td style="border:1px solid var(--bdr);padding:2px;vertical-align:top;background:' + bg + '">' +
-        '<textarea id="mc_' + f.id + '_' + mk.key + '"' +
-        ' data-default="' + defVal.replace(/"/g,'&quot;') + '"' +
-        ' spellcheck="false"' +
-        ' style="width:176px;height:44px;resize:vertical;background:transparent;border:none;color:var(--txt1);font-family:monospace;font-size:10px;padding:2px;outline:none"' +
-        ' oninput="mappingCellChanged(this)">' +
-        currentVal.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;') +
-        '</textarea></td>';
+      try { var s=localStorage.getItem('robsimul_cmd_'+f.id); if(s){var o=JSON.parse(s);if(o[mk.key]!==undefined)storedVal=o[mk.key];} } catch(e){}
+      var val = storedVal!==''?storedVal:defVal;
+      var isCustom = storedVal!=='';
+      var isEmpty = val==='';
+      var bg = isEmpty?'rgba(220,60,60,.12)':isCustom?'rgba(60,180,100,.08)':'';
+      body += '<td style="border:1px solid var(--bdr);padding:2px;vertical-align:top;background:'+bg+'">'
+        +'<textarea id="mc_'+f.id+'_'+mk.key+'" data-default="'+defVal.replace(/"/g,'&quot;')+'" spellcheck="false"'
+        +' oninput="mappingCellChanged(this)"'
+        +' style="width:176px;height:44px;resize:vertical;background:transparent;border:none;color:var(--txt1);font-family:monospace;font-size:10px;padding:2px;outline:none">'
+        +val.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')+'</textarea></td>';
     });
     body += '</tr>';
   });
@@ -6134,92 +6295,132 @@ function _buildMappingTable() {
 
 function mappingCellChanged(ta) {
   var isDefault = ta.value === ta.dataset.default;
-  var isEmpty = ta.value.trim() === '';
-  ta.parentElement.style.background = isEmpty ? 'rgba(220,60,60,.12)' : !isDefault ? 'rgba(60,180,100,.08)' : '';
+  ta.parentElement.style.background = ta.value.trim()===''?'rgba(220,60,60,.12)':!isDefault?'rgba(60,180,100,.08)':'';
 }
 
 function mappingApplyAll() {
-  _MAPPING_FMTS.forEach(function(f) {
-    var cmds = {};
-    var hasChange = false;
+  _allFmts().forEach(function(f) {
+    var cmds={}, hasChange=false;
     _MAPPING_KEYS.forEach(function(mk) {
-      var cell = document.getElementById('mc_' + f.id + '_' + mk.key);
-      if (!cell) return;
-      cmds[mk.key] = cell.value;
-      if (cell.value !== cell.dataset.default) hasChange = true;
+      var cell=document.getElementById('mc_'+f.id+'_'+mk.key);
+      if(!cell) return;
+      cmds[mk.key]=cell.value;
+      if(cell.value!==cell.dataset.default) hasChange=true;
     });
-    if (hasChange) {
-      try { localStorage.setItem('robsimul_cmd_' + f.id, JSON.stringify(cmds)); } catch(e) {}
-    } else {
-      try { localStorage.removeItem('robsimul_cmd_' + f.id); } catch(e) {}
-    }
+    try {
+      if(hasChange) localStorage.setItem('robsimul_cmd_'+f.id,JSON.stringify(cmds));
+      else localStorage.removeItem('robsimul_cmd_'+f.id);
+    } catch(e){}
   });
   // Aktives Format neu generieren
-  if (typeof FormatRegistry !== 'undefined' && FormatRegistry.setActive && FormatRegistry.getActiveId) {
-    var id = FormatRegistry.getActiveId();
-    if (id && id !== 'kuka' && id !== 'kuka-form') {
-      var fmts = FormatRegistry._allFormats ? FormatRegistry._allFormats() : [];
-      var fmt = fmts.find(function(f){return f.id===id;});
-      if (fmt && fmt._generate && typeof parsedData !== 'undefined') {
-        var ci = document.getElementById('code-input');
-        if (ci) { ci.value = fmt._generate(parsedData); if (typeof rebuildGutter==='function') rebuildGutter(); }
-      }
+  if(typeof FormatRegistry!=='undefined'&&FormatRegistry.getActiveId) {
+    var id=FormatRegistry.getActiveId();
+    var fmts=FormatRegistry._allFormats?FormatRegistry._allFormats():[];
+    var fmt=fmts.find(function(f){return f.id===id;});
+    if(fmt&&fmt._generate&&typeof parsedData!=='undefined') {
+      var ci=document.getElementById('code-input');
+      if(ci){ci.value=fmt._generate(parsedData);if(typeof rebuildGutter==='function')rebuildGutter();}
     }
   }
   closeMappingTable();
 }
 
 function mappingResetFormat(fmtId) {
-  try { localStorage.removeItem('robsimul_cmd_' + fmtId); } catch(e) {}
-  var defaults = (typeof FMT_CMD_DEFAULTS !== 'undefined') ? (FMT_CMD_DEFAULTS[fmtId] || {}) : {};
+  try{localStorage.removeItem('robsimul_cmd_'+fmtId);}catch(e){}
+  var defaults=(typeof FMT_CMD_DEFAULTS!=='undefined')?(FMT_CMD_DEFAULTS[fmtId]||{}):{};
   _MAPPING_KEYS.forEach(function(mk) {
-    var cell = document.getElementById('mc_' + fmtId + '_' + mk.key);
-    if (!cell) return;
-    cell.value = defaults[mk.key] || '';
-    cell.parentElement.style.background = '';
+    var cell=document.getElementById('mc_'+fmtId+'_'+mk.key);
+    if(!cell) return;
+    cell.value=defaults[mk.key]||'';
+    cell.parentElement.style.background='';
   });
 }
 
+function mappingDeleteCustom(id) {
+  if(!confirm('Hersteller "'+id+'" wirklich löschen?')) return;
+  deleteCustomFormat(id);
+  _mappingVisible = null;
+  _buildFilterBar(); _buildMappingTable();
+}
+
 function mappingResetAll() {
-  if (!confirm('Alle Mapping-Einstellungen auf Standard zurücksetzen?')) return;
-  _MAPPING_FMTS.forEach(function(f) {
-    try { localStorage.removeItem('robsimul_cmd_' + f.id); } catch(e) {}
-  });
+  if(!confirm('Alle Mapping-Einstellungen auf Standard zurücksetzen?')) return;
+  _allFmts().forEach(function(f){try{localStorage.removeItem('robsimul_cmd_'+f.id);}catch(e){}});
   _buildMappingTable();
 }
 
 function mappingExport() {
-  var data = {};
-  _MAPPING_FMTS.forEach(function(f) {
-    try {
-      var stored = localStorage.getItem('robsimul_cmd_' + f.id);
-      if (stored) data[f.id] = JSON.parse(stored);
-    } catch(e) {}
+  var data={_custom:_MAPPING_FMTS_CUSTOM};
+  _allFmts().forEach(function(f) {
+    try{var s=localStorage.getItem('robsimul_cmd_'+f.id);if(s)data[f.id]=JSON.parse(s);}catch(e){}
   });
-  var blob = new Blob([JSON.stringify(data, null, 2)], {type:'application/json'});
-  var a = document.createElement('a'); a.href = URL.createObjectURL(blob);
-  a.download = 'robsimul_mapping.json'; document.body.appendChild(a); a.click();
+  var blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
+  var a=document.createElement('a');a.href=URL.createObjectURL(blob);
+  a.download='robsimul_mapping.json';document.body.appendChild(a);a.click();
   setTimeout(function(){URL.revokeObjectURL(a.href);a.remove();},500);
 }
 
 function mappingImport() {
-  var inp = document.getElementById('mapping-import-input');
-  if (!inp) return;
-  inp.onchange = function() {
-    var file = inp.files[0]; if (!file) return;
-    var reader = new FileReader();
-    reader.onload = function(e) {
+  var inp=document.getElementById('mapping-import-input');
+  if(!inp) return;
+  inp.onchange=function() {
+    var file=inp.files[0];if(!file) return;
+    var reader=new FileReader();
+    reader.onload=function(e) {
       try {
-        var data = JSON.parse(e.target.result);
-        Object.keys(data).forEach(function(fmtId) {
-          localStorage.setItem('robsimul_cmd_' + fmtId, JSON.stringify(data[fmtId]));
+        var data=JSON.parse(e.target.result);
+        if(data._custom && Array.isArray(data._custom)) {
+          data._custom.forEach(function(entry){
+            if(!_MAPPING_FMTS_CUSTOM.find(function(e){return e.id===entry.id;})) {
+              _MAPPING_FMTS_CUSTOM.push(entry);
+              _registerCustomFmt(entry);
+            }
+          });
+          saveCustomFormats();
+          delete data._custom;
+        }
+        Object.keys(data).forEach(function(fmtId){
+          try{localStorage.setItem('robsimul_cmd_'+fmtId,JSON.stringify(data[fmtId]));}catch(e){}
         });
-        _buildMappingTable();
+        _mappingVisible=null; _buildFilterBar(); _buildMappingTable();
         alert('Mapping importiert.');
-      } catch(err) { alert('Fehler: ' + err.message); }
-      inp.value = '';
+      } catch(err){alert('Fehler: '+err.message);}
+      inp.value='';
     };
     reader.readAsText(file);
   };
   inp.click();
+}
+
+// ── Hersteller hinzufügen Dialog ────────────────────────────────────
+function openAddFmtDialog() {
+  var dlg=document.getElementById('add-fmt-dialog');
+  if(dlg){ dlg.style.display='flex'; document.getElementById('add-fmt-name').focus(); }
+}
+function closeAddFmtDialog() {
+  var dlg=document.getElementById('add-fmt-dialog');
+  if(dlg) dlg.style.display='none';
+}
+function submitAddFmt() {
+  var name=(document.getElementById('add-fmt-name').value||'').trim();
+  var logo=(document.getElementById('add-fmt-logo').value||'').trim();
+  var cmt=(document.getElementById('add-fmt-cmt').value||'; ').trim()||'; ';
+  if(!name){alert('Name erforderlich.');return;}
+  var id=addCustomFormat(name, logo, cmt+' ');
+  if(!id) return;
+  // Logo-Upload-Vorschau
+  var uploadInp=document.getElementById('add-fmt-logo-file');
+  if(uploadInp&&uploadInp.files&&uploadInp.files[0]) {
+    var reader=new FileReader();
+    reader.onload=function(e){
+      var entry=_MAPPING_FMTS_CUSTOM.find(function(en){return en.id===id;});
+      if(entry){entry.logo=e.target.result;saveCustomFormats();}
+    };
+    reader.readAsDataURL(uploadInp.files[0]);
+  }
+  _mappingVisible=null; _buildFilterBar(); _buildMappingTable();
+  closeAddFmtDialog();
+  document.getElementById('add-fmt-name').value='';
+  document.getElementById('add-fmt-logo').value='';
+  document.getElementById('add-fmt-cmt').value='';
 }
