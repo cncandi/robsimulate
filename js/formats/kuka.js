@@ -127,7 +127,10 @@ FormatRegistry.register({
     }
   },
 
-  deactivate: function () {},
+  deactivate: function () {
+    var ci = document.getElementById('code-input');
+    if (ci && ci.value) _krlSnapshot = ci.value;
+  },
 
   _generate: _kukaGenerate,
 });
