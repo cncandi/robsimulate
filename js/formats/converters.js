@@ -68,7 +68,13 @@
     var steps     = parsedData.steps     || [];
     var fmtId     = cfg._formatId || '';
     var lines = [];
-    var push  = function(l) { if (l != null && l !== '') lines.push(l); };
+    // Semikolon (ohne Leerzeichen danach) = Zeilenumbruch im Template
+    var push = function(l) {
+      if (l == null || l === '') return;
+      if (typeof l === 'string' && /;(?=\S)/.test(l)) {
+        l.split(/;(?=\S)/).forEach(function(part){ if(part.replace(/\s/g,'')!=='') lines.push(part); });
+      } else { lines.push(l); }
+    };
 
     // Kopf: Tool/Base/Vars aus steps sammeln
     var toolN = 1, baseN = 1, vars = [];
@@ -264,6 +270,91 @@
   var IMPLS = {};
 
   // ── ABB RAPID / IRC5 / OmniCore ─────────────────────────────────────────
+  // ── Formular PFG (Neutral-Format) ───────────────────────────────────────
+  IMPLS.pfg = {
+    _generate: function(pd) {
+      if(!pd) return '';
+      pd = normalizePd(pd);
+      var positions=pd.positions||[], steps=pd.steps||[];
+      var lines=[], curVel=0.167, toolN=1, baseN=1;
+      var hf=(typeof fmtHfLoad==='function')?fmtHfLoad('pfg'):null;
+      var hdr=(hf&&hf.header)?hf.header:'ProgramStart PP_MAIN';
+      hdr.split('\n').forEach(function(l){lines.push(l);});
+      function tpl(key,vars){
+        if(typeof applyTpl==='function'){var r=applyTpl('pfg',key,vars);if(r!==null)return r===''?null:r;}
+        return null;
+      }
+      steps.forEach(function(s){
+        var velMms=Math.max(1,Math.round((curVel||0.167)*1000));
+        var velPct=Math.max(1,Math.min(100,Math.round((curVel||0.167)/2.0*100)));
+        var pos,pv,pt,mv,cv;
+        switch(s.type){
+          case 'comment': var r=tpl('comment',{TEXT:s.text||''}); if(r) lines.push(r); break;
+          case 'tool':  toolN=s.n; var r=tpl('tool',{N:s.n}); if(r) lines.push(r); break;
+          case 'base':  baseN=s.n; var r=tpl('base',{N:s.n}); if(r) lines.push(r); break;
+          case 'velcp': curVel=s.v||0.167; velMms=Math.max(1,Math.round(curVel*1000)); var r=tpl('velcp',{VEL_MMS:velMms,VEL_PCT:velPct,VEL_MS:curVel.toFixed(4)}); if(r) lines.push(r); break;
+          case 'halt':  var r=tpl('halt',{}); if(r) lines.push(r); break;
+          case 'brake': var r=tpl('brake',{})||tpl('halt',{}); if(r) lines.push(r); break;
+          case 'wait':  var r=tpl('wait',{T:parseFloat(s.t||0).toFixed(1),T_MS:Math.round(parseFloat(s.t||0)*1000)}); if(r) lines.push(r); break;
+          case 'din':   var r=tpl('din',{CH:s.n}); if(r) lines.push(r); break;
+          case 'dout':{ var dv=s.v==='TRUE'||s.v==='1'; var r=tpl('dout',{CH:s.n,VAL:dv?'TRUE':'FALSE'}); if(r) lines.push(r); break; }
+          case 'aout':  var r=tpl('aout',{CH:s.n,VAL_F:parseFloat(s.v||0).toFixed(2)}); if(r) lines.push(r); break;
+          case 'ain':   var r=tpl('ain',{CH:s.n}); if(r) lines.push(r); break;
+          case 'var': { var vt=s.varType||'REAL',vi=s.val||(vt==='BOOL'?'FALSE':vt==='INT'?'0':'0.0'); var vk=vt==='INT'?'varInt':vt==='BOOL'?'varBool':'varReal'; var r=tpl(vk,{TYPE:vt,NAME:s.name||'v',INITVAL:vi}); if(r) lines.push(r); break; }
+          case 'calc':  var r=tpl('calc',{TARGET:s.target||'v',EXPR:s.expr||'0'}); if(r) lines.push(r); break;
+          case 'move': {
+            pos=positions[s.posIdx]; if(!pos) break;
+            var isLin=s.moveType==='LIN'||s.moveType==='SLIN', isSpl=s.moveType==='SLIN';
+            mv={N:(s.posIdx||0)+1,X:pos.X.toFixed(3),Y:pos.Y.toFixed(3),Z:pos.Z.toFixed(3),
+              A:pos.A.toFixed(3),B:pos.B.toFixed(3),C:pos.C.toFixed(3),
+              VEL_MMS:velMms,VEL_PCT:velPct,VEL_MS:curVel.toFixed(4),TOOL:toolN,BASE:baseN};
+            var key=isSpl?'moveS':isLin?'moveL':'moveJ';
+            var r=tpl(key,mv); if(r) lines.push(r); break;
+          }
+          case 'circ': {
+            pv=positions[s.viaIdx]; pt=positions[s.posIdx]; if(!pv||!pt) break;
+            cv={N:(s.posIdx||0)+1,VN:(s.viaIdx||0)+1,
+              X:pt.X.toFixed(3),Y:pt.Y.toFixed(3),Z:pt.Z.toFixed(3),
+              VX:pv.X.toFixed(3),VY:pv.Y.toFixed(3),VZ:pv.Z.toFixed(3),
+              VEL_MMS:velMms,TOOL:toolN,BASE:baseN};
+            var r=tpl('moveC',cv); if(r) lines.push(r); break;
+          }
+        }
+      });
+      var ftr=(hf&&hf.footer)?hf.footer:'ProgramEnd';
+      ftr.split('\n').forEach(function(l){lines.push(l);});
+      return lines.join('\n');
+    },
+    _parse: function(text) {
+      // PFG Text → parsedData (einfacher Parser)
+      var positions=[], steps=[];
+      text.split(/\r?\n/).forEach(function(raw){
+        var l=raw.trim(); if(!l||/^;/.test(l)) return;
+        var m;
+        m=l.match(/^MoveJ\s+P(\d+)/i); if(m){steps.push({type:'move',posIdx:parseInt(m[1])-1,moveType:'PTP'}); return;}
+        m=l.match(/^MoveL\s+P(\d+)/i); if(m){steps.push({type:'move',posIdx:parseInt(m[1])-1,moveType:'LIN'}); return;}
+        m=l.match(/^MoveS\s+P(\d+)/i); if(m){steps.push({type:'move',posIdx:parseInt(m[1])-1,moveType:'SLIN'}); return;}
+        m=l.match(/^MoveC\s+P(\d+)\s+P(\d+)/i); if(m){steps.push({type:'circ',viaIdx:parseInt(m[1])-1,posIdx:parseInt(m[2])-1}); return;}
+        m=l.match(/^SetTool\s+(\d+)/i); if(m){steps.push({type:'tool',n:parseInt(m[1])}); return;}
+        m=l.match(/^SetBase\s+(\d+)/i); if(m){steps.push({type:'base',n:parseInt(m[1])}); return;}
+        m=l.match(/^SetDO\s+(\d+)\s+(TRUE|FALSE)/i); if(m){steps.push({type:'dout',n:parseInt(m[1]),v:m[2].toUpperCase()}); return;}
+        m=l.match(/^WaitDI\s+(\d+)/i); if(m){steps.push({type:'din',n:parseInt(m[1])}); return;}
+        m=l.match(/^SetAO\s+(\d+)\s+([\d.]+)/i); if(m){steps.push({type:'aout',n:parseInt(m[1]),v:parseFloat(m[2])}); return;}
+        m=l.match(/^GetAI\s+(\d+)/i); if(m){steps.push({type:'ain',n:parseInt(m[1])}); return;}
+        m=l.match(/^WaitTime\s+([\d.]+)/i); if(m){steps.push({type:'wait',t:parseFloat(m[1])}); return;}
+        m=l.match(/^VarInt\s+(\w+)\s*=\s*(.+)/i); if(m){steps.push({type:'var',varType:'INT',name:m[1],val:m[2].trim()}); return;}
+        m=l.match(/^VarReal\s+(\w+)\s*=\s*(.+)/i); if(m){steps.push({type:'var',varType:'REAL',name:m[1],val:m[2].trim()}); return;}
+        m=l.match(/^VarBool\s+(\w+)\s*=\s*(.+)/i); if(m){steps.push({type:'var',varType:'BOOL',name:m[1],val:m[2].trim()}); return;}
+        if(/^Stop$/i.test(l)){steps.push({type:'halt'}); return;}
+        if(/^Pause$/i.test(l)){steps.push({type:'brake'}); return;}
+        m=l.match(/^Call\s+(\w+)/i); if(m){steps.push({type:'calc',target:'__call',expr:m[1]}); return;}
+        m=l.match(/^(\w+)\s*=\s*(.+)/); if(m){steps.push({type:'calc',target:m[1],expr:m[2].trim()}); return;}
+      });
+      return {positions:positions,steps:steps,finalState:{variables:{},digitalIn:{},digitalOut:{},analogOut:{},analogIn:{}}};
+    }
+  };
+
+
   // ABB RAPID — MIXED_MODULE
   // Struktur: MODULE → VAR-Deklarationen → CONST robtargets → PROC main() → Bewegungen → ENDPROC → ENDMODULE
   IMPLS.abb = {
@@ -1586,6 +1677,7 @@
   // ══════════════════════════════════════════════════════════════════════════
 
   var META = [
+    { id: 'pfg',      label: 'Formular PFG',     file: 'pfg.png'      },
     { id: 'abb',      label: 'ABB RAPID',        file: 'abb.png'      },
     { id: 'fanuc',    label: 'FANUC TP',          file: 'fanuc.png'    },
     { id: 'yaskawa',  label: 'Yaskawa INFORM',    file: 'yaskawa.png'  },
@@ -1632,6 +1724,7 @@
 // ══════════════════════════════════════════════════════════════════════════
 
 var FMT_HF_DEFAULTS = {
+  pfg:      { header: 'ProgramStart PP_MAIN', footer: 'ProgramEnd' },
   kuka:     { header: 'DEF PP_MAIN()\n ;INIT / BAS optional\n BAS(#INITMOV,0)', footer: 'END' },
   abb:      { header: "MODULE PP_MAIN\n PERS tooldata t1 := [TRUE,[[0,0,0],[1,0,0,0]],[1,[0,0,0.001],[1,0,0,0],0,0,0]];\n PERS wobjdata w1 := [FALSE,TRUE,'',[[0,0,0],[1,0,0,0]],[[0,0,0],[1,0,0,0]]];\n PROC main()", footer: 'ENDPROC\nENDMODULE' },
   fanuc:    { header: '/PROG PP_MAIN\n/ATTR\nOWNER = MNEDITOR;\n/MN', footer: '/END' },
@@ -1655,6 +1748,28 @@ var FMT_HF_DEFAULTS = {
 };
 
 var FMT_CMD_DEFAULTS = {
+  pfg: {
+    moveJ:   'MoveJ P{N}',
+    moveL:   'MoveL P{N}',
+    moveC:   'MoveC P{VN} P{N}',
+    moveS:   'MoveS P{N}',
+    halt:    'Stop',
+    brake:   'Pause',
+    dout:    'SetDO {CH} {VAL}',
+    din:     'WaitDI {CH}',
+    aout:    'SetAO {CH} {VAL_F}',
+    ain:     'GetAI {CH}',
+    wait:    'WaitTime {T}',
+    velcp:   '; VEL {VEL_MMS} mm/s',
+    tool:    'SetTool {N}',
+    base:    'SetBase {N}',
+    varInt:  'VarInt {NAME} = {INITVAL}',
+    varReal: 'VarReal {NAME} = {INITVAL}',
+    varBool: 'VarBool {NAME} = {INITVAL}',
+    call:    'Call {PROG}',
+    calc:    '{TARGET} = {EXPR}',
+    comment: '; {TEXT}',
+  },
   kuka:     { moveJ:'PTP {X {X},Y {Y},Z {Z},A {A},B {B},C {C}}', moveL:'LIN {X {X},Y {Y},Z {Z},A {A},B {B},C {C}}', moveC:'CIRC {X {VX},Y {VY},Z {VZ},A {VA},B {VB},C {VC}}, {X {X},Y {Y},Z {Z},A {A},B {B},C {C}}', halt:'HALT', dout:'$OUT[{CH}]={VAL}', din:'WAIT FOR $IN[{CH}]', aout:'$ANOUT[{CH}]={VAL_F}', ain:'r = $ANIN[{CH}]', wait:'WAIT SEC {T}', tool:'$TOOL=TOOL_DATA[{N}]', base:'$BASE=BASE_DATA[{N}]', varInt:'DECL INT {NAME}={INITVAL}', varReal:'DECL REAL {NAME}={INITVAL}', varBool:'DECL BOOL {NAME}={INITVAL}', call:'{PROG}({ARGS})', calc:'{TARGET} = {EXPR}' },
   abb:      { moveJ:'    MoveJ p{N}, v{VEL_MMS}, z10, tool{TOOL}\\WObj:=wobj{BASE};', moveL:'    MoveL p{N}, v{VEL_MMS}, fine, tool{TOOL}\\WObj:=wobj{BASE};', moveC:'    MoveC p{VN}, p{N}, v{VEL_MMS}, fine, tool{TOOL}\\WObj:=wobj{BASE};', halt:'    Stop;', dout:'    SetDO do{CH}, {VAL};', din:'    WaitDI di{CH}, 1;', aout:'    SetAO ao{CH}, {VAL_F};', ain:'    r := AInput(ai{CH});', wait:'    WaitTime {T};', tool:'    ! Tool: tool{N}', base:'    ! WObj: wobj{N}', varInt:'  VAR num {NAME} := {INITVAL};', varReal:'  VAR num {NAME} := {INITVAL};', varBool:'  VAR bool {NAME} := {INITVAL};', call:'    {PROG} {ARGS};', calc:'    {TARGET} := {EXPR};' },
   fanuc:    { moveJ:' {LN}:J P[{N}] {VEL_PCT}% FINE ;', moveL:' {LN}:L P[{N}] {VEL_MMS}mm/sec FINE ;', moveC:' {LN}:C P[{VN}]\n   P[{N}] {VEL_MMS}mm/sec FINE ;', halt:' {LN}: PAUSE ;', dout:' {LN}: DO[{CH}]={VAL} ;', din:' {LN}: WAIT DI[{CH}]=ON ;', aout:' {LN}: AO[{CH}]={VAL_F} ;', ain:' {LN}: R[1]=AI[{CH}] ;', wait:' {LN}: WAIT {T}(sec) ;', tool:' {LN}: UTOOL_NUM={N} ;', base:' {LN}: UFRAME_NUM={N} ;', varInt:' {LN}: R[{N}]={INITVAL} ;', varReal:' {LN}: R[{N}]={INITVAL} ;', varBool:' {LN}: F[{N}]=(OFF) ;', call:' {LN}: CALL {PROG}({ARGS}) ;', calc:' {LN}: R[1] = ({EXPR}) ;  ! {TARGET}' },
