@@ -1,4 +1,4 @@
-const APP_VERSION = 'V0.80';
+const APP_VERSION = 'V0.81';
 
 
 // ── Splash Screen ─────────────────────────────────────────────
@@ -6112,6 +6112,10 @@ function fmtSaveFile() {
   var baseName = 'robsimul_' + id;
   var content, mime;
 
+  if (id === 'abb-binary') {
+    if (typeof _3dp_saveZip === 'function') _3dp_saveZip();
+    return;
+  }
   if (id === 'kuka-form') {
     // Formular → XML
     content = parsedDataToXml(parsedData);
@@ -6137,6 +6141,16 @@ function fmtLoadFile() {
   var inp = document.getElementById('fmt-load-input');
   if (!inp) return;
   var id = (typeof FormatRegistry !== 'undefined' && FormatRegistry.getActiveId) ? FormatRegistry.getActiveId() : 'kuka';
+  if (id === 'abb-binary') {
+    inp.accept = '.zip';
+    inp.onchange = function() {
+      var file = inp.files[0]; if (!file) return;
+      if (typeof _3dp_loadZip === 'function') _3dp_loadZip(file);
+      inp.value = '';
+    };
+    inp.click();
+    return;
+  }
   inp.accept = (id === 'kuka-form') ? '.xml,.pfg.xml' : '.src,.mod,.ls,.jbi,.pg,.pgx,.script,.v2,.prg,.pdl,.aubo,.dobot,.pcs,.fdr,.txt,.cpp,.as,.erd,.erp,.krl';
   inp.onchange = function() {
     var file = inp.files[0]; if (!file) return;
@@ -6145,7 +6159,6 @@ function fmtLoadFile() {
       var text = e.target.result;
       var activeId = (typeof FormatRegistry !== 'undefined' && FormatRegistry.getActiveId) ? FormatRegistry.getActiveId() : 'kuka';
       if (activeId === 'kuka-form') {
-        // XML → parsedData laden → Formular aufbauen
         try {
           var pd = xmlToParsedData(text);
           if (!pd.positions.length && !pd.steps.length) { alert('XML konnte nicht gelesen werden.'); return; }
@@ -6155,12 +6168,10 @@ function fmtLoadFile() {
           if (typeof FormatRegistry !== 'undefined') FormatRegistry.setActive('kuka-form');
         } catch(err) { alert('Fehler beim Laden: ' + err.message); }
       } else {
-        // Text direkt in Editor laden + KRL-Snapshot aktualisieren
         var ci = document.getElementById('code-input');
         if (ci) {
           ci.value = text;
           if (typeof rebuildGutter === 'function') rebuildGutter();
-          // Wenn KUKA-Format: sofort parsen
           if (activeId === 'kuka') parseAndLoad();
         }
       }
