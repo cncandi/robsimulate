@@ -129,7 +129,16 @@ FormatRegistry.register({
 
   deactivate: function () {
     var ci = document.getElementById('code-input');
-    if (ci && ci.value) _krlSnapshot = ci.value;
+    if (!ci || !ci.value) return;
+    _krlSnapshot = ci.value;
+    // parsedData synchronisieren damit Format-Wechsel aktuellen Stand nutzt
+    if (typeof parseKRL === 'function') {
+      var pd = parseKRL(_krlSnapshot);
+      if (pd && pd.positions) {
+        parsedData = pd;
+        _krlSnapshotParsed = true;
+      }
+    }
   },
 
   _generate: _kukaGenerate,
