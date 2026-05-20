@@ -1621,6 +1621,9 @@
   });
 
 
+  // Globals für custom Formate
+  window._pfgGenerate   = generate;
+  window._pfgNormalize  = normalizePd;
 })();
 
 // Globale PP-Einstellungsfunktionen
