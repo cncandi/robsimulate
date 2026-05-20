@@ -4541,7 +4541,8 @@ function updateTCPDef(){
 // ═══════════════════════════════════════════════════
 // PARSE & LOAD
 // ═══════════════════════════════════════════════════
-var _krlSnapshot = '';   // letzter valider KRL-Code vor Format-Wechsel
+var _krlSnapshot = '';
+var _krlSnapshotParsed = false;
 
 function parseAndLoad(){
   var _activeId = (typeof FormatRegistry !== 'undefined' && FormatRegistry.getActiveId) ? FormatRegistry.getActiveId() : null;
@@ -4549,10 +4550,19 @@ function parseAndLoad(){
   var code;
   if (_isKRL) {
     code = document.getElementById('code-input').value;
-    _krlSnapshot = code;           // Snapshot immer aktuell halten
+    if (code !== _krlSnapshot) { _krlSnapshot = code; _krlSnapshotParsed = false; }
   } else {
-    if (!_krlSnapshot) return;     // Noch kein KRL geladen — nichts zu tun
-    code = _krlSnapshot;           // Snapshot für Simulation verwenden
+    if (!_krlSnapshot) return;
+    if (_krlSnapshotParsed && parsedData && parsedData.positions.length > 0) {
+      // Bereits geparst — nur Simulation neu starten, keine IK-Neuberechnung
+      stopSim(0); setStatus('stopped','STOPPED');
+      applySimT(0); sim.stepIdx = 0;
+      if (parsedData.steps && parsedData.steps.length) applyStep(0);
+      else setStatus('paused','BEREIT');
+      return;
+    }
+    code = _krlSnapshot;
+    _krlSnapshotParsed = true;
   }
   parsedData=parseKRL(code);const N=parsedData.positions.length;
   posLineNums=new Set(parsedData.positions.map(p=>p.lineNum).filter(n=>n!==undefined));
