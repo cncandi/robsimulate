@@ -1,4 +1,4 @@
-const APP_VERSION = 'V0.78';
+const APP_VERSION = 'V0.79';
 
 
 // ── Splash Screen ─────────────────────────────────────────────
@@ -2480,15 +2480,162 @@ function loadTCP() {
 }
 
 // ── Programm ────────────────────────────────
+// ── ABB 3DP Binary Format ─────────────────────────────────────────────────────
+var _3DP_BLOCK = 232;
+var _3DP_MAGIC = [0x64,0x61,0x74,0x61,0x33,0x64,0x70,0x00];
+var _3DP_CONST_ID = [0x6c,0xea,0x3a,0x16];
+var _3DP_CONST_PRE = [0xe8,0xc4,0x00];
+var _3DP_GLOBAL = [36.5612,22263.7031,24466.2812,0.0,17309.2344];
+
+function _3dp_readF32(buf, off) {
+  var dv = new DataView(buf, off, 4); return dv.getFloat32(0, true);
+}
+function _3dp_writeF32(dv, off, v) { dv.setFloat32(off, v, true); }
+
+function _3dp_quatToABC(q1,q2,q3,q4) {
+  var A = Math.atan2(2*(q1*q4+q2*q3), 1-2*(q3*q3+q4*q4)) * 180/Math.PI;
+  var sinB = 2*(q1*q3-q4*q2);
+  sinB = Math.max(-1, Math.min(1, sinB));
+  var B = Math.asin(sinB) * 180/Math.PI;
+  var C = Math.atan2(2*(q1*q2+q3*q4), 1-2*(q2*q2+q3*q3)) * 180/Math.PI;
+  return {A:A, B:B, C:C};
+}
+
+function _3dp_abcToQuat(Adeg,Bdeg,Cdeg) {
+  var a=Adeg*Math.PI/180, b=Bdeg*Math.PI/180, c=Cdeg*Math.PI/180;
+  var ca=Math.cos(a/2), sa=Math.sin(a/2);
+  var cb=Math.cos(b/2), sb=Math.sin(b/2);
+  var cc=Math.cos(c/2), sc=Math.sin(c/2);
+  return {
+    q1: ca*cb*cc + sa*sb*sc,
+    q2: ca*cb*sc - sa*sb*cc,
+    q3: ca*sb*cc + sa*cb*sc,
+    q4: sa*cb*cc - ca*sb*sc
+  };
+}
+
+function _3dp_parseBlock(buf, bOff) {
+  var u8 = new Uint8Array(buf, bOff, 8);
+  for (var i=0;i<8;i++) if(u8[i]!==_3DP_MAGIC[i]) return null;
+  var x=_3dp_readF32(buf,bOff+35), y=_3dp_readF32(buf,bOff+39), z=_3dp_readF32(buf,bOff+43);
+  var q1=_3dp_readF32(buf,bOff+47), q2=_3dp_readF32(buf,bOff+51);
+  var q3=_3dp_readF32(buf,bOff+55), q4=_3dp_readF32(buf,bOff+59);
+  var spd=_3dp_readF32(buf,bOff+107), zone=_3dp_readF32(buf,bOff+111);
+  if (!isFinite(x)||!isFinite(y)||!isFinite(z)||spd<=0||spd>100000) return null;
+  var abc=_3dp_quatToABC(q1,q2,q3,q4);
+  return {x:x, y:y, z:z, A:abc.A, B:abc.B, C:abc.C, spd:spd, zone:zone};
+}
+
+function _3dp_encodeBlock(pt, gp) {
+  var buf = new ArrayBuffer(_3DP_BLOCK);
+  var u8 = new Uint8Array(buf);
+  var dv = new DataView(buf);
+  _3DP_MAGIC.forEach(function(b,i){u8[i]=b;});
+  _3DP_CONST_ID.forEach(function(b,i){u8[8+i]=b;});
+  (gp||_3DP_GLOBAL).forEach(function(v,i){dv.setFloat32(12+i*4,v,true);});
+  _3DP_CONST_PRE.forEach(function(b,i){u8[32+i]=b;});
+  _3dp_writeF32(dv,35,pt.x); _3dp_writeF32(dv,39,pt.y); _3dp_writeF32(dv,43,pt.z);
+  var q = _3dp_abcToQuat(pt.A||0, pt.B||0, pt.C||0);
+  _3dp_writeF32(dv,47,q.q1); _3dp_writeF32(dv,51,q.q2);
+  _3dp_writeF32(dv,55,q.q3); _3dp_writeF32(dv,59,q.q4);
+  _3dp_writeF32(dv,107,pt.spd); _3dp_writeF32(dv,111,pt.zone||0); _3dp_writeF32(dv,115,1.0);
+  return buf;
+}
+
+function _3dp_spdName(mmps) {
+  var std={5:'v5',10:'v10',20:'v20',25:'v25',30:'v30',40:'v40',50:'v50',
+           60:'v60',80:'v80',100:'v100',150:'v150',200:'v200',300:'v300',400:'v400',500:'v500'};
+  var r=Math.round(mmps); if(std[r]) return std[r];
+  var c=Object.keys(std).reduce(function(a,b){return Math.abs(b-mmps)<Math.abs(a-mmps)?b:a;});
+  return std[c];
+}
+
+async function _3dp_loadZip(file) {
+  var zip = await JSZip.loadAsync(file);
+  var printFiles = Object.keys(zip.files)
+    .filter(function(n){return /Print_\d+$/.test(n);})
+    .sort(function(a,b){
+      return parseInt(a.match(/\d+$/)[0]) - parseInt(b.match(/\d+$/)[0]);
+    });
+  if (!printFiles.length) { alert('Keine Print_N Dateien in ZIP gefunden.'); return; }
+
+  var lines = [];
+  var totalPts = 0;
+  for (var fi=0; fi<printFiles.length; fi++) {
+    var ab = await zip.files[printFiles[fi]].async('arraybuffer');
+    var nb = Math.floor(ab.byteLength/_3DP_BLOCK);
+    var layerPts = [];
+    for (var b=0; b<nb; b++) {
+      var pt = _3dp_parseBlock(ab, b*_3DP_BLOCK);
+      if (pt) layerPts.push(pt);
+    }
+    if (!layerPts.length) continue;
+    var ln = parseInt(printFiles[fi].match(/\d+$/)[0]);
+    lines.push('; Layer ' + ln);
+    layerPts.forEach(function(pt, idx) {
+      if (idx===0 || Math.abs(pt.spd - layerPts[idx-1].spd)>0.5)
+        lines.push('$VEL.CP=' + (pt.spd/1000).toFixed(4));
+      var moveType = (idx<3) ? 'PTP' : 'LIN';
+      lines.push(moveType + ' {X ' + pt.x.toFixed(3) + ',Y ' + pt.y.toFixed(3) +
+        ',Z ' + pt.z.toFixed(3) + ',A ' + pt.A.toFixed(3) +
+        ',B ' + pt.B.toFixed(3) + ',C ' + pt.C.toFixed(3) + '}');
+      totalPts++;
+    });
+  }
+  document.getElementById('code-input').value = lines.join('\n');
+  rebuildGutter();
+  parseKRL(lines.join('\n'));
+  setStatus('paused', 'ABB 3DP geladen: ' + printFiles.length + ' Layer, ' + totalPts + ' Punkte');
+}
+
+async function _3dp_saveZip() {
+  if (typeof JSZip === 'undefined') { alert('JSZip nicht geladen.'); return; }
+  var pd = parsedData;
+  if (!pd||!pd.positions||!pd.positions.length) { alert('Kein Programm geparst.'); return; }
+  var ptsPerLayer = 997;
+  var zip = new JSZip();
+  var chunks = [];
+  for (var i=0; i<pd.positions.length; i+=ptsPerLayer)
+    chunks.push(pd.positions.slice(i, i+ptsPerLayer));
+
+  for (var ci=0; ci<chunks.length; ci++) {
+    var chunk = chunks[ci];
+    var blocks = [];
+    var p0 = chunk[0];
+    [[p0.X,p0.Y,100,133.33],[p0.X,p0.Y,30,150],[p0.X,p0.Y,2,83.33]].forEach(function(r){
+      blocks.push(_3dp_encodeBlock({x:r[0],y:r[1],z:r[2],A:p0.A||0,B:p0.B||0,C:p0.C||0,spd:r[3],zone:0}));
+    });
+    chunk.forEach(function(pos){
+      blocks.push(_3dp_encodeBlock({x:pos.X,y:pos.Y,z:pos.Z,A:pos.A||0,B:pos.B||0,C:pos.C||0,spd:(pos.velCP||0.1)*1000,zone:0}));
+    });
+    while(blocks.length<1000) blocks.push(new ArrayBuffer(_3DP_BLOCK));
+    var total = new Uint8Array(_3DP_BLOCK*1000);
+    blocks.slice(0,1000).forEach(function(b,i){total.set(new Uint8Array(b),i*_3DP_BLOCK);});
+    zip.file('Print_'+(ci+1), total);
+  }
+  var blob = await zip.generateAsync({type:'blob',compression:'DEFLATE'});
+  var a = document.createElement('a'); a.href=URL.createObjectURL(blob);
+  a.download='programm_3dp.zip'; a.click();
+}
+// ── Ende ABB 3DP ──────────────────────────────────────────────────────────────
+
 function saveProgram() {
-  const code = document.getElementById('code-input').value;
-  downloadFile(code, 'programm.src');
+  var code = document.getElementById('code-input').value;
+  if (confirm('Als ABB 3DP ZIP speichern?\n\nJA = ABB 3DP ZIP\nNEIN = KRL .src Text')) {
+    _3dp_saveZip();
+  } else {
+    downloadFile(code, 'programm.src');
+  }
 }
 
 function loadProgram() {
   const inp = document.getElementById('prog-file-in');
   inp.onchange = e => {
     const file = e.target.files[0]; if (!file) return;
+    if (file.name.toLowerCase().endsWith('.zip')) {
+      _3dp_loadZip(file);
+      inp.value = ''; return;
+    }
     const reader = new FileReader();
     reader.onload = ev => {
       document.getElementById('code-input').value = ev.target.result;
