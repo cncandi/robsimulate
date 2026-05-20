@@ -828,22 +828,46 @@ function loadRobotFromLib(r) {
 <!-- ═══════════════════════════════════════════════════
      GLOBALE MAPPING-TABELLE
 ═══════════════════════════════════════════════════ -->
-<div id="mapping-overlay" style="display:none;position:fixed;inset:0;z-index:12000;background:var(--bg1);display:none;flex-direction:column">
-  <div style="display:flex;align-items:center;gap:8px;padding:10px 16px;background:var(--bg2);border-bottom:1px solid var(--bdr);flex-shrink:0">
-    <span style="color:var(--acc);font-weight:700;font-size:1em;flex:1">⚙ Globale Befehlszuordnung — Format-Mapping</span>
+<div id="mapping-overlay" style="display:none;position:fixed;inset:0;z-index:12000;background:var(--bg1);flex-direction:column">
+  <!-- Kopfzeile -->
+  <div style="display:flex;align-items:center;gap:6px;padding:8px 14px;background:var(--bg2);border-bottom:1px solid var(--bdr);flex-shrink:0;flex-wrap:wrap">
+    <span style="color:var(--acc);font-weight:700;font-size:1em;flex:1;white-space:nowrap">⚙ Format-Mapping</span>
+    <button onclick="openAddFmtDialog()" style="background:rgba(37,99,235,.25);color:#60a5fa;border:1px solid rgba(37,99,235,.4);border-radius:3px;padding:4px 10px;cursor:pointer;font-size:.82em">＋ Hersteller</button>
     <button onclick="mappingApplyAll()" style="background:var(--acc);color:#000;border:none;border-radius:3px;padding:4px 12px;cursor:pointer;font-size:.85em">✓ Übernehmen</button>
-    <button onclick="mappingExport()" style="background:var(--bg3);color:var(--txt2);border:1px solid var(--bdr);border-radius:3px;padding:4px 10px;cursor:pointer;font-size:.85em">💾 Export</button>
-    <button onclick="mappingImport()" style="background:var(--bg3);color:var(--txt2);border:1px solid var(--bdr);border-radius:3px;padding:4px 10px;cursor:pointer;font-size:.85em">📂 Import</button>
+    <button onclick="mappingExport()" style="background:var(--bg3);color:var(--txt2);border:1px solid var(--bdr);border-radius:3px;padding:4px 10px;cursor:pointer;font-size:.82em">💾 Export</button>
+    <button onclick="mappingImport()" style="background:var(--bg3);color:var(--txt2);border:1px solid var(--bdr);border-radius:3px;padding:4px 10px;cursor:pointer;font-size:.82em">📂 Import</button>
     <input type="file" id="mapping-import-input" accept=".json" style="display:none">
-    <button onclick="mappingResetAll()" style="background:var(--bg3);color:var(--txt3);border:1px solid var(--bdr);border-radius:3px;padding:4px 10px;cursor:pointer;font-size:.85em">↺ Alle zurücksetzen</button>
+    <button onclick="mappingResetAll()" style="background:var(--bg3);color:var(--txt3);border:1px solid var(--bdr);border-radius:3px;padding:4px 10px;cursor:pointer;font-size:.82em">↺ Reset</button>
     <button onclick="closeMappingTable()" style="background:none;border:none;color:var(--txt3);cursor:pointer;font-size:1.3em;padding:0 4px">✕</button>
   </div>
-  <div style="padding:8px 16px;background:var(--bg2);border-bottom:1px solid var(--bdr);flex-shrink:0;font-size:11px;color:var(--txt3)">
-    Platzhalter: <code>{X}{Y}{Z}{A}{B}{C}</code> Koordinaten · <code>{N}</code> Index · <code>{VEL_MMS}</code> mm/s · <code>{VEL_PCT}</code> % · <code>{CH}</code> Kanal · <code>{VAL}</code> TRUE/FALSE · <code>{VAL_F}</code> Float · <code>{T}</code> Sekunden · <code>{T_MS}</code> ms · <code>{NAME}{INITVAL}</code> Variable · <code>{PROG}{ARGS}</code> Aufruf · Leere Zelle = Befehl wird auskommentiert
+  <!-- Filter-Bar -->
+  <div id="mapping-filter-bar" style="padding:6px 14px;background:var(--bg2);border-bottom:1px solid var(--bdr);flex-shrink:0;overflow-x:auto;white-space:nowrap;font-size:11px"></div>
+  <!-- Platzhalter-Hinweis -->
+  <div style="padding:5px 14px;background:var(--bg2);border-bottom:1px solid var(--bdr);flex-shrink:0;font-size:10px;color:var(--txt3)">
+    <code>{X}{Y}{Z}{A}{B}{C}</code> Koord. · <code>{N}</code> Idx · <code>{VEL_MMS}</code> mm/s · <code>{VEL_PCT}</code> % · <code>{CH}</code> Kanal · <code>{VAL}</code> TRUE/FALSE · <code>{VAL_F}</code> Float · <code>{T}</code> s · <code>{T_MS}</code> ms · <code>{NAME}{INITVAL}</code> Var · <code>{PROG}{ARGS}</code> Call &nbsp;—&nbsp; Leere Zelle = auskommentiert
   </div>
-  <div style="overflow:auto;flex:1;padding:12px 16px">
-    <table id="mapping-table" style="border-collapse:collapse;font-size:11px;font-family:monospace;white-space:nowrap">
-    </table>
+  <!-- Tabelle -->
+  <div style="overflow:auto;flex:1;padding:10px 14px">
+    <table id="mapping-table" style="border-collapse:collapse;font-size:11px;font-family:monospace;white-space:nowrap"></table>
+  </div>
+</div>
+
+<!-- ── Hersteller hinzufügen Dialog ── -->
+<div id="add-fmt-dialog" style="display:none;position:fixed;inset:0;z-index:13000;background:rgba(0,0,0,.6);align-items:center;justify-content:center">
+  <div style="background:var(--bg2);border:1px solid var(--acc);border-radius:8px;padding:24px 28px;width:360px;font-family:monospace">
+    <div style="font-size:1em;font-weight:700;color:var(--acc);margin-bottom:16px">＋ Neuer Hersteller</div>
+    <label style="display:block;font-size:12px;color:var(--txt2);margin-bottom:3px">Name *</label>
+    <input id="add-fmt-name" placeholder="z.B. Mitsubishi MELFA" style="width:100%;margin-bottom:10px;padding:6px;background:var(--bg3);border:1px solid var(--bdr);border-radius:4px;color:var(--txt1);font-family:monospace;font-size:12px">
+    <label style="display:block;font-size:12px;color:var(--txt2);margin-bottom:3px">Kommentar-Syntax</label>
+    <input id="add-fmt-cmt" placeholder="z.B.  //  oder  ;  oder  '" value="//" style="width:100%;margin-bottom:10px;padding:6px;background:var(--bg3);border:1px solid var(--bdr);border-radius:4px;color:var(--txt1);font-family:monospace;font-size:12px">
+    <label style="display:block;font-size:12px;color:var(--txt2);margin-bottom:3px">Logo URL (optional)</label>
+    <input id="add-fmt-logo" placeholder="https://..." style="width:100%;margin-bottom:6px;padding:6px;background:var(--bg3);border:1px solid var(--bdr);border-radius:4px;color:var(--txt1);font-family:monospace;font-size:12px">
+    <label style="display:block;font-size:12px;color:var(--txt2);margin-bottom:3px">oder Logo-Datei</label>
+    <input type="file" id="add-fmt-logo-file" accept="image/*" style="margin-bottom:14px;font-size:11px;color:var(--txt2)">
+    <div style="display:flex;gap:8px;justify-content:flex-end">
+      <button onclick="closeAddFmtDialog()" style="padding:6px 14px;background:var(--bg3);border:1px solid var(--bdr);border-radius:4px;color:var(--txt2);cursor:pointer">Abbrechen</button>
+      <button onclick="submitAddFmt()" style="padding:6px 14px;background:var(--acc);border:none;border-radius:4px;color:#000;cursor:pointer;font-weight:600">Hinzufügen</button>
+    </div>
   </div>
 </div>
 
