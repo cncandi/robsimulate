@@ -31,7 +31,38 @@
   // Tool/Base/Vars werden aus dem KRL-Code (code-input) extrahiert.
   // Hauptgenerator für DIRECT_STREAM Formate
   // Iteriert parsedData.steps (inkl. I/O, Wait etc.) und nutzt applyTpl
+  // ── Normalize parsedData for generators ─────────────────────────────────
+  // Fixes: CIRC stored as move+label, brake→halt, $ANIN calc→ain, $IN calc→din
+  function normalizePd(pd) {
+    if (!pd) return pd;
+    var out = [];
+    var steps = pd.steps || [];
+    for (var i = 0; i < steps.length; i++) {
+      var s = steps[i];
+      // CIRC: parseKRL stores as {type:'move', label:'CIRC', posIdx:N}
+      // via point is at positions[N-1], end at positions[N]
+      if (s.type === 'move' && (s.label === 'CIRC' || s.moveType === 'CIRC') && s.posIdx > 0) {
+        out.push({ type:'circ', viaIdx: s.posIdx - 1, posIdx: s.posIdx,
+                   lineNum: s.lineNum, snapshot: s.snapshot }); continue;
+      }
+      // brake → halt
+      if (s.type === 'brake') { out.push({ type:'halt', lineNum:s.lineNum, snapshot:s.snapshot }); continue; }
+      // ptpAxis → skip (no Cartesian position, simulation-only)
+      if (s.type === 'ptpAxis') { continue; }
+      // calc with simple $ANIN[n] expression → ain step
+      if (s.type === 'calc' && s.expr) {
+        var ainM = s.expr.match(/^\$ANIN\[(\d+)\]/i);
+        if (ainM) { out.push({ type:'ain', n:+ainM[1], lineNum:s.lineNum, snapshot:s.snapshot }); continue; }
+        var dinM = s.expr.match(/^\$IN\[(\d+)\]/i);
+        if (dinM) { out.push({ type:'din', n:+dinM[1], lineNum:s.lineNum, snapshot:s.snapshot }); continue; }
+      }
+      out.push(s);
+    }
+    return { positions: pd.positions, steps: out, finalState: pd.finalState };
+  }
+
   function generate(parsedData, cfg) {
+    parsedData = normalizePd(parsedData);
     if (!parsedData) return '';
     var positions = parsedData.positions || [];
     var steps     = parsedData.steps     || [];
@@ -212,6 +243,7 @@
   // Struktur: MODULE → VAR-Deklarationen → CONST robtargets → PROC main() → Bewegungen → ENDPROC → ENDMODULE
   IMPLS.abb = {
     _generate: function (pd) {
+      pd = normalizePd(pd);
       if (!pd) return '';
       var positions = pd.positions || [];
       var steps = pd.steps || [];
@@ -299,6 +331,7 @@
   // Struktur: /PROG → /MN (Instruktionen mit P[n]-Referenzen) → /POS (Koordinaten) → /END
   IMPLS.fanuc = {
     _generate: function (pd) {
+      pd = normalizePd(pd);
       if (!pd) return '';
       var positions = pd.positions || [];
       var steps = pd.steps || [];
@@ -380,6 +413,7 @@
   // Struktur: /JOB Header → //POS (C00000 mit Koordinaten) → //INST (NOP + MOVJ/MOVL/MOVC + END)
   IMPLS.yaskawa = {
     _generate: function (pd) {
+      pd = normalizePd(pd);
       if (!pd) return '';
       var positions = pd.positions || [];
       var steps = pd.steps || [];
@@ -537,6 +571,7 @@
   // ── Stäubli VAL3 / CS8 / CS9 ────────────────────────────────────────────
   IMPLS.staubli = {
     _generate: function (pd) {
+      pd = normalizePd(pd);
       var positions = pd.positions || [];
       var steps     = pd.steps     || [];
       var hf = (typeof fmtHfLoad === 'function') ? fmtHfLoad('staubli') : null;
@@ -845,6 +880,7 @@
   // Struktur: PROGRAM → VAR-Block (Variablen + Positionen) → BEGIN → Bewegungen → END
   IMPLS.comau = {
     _generate: function (pd) {
+      pd = normalizePd(pd);
       if (!pd) return '';
       var positions = pd.positions || [];
       var steps = pd.steps || [];
@@ -1284,6 +1320,7 @@
   // ── MABI Steuerung ──────────────────────────────────────────────────────
   IMPLS.mabi = {
     _generate: function (pd) {
+      pd = normalizePd(pd);
       var positions = pd.positions || [];
       var steps     = pd.steps     || [];
       var hf = (typeof fmtHfLoad === 'function') ? fmtHfLoad('mabi') : null;
