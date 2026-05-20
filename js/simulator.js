@@ -1,4 +1,4 @@
-const APP_VERSION = 'V0.81';
+const APP_VERSION = 'V0.82';
 
 
 // ── Splash Screen ─────────────────────────────────────────────
@@ -2628,10 +2628,6 @@ function loadProgram() {
   const inp = document.getElementById('prog-file-in');
   inp.onchange = e => {
     const file = e.target.files[0]; if (!file) return;
-    if (file.name.toLowerCase().endsWith('.zip')) {
-      _3dp_loadZip(file);
-      inp.value = ''; return;
-    }
     const reader = new FileReader();
     reader.onload = ev => {
       document.getElementById('code-input').value = ev.target.result;
