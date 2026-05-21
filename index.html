@@ -6,25 +6,146 @@
 <title>RobSimul · cnc-technik.de</title>
 <link rel="stylesheet" href="./css/simulator.css">
 <style>
-/* ── Menu bar ──────────────────────────────────────────────── */
-header{display:flex;align-items:center;height:36px;min-height:36px;padding:0;background:var(--bg3);border-bottom:1px solid var(--bdr);overflow:visible;position:relative;z-index:200}
-header .appname{font-family:monospace;font-size:13px;font-weight:700;color:var(--acc);letter-spacing:1px;padding:0 14px;height:100%;display:flex;align-items:center;gap:6px;border-right:1px solid var(--bdr);flex-shrink:0}
-header .appname .ver-tag{font-size:.7em;color:var(--txt3);font-weight:400}
-nav.menubar{display:flex;align-items:stretch;height:100%}
-.mnu{position:relative;height:100%}
-.mnubtn{height:100%;background:none;border:none;color:var(--txt2);font-family:monospace;font-size:12px;padding:0 13px;cursor:pointer;white-space:nowrap;transition:background .1s,color .1s}
-.mnubtn:hover,.mnu.open .mnubtn{background:var(--acc);color:#fff}
-.mnudrop{display:none;position:absolute;top:100%;left:0;min-width:200px;background:var(--bg3);border:1px solid var(--bdr);border-top:2px solid var(--acc);box-shadow:0 6px 24px rgba(0,0,0,.7);z-index:9000;padding:4px 0}
-.mnu.open .mnudrop{display:block}
-.mnudrop button,.mnudrop label.mnuitem{display:flex;align-items:center;width:100%;background:none;border:none;text-align:left;color:var(--txt2);font-family:monospace;font-size:12px;padding:6px 16px;cursor:pointer;white-space:nowrap;transition:background .1s,color .1s;box-sizing:border-box}
-.mnudrop button:hover,.mnudrop label.mnuitem:hover{background:rgba(255,138,0,.12);color:var(--txt)}
-.mnudrop button:disabled{opacity:.35;cursor:not-allowed}
-.mnudrop button:disabled:hover{background:none;color:var(--txt2)}
-.mnudrop button.on{color:var(--acc)}
-.mnusep{height:1px;background:var(--bdr);margin:3px 0}
-.mnuslider{display:flex;align-items:center;gap:7px;padding:6px 16px;color:var(--txt2);font-family:monospace;font-size:12px;cursor:default}
-.mnuslider input[type=range]{width:80px;accent-color:#60a5fa;cursor:pointer}
-.mnu-right{margin-left:auto;display:flex;align-items:center;padding-right:12px;gap:8px;color:var(--txt3);font-size:.72em}
+/* ── Menüleiste ──────────────────────────────────────────────── */
+header {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  padding: 0 10px 0 0;
+  height: 36px;
+  min-height: 36px;
+  border-bottom: 1px solid var(--bdr);
+  background: var(--bg4);
+}
+header .appname {
+  font-family: monospace;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--acc);
+  letter-spacing: 1px;
+  padding: 0 14px;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  border-right: 1px solid var(--bdr);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+header .appname span { color: var(--txt3); font-weight: 400; font-size: .8em; margin-left: 5px; }
+
+/* menu bar */
+nav.menubar { display: flex; align-items: stretch; height: 100%; }
+.mnu { position: relative; height: 100%; }
+.mnubtn {
+  height: 100%;
+  background: none;
+  border: none;
+  color: var(--txt2);
+  font-family: monospace;
+  font-size: 12px;
+  padding: 0 13px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background .1s, color .1s;
+}
+.mnubtn:hover, .mnu.open .mnubtn {
+  background: var(--acc);
+  color: #fff;
+}
+/* dropdown */
+.mnudrop {
+  display: none;
+  position: absolute;
+  top: 100%;
+  left: 0;
+  min-width: 210px;
+  background: var(--bg4);
+  border: 1px solid var(--bdr);
+  border-top: 2px solid var(--acc);
+  box-shadow: 0 6px 24px rgba(0,0,0,.7);
+  z-index: 9000;
+  padding: 4px 0;
+}
+.mnu.open .mnudrop { display: block; }
+.mnudrop button, .mnudrop label.mnuitem {
+  display: block;
+  width: 100%;
+  background: none;
+  border: none;
+  text-align: left;
+  color: var(--txt2);
+  font-family: monospace;
+  font-size: 12px;
+  padding: 6px 16px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background .1s, color .1s;
+  box-sizing: border-box;
+}
+.mnudrop button:hover, .mnudrop label.mnuitem:hover { background: rgba(255,138,0,.12); color: var(--txt); }
+.mnudrop button:disabled { opacity: .35; cursor: not-allowed; }
+.mnudrop button:disabled:hover { background: none; color: var(--txt2); }
+.mnusep { height: 1px; background: var(--bdr); margin: 3px 0; }
+
+/* right side quick buttons */
+.mnu-right {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+.mnu-right button {
+  background: rgba(255,255,255,.05);
+  border: 1px solid var(--bdr);
+  color: var(--txt2);
+  font-family: monospace;
+  font-size: 11px;
+  padding: 3px 9px;
+  border-radius: 3px;
+  cursor: pointer;
+  transition: background .1s, color .1s;
+}
+.mnu-right button:hover { background: rgba(255,255,255,.1); color: var(--txt); }
+/* hide old toolbar class if still referenced */
+header .toolbar { display: none !important; }
+header .title    { display: none !important; }
+
+/* slider in dropdown */
+.mnuslider {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 6px 16px;
+  color: var(--txt2);
+  font-family: monospace;
+  font-size: 12px;
+  cursor: default;
+}
+.mnuslider input[type=range] {
+  width: 80px;
+  accent-color: #60a5fa;
+  cursor: pointer;
+}
+/* active state for data-view and toggle buttons in dropdown */
+.mnudrop button.active,
+.mnudrop button[data-view].active {
+  color: var(--acc);
+  background: rgba(255,122,0,.1);
+}
+
+
+/* SVG icon system */
+.ico{width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round;vertical-align:middle;flex-shrink:0;display:inline-block;margin-right:6px;position:relative;top:-1px}
+.mnudrop button,.mnudrop label.mnuitem{display:flex;align-items:center}
+.mnu-right button{display:flex;align-items:center;gap:5px}
+.appname .ico{margin-right:6px;width:15px;height:15px}
+
+/* SVG icon system */
+.ico{width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round;vertical-align:middle;flex-shrink:0;display:inline-block;margin-right:6px;position:relative;top:-1px}
+.mnudrop button,.mnudrop label.mnuitem{display:flex;align-items:center}
+.mnu-right button{display:flex;align-items:center;gap:5px}
+.appname .ico{margin-right:6px;width:15px;height:15px}
+
 /* ── Slim toolbar ──────────────────────────────────────────── */
 .tb{background:var(--bg1);border-bottom:1px solid var(--bdr);padding:2px 8px;display:flex;align-items:center;gap:3px;flex-wrap:nowrap;overflow-x:auto;min-height:32px}
 .tb::-webkit-scrollbar{height:0}
