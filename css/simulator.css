@@ -180,8 +180,9 @@ input[type=range].ss::-webkit-slider-thumb{-webkit-appearance:none;width:12px;he
 /* INFO PANEL */
 .info-panel{width:270px;min-width:160px;background:var(--bg1);border-left:2px solid var(--acc);
   overflow-y:auto;flex-shrink:0}
-.info-panel::-webkit-scrollbar{width:5px}
-.info-panel::-webkit-scrollbar-thumb{background:var(--bdr);border-radius:3px}
+.info-panel::-webkit-scrollbar{width:8px}
+.info-panel::-webkit-scrollbar-thumb{background:var(--acc);border-radius:3px;opacity:.7}
+.info-panel::-webkit-scrollbar-track{background:var(--bg2)}
 .sec{border-bottom:1px solid var(--bdr)}
 .sec-t{background:var(--bg4);padding:5px 9px;font-size:.67em;color:var(--acc);
   text-transform:uppercase;letter-spacing:1px;border-bottom:1px solid var(--bdr);
