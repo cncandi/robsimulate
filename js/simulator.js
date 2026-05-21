@@ -2062,7 +2062,10 @@ async function loadLibItem(type, robot) {
     if(!entry.dir&&(lp.endsWith('.stl')||lp.endsWith('.osd'))){
       var fname=path.replace(/.*\//,'').toLowerCase().replace(/\.(stl|osd)$/i,'');
       proms.push(entry.async('arraybuffer').then(function(buf){
-        stlBufs[fname]=lp.endsWith('.osd')?osdToBinaryStl(buf):buf;
+        var stlData=lp.endsWith('.osd')?osdToBinaryStl(buf):buf;
+        stlBufs[fname]=stlData;
+        // Alias: "base" → auch unter 'podest' speichern damit sceneModels.pedestal-Lookup klappt
+        if(/base/i.test(fname)&&!stlBufs['podest']) stlBufs['podest']=stlData;
       }));
     }
   });
