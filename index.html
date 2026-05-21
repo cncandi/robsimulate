@@ -5,66 +5,165 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>RobSimul · cnc-technik.de</title>
 <link rel="stylesheet" href="./css/simulator.css">
+<style>
+/* ── Menu bar ──────────────────────────────────────────────── */
+header{display:flex;align-items:center;height:36px;min-height:36px;padding:0;background:var(--bg3);border-bottom:1px solid var(--bdr);overflow:visible;position:relative;z-index:200}
+header .appname{font-family:monospace;font-size:13px;font-weight:700;color:var(--acc);letter-spacing:1px;padding:0 14px;height:100%;display:flex;align-items:center;gap:6px;border-right:1px solid var(--bdr);flex-shrink:0}
+header .appname .ver-tag{font-size:.7em;color:var(--txt3);font-weight:400}
+nav.menubar{display:flex;align-items:stretch;height:100%}
+.mnu{position:relative;height:100%}
+.mnubtn{height:100%;background:none;border:none;color:var(--txt2);font-family:monospace;font-size:12px;padding:0 13px;cursor:pointer;white-space:nowrap;transition:background .1s,color .1s}
+.mnubtn:hover,.mnu.open .mnubtn{background:var(--acc);color:#fff}
+.mnudrop{display:none;position:absolute;top:100%;left:0;min-width:200px;background:var(--bg3);border:1px solid var(--bdr);border-top:2px solid var(--acc);box-shadow:0 6px 24px rgba(0,0,0,.7);z-index:9000;padding:4px 0}
+.mnu.open .mnudrop{display:block}
+.mnudrop button,.mnudrop label.mnuitem{display:flex;align-items:center;width:100%;background:none;border:none;text-align:left;color:var(--txt2);font-family:monospace;font-size:12px;padding:6px 16px;cursor:pointer;white-space:nowrap;transition:background .1s,color .1s;box-sizing:border-box}
+.mnudrop button:hover,.mnudrop label.mnuitem:hover{background:rgba(255,138,0,.12);color:var(--txt)}
+.mnudrop button:disabled{opacity:.35;cursor:not-allowed}
+.mnudrop button:disabled:hover{background:none;color:var(--txt2)}
+.mnudrop button.on{color:var(--acc)}
+.mnusep{height:1px;background:var(--bdr);margin:3px 0}
+.mnuslider{display:flex;align-items:center;gap:7px;padding:6px 16px;color:var(--txt2);font-family:monospace;font-size:12px;cursor:default}
+.mnuslider input[type=range]{width:80px;accent-color:#60a5fa;cursor:pointer}
+.mnu-right{margin-left:auto;display:flex;align-items:center;padding-right:12px;gap:8px;color:var(--txt3);font-size:.72em}
+/* ── Slim toolbar ──────────────────────────────────────────── */
+.tb{background:var(--bg1);border-bottom:1px solid var(--bdr);padding:2px 8px;display:flex;align-items:center;gap:3px;flex-wrap:nowrap;overflow-x:auto;min-height:32px}
+.tb::-webkit-scrollbar{height:0}
+.sbtn{background:var(--bg2);color:var(--txt2);border:1px solid var(--bdr);border-radius:2px;padding:2px 7px;font-size:12px;font-family:monospace;cursor:pointer;display:inline-flex;align-items:center;gap:4px;white-space:nowrap;flex-shrink:0}
+.sbtn:hover:not(:disabled){background:var(--bg3)}
+.sbtn.on{background:var(--acc)!important;color:#fff!important;border-color:#c04200!important}
+.sbtn:disabled{opacity:.25;cursor:not-allowed}
+.sbtn.g{color:var(--ok)}.sbtn.r{color:var(--err)}.sbtn.y{color:var(--warn)}
+.sbtn.icon-only{padding:2px 5px}
+.sep{width:1px;height:18px;background:var(--bdr);margin:0 3px;flex-shrink:0}
+.slbl{font-size:.68em;color:var(--txt3);white-space:nowrap;flex-shrink:0}
+.sv{font-size:.75em;color:var(--txt2);font-family:monospace;white-space:nowrap;flex-shrink:0}
+.ss{flex-shrink:0}
+.sstatus{font-family:monospace;font-size:.7em;padding:2px 7px;border-radius:2px;border:1px solid}
+.sstatus.stopped{color:#f87171;border-color:rgba(248,113,113,.3);background:rgba(248,113,113,.07)}
+.sstatus.running{color:#4ade80;border-color:rgba(74,222,128,.3);background:rgba(74,222,128,.07)}
+.sstatus.paused{color:#facc15;border-color:rgba(250,204,21,.3);background:rgba(250,204,21,.07)}
+/* SVG icons */
+.ico{width:13px;height:13px;stroke:currentColor;fill:none;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round;vertical-align:middle;flex-shrink:0;display:inline-block}
+.ico-sm{width:11px;height:11px}
+</style>
 </head>
 <body>
+<svg xmlns="http://www.w3.org/2000/svg" style="display:none" aria-hidden="true">
+<symbol id="s-new"      viewBox="0 0 16 16"><path d="M9 2H4a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V6z"/><path d="M9 2v4h4"/><path d="M8 8v4M6 10h4" stroke-width="1.2"/></symbol>
+<symbol id="s-open"     viewBox="0 0 16 16"><path d="M1 5h4l1.5-2H14a1 1 0 0 1 1 1v8a1 1 0 0 1-1 1H2a1 1 0 0 1-1-1z"/></symbol>
+<symbol id="s-save"     viewBox="0 0 16 16"><path d="M3 2h8l3 3v9H2V2z"/><path d="M5 2v4h6V2"/><path d="M4 10h8M4 13h8"/></symbol>
+<symbol id="s-skip-s"   viewBox="0 0 16 16"><path d="M3 4v8"/><path d="M13 8 5 4v8z"/></symbol>
+<symbol id="s-skip-e"   viewBox="0 0 16 16"><path d="M13 4v8"/><path d="M3 8l8-4v8z"/></symbol>
+<symbol id="s-play-b"   viewBox="0 0 16 16"><path d="M12 8 4 4v8z"/></symbol>
+<symbol id="s-play-f"   viewBox="0 0 16 16"><path d="M4 8l8-4v8z"/></symbol>
+<symbol id="s-step-b"   viewBox="0 0 16 16"><path d="M10 8 5 5v6z"/><path d="M11 5v6"/></symbol>
+<symbol id="s-step-f"   viewBox="0 0 16 16"><path d="M6 8l5-3v6z"/><path d="M5 5v6"/></symbol>
+<symbol id="s-stop"     viewBox="0 0 16 16"><rect x="3" y="3" width="10" height="10" rx="1"/></symbol>
+<symbol id="s-clock"    viewBox="0 0 16 16"><circle cx="8" cy="8" r="6"/><path d="M8 5v3l2 2"/></symbol>
+<symbol id="s-robot"    viewBox="0 0 16 16"><rect x="4" y="6" width="8" height="7" rx="1"/><rect x="5" y="3" width="6" height="3" rx="1"/><path d="M5 13v2M11 13v2M1 8h3M12 8h3"/><circle cx="6" cy="9" r=".8" fill="currentColor" stroke="none"/><circle cx="10" cy="9" r=".8" fill="currentColor" stroke="none"/></symbol>
+<symbol id="s-trace"    viewBox="0 0 16 16"><path d="M2 13C4 10 5 6 8 5s5 3 6 5"/><circle cx="2" cy="13" r="1.2" fill="currentColor" stroke="none"/><circle cx="14" cy="10" r="1.2" fill="currentColor" stroke="none"/></symbol>
+<symbol id="s-palette"  viewBox="0 0 16 16"><circle cx="8" cy="8" r="6"/><circle cx="8" cy="4" r="1" fill="currentColor" stroke="none"/><circle cx="11.5" cy="6" r="1" fill="currentColor" stroke="none"/><circle cx="11.5" cy="10" r="1" fill="currentColor" stroke="none"/><circle cx="8" cy="12" r="1" fill="currentColor" stroke="none"/><circle cx="4.5" cy="10" r="1" fill="currentColor" stroke="none"/><circle cx="4.5" cy="6" r="1" fill="currentColor" stroke="none"/></symbol>
+<symbol id="s-gear"     viewBox="0 0 16 16"><circle cx="8" cy="8" r="2.5"/><path d="M8 1v2M8 13v2M1 8h2M13 8h2M3.1 3.1l1.4 1.4M11.5 11.5l1.4 1.4M3.1 12.9l1.4-1.4M11.5 4.5l1.4-1.4"/></symbol>
+<symbol id="s-trash"    viewBox="0 0 16 16"><path d="M3 4h10M6 4V2h4v2M5 4v9a1 1 0 0 0 1 1h4a1 1 0 0 0 1-1V4"/><path d="M7 7v4M9 7v4"/></symbol>
+<symbol id="s-reset"    viewBox="0 0 16 16"><path d="M3 8A5 5 0 1 1 5 4"/><path d="M1 2v4h4"/></symbol>
+<symbol id="s-monitor"  viewBox="0 0 16 16"><rect x="1" y="2" width="14" height="10" rx="1"/><path d="M5 14h6M8 12v2"/></symbol>
+<symbol id="s-chart"    viewBox="0 0 16 16"><path d="M2 13l3-4 3 2 3-5 3 2"/><path d="M2 13h12"/></symbol>
+<symbol id="s-grid"     viewBox="0 0 16 16"><path d="M1 5h14M1 10h14M5 1v14M10 1v14" stroke-width="1.2"/></symbol>
+<symbol id="s-help"     viewBox="0 0 16 16"><circle cx="8" cy="8" r="6"/><path d="M6 6.5a2 2 0 0 1 4 .5c0 2-2 2-2 3"/><circle cx="8" cy="12" r=".7" fill="currentColor" stroke="none"/></symbol>
+<symbol id="s-key"      viewBox="0 0 16 16"><path d="M2 10a4 4 0 1 1 8 0 4 4 0 0 1-8 0z"/><path d="M9 7l5 5M12 10l2 2"/></symbol>
+<symbol id="s-mapping"  viewBox="0 0 16 16"><path d="M3 4h10M3 8h6M3 12h8"/><path d="M11 6l3 2-3 2"/></symbol>
+<symbol id="s-lib"      viewBox="0 0 16 16"><rect x="2" y="2" width="3" height="12" rx="1"/><rect x="7" y="4" width="3" height="10" rx="1"/><rect x="12" y="2" width="3" height="12" rx="1"/></symbol>
+</svg>
 <header>
-  <h1>⚙ RobSimul <span id="ver-header" class="ver-tag"></span><span style="font-size:.55em;color:#7aa0bb;font-weight:normal;margin-left:8px">© CAD/CAM Systeme Datentechnik Reitz</span></h1>
-  <span class="htag">6-DOF IK</span><span class="htag">3D Robot</span>
-  <div class="hright">
-    <div class="dot"></div>
-    <span style="font-size:.72em;color:var(--txt3)">cnc-technik.de</span>
+  <div class="appname"><svg class="ico"><use href="#s-robot"/></svg> RobSimul <span id="ver-header" class="ver-tag"></span></div>
+
+  <nav class="menubar" id="rsMenubar">
+
+    <!-- DATEI -->
+    <div class="mnu"><button class="mnubtn">Datei</button>
+      <div class="mnudrop">
+        <button onclick="sceneNeu()"><svg class="ico"><use href="#s-new"/></svg>Neu</button>
+        <div class="mnusep"></div>
+        <button onclick="sceneLaden()"><svg class="ico"><use href="#s-open"/></svg>Laden…</button>
+        <button onclick="sceneSpeichern()"><svg class="ico"><use href="#s-save"/></svg>Speichern</button>
+        <input type="file" id="scene-file-in" accept=".zip,.json,.stp,.step" style="display:none">
+      </div>
+    </div>
+
+    <!-- ANSICHT -->
+    <div class="mnu"><button class="mnubtn">Ansicht</button>
+      <div class="mnudrop">
+        <button id="btn-robot3d" class="on"><svg class="ico"><use href="#s-robot"/></svg>Roboter 3D</button>
+        <button id="btn-tcp-trace" data-i18n="tcptrace"><svg class="ico"><use href="#s-trace"/></svg>TCP Trace</button>
+        <button id="btn-grid" onclick="toggleGrid()"><svg class="ico"><use href="#s-grid"/></svg>Grid ein/aus</button>
+        <button id="btn-bg" data-i18n="bg"><svg class="ico"><use href="#s-palette"/></svg>Hintergrund</button>
+        <div class="mnusep"></div>
+        <button id="btn-steuer" onclick="toggleSteuerPanel()"><svg class="ico"><use href="#s-monitor"/></svg>Status Panel</button>
+        <button id="btn-aplot"><svg class="ico"><use href="#s-chart"/></svg>A-Winkel Map</button>
+        <div class="mnusep"></div>
+        <div class="mnuslider" onclick="event.stopPropagation()">
+          <svg class="ico ico-sm"><use href="#s-monitor"/></svg> Frame&nbsp;
+          <input type="range" id="frame-size-sl" min="1" max="600" value="120" style="width:70px">
+          <span id="frame-size-v">120</span>
+        </div>
+        <div class="mnuslider" onclick="event.stopPropagation()">
+          <svg class="ico ico-sm"><use href="#s-trace"/></svg> Sphere&nbsp;
+          <input type="range" id="sphere-size-sl" min="1" max="200" value="18" style="width:70px">
+          <span id="sphere-size-v">18</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- WERKZEUGE -->
+    <div class="mnu"><button class="mnubtn">Werkzeuge</button>
+      <div class="mnudrop">
+        <button onclick="toggleSettings()"><svg class="ico"><use href="#s-gear"/></svg>Einstellungen</button>
+        <button onclick="openMappingTable()"><svg class="ico"><use href="#s-mapping"/></svg>Postprozessor…</button>
+        <div class="mnusep"></div>
+        <button onclick="clearTCPTrace()" data-i18n="clrtrace"><svg class="ico"><use href="#s-trash"/></svg>TCP Trace löschen</button>
+        <button onclick="resetAll()" data-i18n="reset"><svg class="ico"><use href="#s-reset"/></svg>Alles zurücksetzen</button>
+      </div>
+    </div>
+
+    <!-- HILFE -->
+    <div class="mnu"><button class="mnubtn">Hilfe</button>
+      <div class="mnudrop">
+        <button id="btn-help-rs"><svg class="ico"><use href="#s-help"/></svg>Hilfe / Help</button>
+        <div class="mnusep"></div>
+        <button title="Tastenkürzel" onclick="alert('F5 Play · F6 Stop · F7 Schritt+ · F8 Schritt- · F9 Parse · Space Stop · ← → Schritt · Home/End Anfang/Ende')"><svg class="ico"><use href="#s-key"/></svg>F5–F9 Shortcuts</button>
+      </div>
+    </div>
+
+  </nav>
+
+  <div class="mnu-right">
+    <span style="color:var(--txt3);font-size:.72em">© CAD/CAM Systeme Datentechnik Reitz</span>
   </div>
 </header>
 
+<!-- ── SLIM TOOLBAR ──────────────────────────────────────────── -->
 <div class="tb">
-  <button class="sbtn" onclick="sceneNeu()" style="background:rgba(255,96,0,.2);border-color:rgba(255,96,0,.6);color:#ff8030;font-weight:bold">NEU</button>
-  <button class="sbtn" onclick="sceneLaden()" style="color:#60a5fa">📂 Laden</button>
-  <button class="sbtn" onclick="sceneSpeichern()" style="color:#4ade80">💾 Speichern</button>
-  <input type="file" id="scene-file-in" accept=".zip,.json,.stp,.step" style="display:none">
+  <button class="sbtn icon-only" id="b-start"   title="Zum Anfang [Home]"><svg class="ico"><use href="#s-skip-s"/></svg></button>
+  <button class="sbtn icon-only" id="b-playrev"  title="Rückwärts [F5]"><svg class="ico"><use href="#s-play-b"/></svg></button>
+  <button class="sbtn icon-only" id="b-steprev"  title="Schritt zurück [←]"><svg class="ico"><use href="#s-step-b"/></svg></button>
+  <button class="sbtn icon-only r" id="b-stop"   title="Stop [Space]"><svg class="ico"><use href="#s-stop"/></svg></button>
+  <button class="sbtn icon-only g" id="b-stepfwd" title="Schritt vor [→]"><svg class="ico"><use href="#s-step-f"/></svg></button>
+  <button class="sbtn icon-only g" id="b-playfwd" title="Vorwärts [F5]"><svg class="ico"><use href="#s-play-f"/></svg></button>
+  <button class="sbtn icon-only" id="b-end"      title="Zum Ende [End]"><svg class="ico"><use href="#s-skip-e"/></svg></button>
   <div class="sep"></div>
-  <button class="sbtn" id="b-start" title="Zum Anfang">|◀◀</button>
-  <button class="sbtn" id="b-playrev" title="Rückwärts">◀ Play</button>
-  <button class="sbtn" id="b-steprev" title="Schritt zurück [←]">◀| Step</button>
-  <button class="sbtn r" id="b-stop" title="Stop [Space]">■ Stop</button>
-  <button class="sbtn g" id="b-stepfwd" title="Schritt vor [→]">Step |▶</button>
-  <button class="sbtn g" id="b-playfwd" title="Vorwärts">Play ▶</button>
-  <button class="sbtn" id="b-end" title="Zum Ende">▶▶|</button>
-  <div class="sep"></div>
-  <span class="slbl">Speed:</span>
-  <input type="range" class="ss" id="spd-s" min="1" max="100" value="40" style="width:80px">
+  <span class="slbl">Speed</span>
+  <input type="range" class="ss" id="spd-s" min="1" max="100" value="40" style="width:70px">
   <span class="sv" id="spd-v">40%</span>
-  <button id="btn-realtime" class="sbtn" title="Echtzeit-Simulation (reale Robotergeschwindigkeit)" onclick="toggleRealtime()" style="font-size:.75em;padding:2px 7px">⏱ Echtzeit</button>
+  <button id="btn-realtime" class="sbtn" title="Echtzeit-Simulation" onclick="toggleRealtime()" style="padding:2px 5px"><svg class="ico"><use href="#s-clock"/></svg></button>
   <div class="sep"></div>
-  <span class="slbl" id="tcp-vel-lbl">TCP:</span>
-  <span class="sv" id="tcp-vel-v" style="min-width:80px">0 mm/s</span>
-  <div class="sep"></div>
-  <span class="slbl">Step:</span>
-  <input type="range" class="ss" id="pos-s" min="0" max="1" value="0" step="0.001" style="width:130px">
+  <span class="slbl">Step</span>
+  <input type="range" class="ss" id="pos-s" min="0" max="1" value="0" step="0.001" style="width:120px">
   <span class="sv" id="pos-v">— / —</span>
   <div class="sep"></div>
+  <span class="slbl" id="tcp-vel-lbl">TCP</span>
+  <span class="sv" id="tcp-vel-v" style="min-width:72px">0 mm/s</span>
+  <div class="sep"></div>
   <span class="sstatus stopped" id="sim-status">STOPPED</span>
-  <div class="sep"></div>
-  <span class="slbl" title="F5=Play F6=Stop F7=Schritt+ F8=Schritt- F9=Parse F11=Status F11=Grid Home/End=Anfang/Ende ←→=Schritt" style="cursor:help;color:var(--acc)">⌨ F5–F12</span>
-  <div class="sep"></div>
-  <span class="slbl">Frame:</span>
-  <input type="range" class="ss" id="frame-size-sl" min="1" max="600" value="120" style="width:80px">
-  <span class="sv" id="frame-size-v">120</span>
-  <span class="slbl">Sphere:</span>
-  <input type="range" class="ss" id="sphere-size-sl" min="1" max="200" value="18" style="width:60px">
-  <span class="sv" id="sphere-size-v">18</span>
-  <div class="sep"></div>
-  <button class="sbtn on" id="btn-robot3d" title="Roboter 3D">Robot 3D</button>
-  <button class="sbtn" id="btn-tcp-trace" title="TCP Trace" data-i18n="tcptrace">TCP Trace</button>
-  <div class="sep"></div>
-  <button class="sbtn" id="btn-bg" title="Hintergrund wechseln" data-i18n="bg">◑ Hintergrund</button>
-    <button class="sbtn" onclick="toggleSettings()" title="Einstellungen" data-i18n="settings">⚙ Einst.</button>
-    <button class="sbtn" onclick="clearTCPTrace()" title="TCP Trace loeschen" data-i18n="clrtrace">✕ Trace</button>
-    <button class="sbtn r" onclick="resetAll()" title="Alles zuruecksetzen" data-i18n="reset">⟳ Reset</button>
-  <button class="sbtn" id="btn-steuer" onclick="toggleSteuerPanel()" title="Steuerungspanel">🖥 Status</button>
-  <button class="sbtn" id="btn-aplot" title="A-Winkel Diagramm">📈 Map</button>
-  <div class="sep"></div>
-  <button class="sbtn on" id="btn-grid" title="Grid ein/ausblenden" onclick="toggleGrid()">⊞ Grid</button>
-
 </div>
 
 <div class="main">
@@ -889,6 +988,101 @@ function loadRobotFromLib(r) {
     </div>
   </div>
 </div>
+
+
+<div id="rsHelpModal" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.75);backdrop-filter:blur(3px);align-items:center;justify-content:center">
+  <div style="background:#111720;border:1px solid #1e2d40;border-radius:8px;width:min(820px,96vw);max-height:88vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 8px 48px rgba(0,0,0,.8)">
+    <div style="display:flex;align-items:center;padding:12px 18px;border-bottom:1px solid #1e2d40;background:#192030;flex-shrink:0">
+      <span style="font-family:monospace;font-size:1em;font-weight:600;color:#d0dce8">RobSimul — Hilfe</span>
+      <div style="margin-left:auto;display:flex;gap:4px;background:#0a0e14;border:1px solid #1e2d40;border-radius:4px;overflow:hidden">
+        <button id="rsHlDE" onclick="rsHelpSetLang('de')" style="background:#1e90ff;border:none;color:#fff;font-family:monospace;font-size:.78em;padding:4px 12px;cursor:pointer;font-weight:600">DE</button>
+        <button id="rsHlEN" onclick="rsHelpSetLang('en')" style="background:none;border:none;color:#7a9ab8;font-family:monospace;font-size:.78em;padding:4px 12px;cursor:pointer">EN</button>
+      </div>
+      <button onclick="document.getElementById('rsHelpModal').style.display='none'" style="margin-left:10px;background:none;border:none;color:#7a9ab8;cursor:pointer;font-size:1.3em;padding:0 4px">✕</button>
+    </div>
+    <div id="rsHelpContent" style="overflow-y:auto;padding:24px;font-family:monospace;font-size:12px;line-height:1.7;color:#d0dce8"></div>
+  </div>
+</div>
+<script>
+var RS_HELP={
+de:`<div style="font-size:1.2em;font-weight:700;color:#1e90ff;margin-bottom:4px">▶ RobSimul</div>
+<p style="color:#7a9ab8;margin-bottom:20px;font-size:.92em">6-DOF Robotersimulation — Programm einlesen, Bewegungsabfolge visualisieren</p>
+<div style="font-size:.65em;letter-spacing:.14em;text-transform:uppercase;color:#3a5570;border-bottom:1px solid #1e2d40;padding-bottom:4px;margin-bottom:12px">Beschreibung</div>
+<p style="margin-bottom:16px">RobSimul simuliert 6-achsige Industrieroboter im Browser. Ein Roboterprogramm (KRL, RAPID oder weitere Formate) wird in den Editor eingefügt oder als Datei geladen. Der Simulator berechnet FK und IK für jeden Bewegungsbefehl und zeigt den Roboter in der 3D-Szene.</p>
+<div style="font-size:.65em;letter-spacing:.14em;text-transform:uppercase;color:#3a5570;border-bottom:1px solid #1e2d40;padding-bottom:4px;margin-bottom:12px">Workflow</div>
+<div style="display:flex;flex-direction:column;gap:7px;margin-bottom:20px">
+<div style="display:flex;gap:10px;background:#192030;border:1px solid #1e2d40;border-radius:4px;padding:8px 12px"><span style="background:rgba(30,144,255,.15);color:#1e90ff;border:1px solid rgba(30,144,255,.3);border-radius:50%;width:18px;height:18px;display:flex;align-items:center;justify-content:center;font-size:.7em;font-weight:700;flex-shrink:0;font-family:monospace">1</span><div><b style="color:#d0dce8;font-size:.9em">Robotermodell laden</b><br><span style="color:#7a9ab8;font-size:.82em">Datei → Laden: ZIP-Paket aus RobModel importieren.</span></div></div>
+<div style="display:flex;gap:10px;background:#192030;border:1px solid #1e2d40;border-radius:4px;padding:8px 12px"><span style="background:rgba(30,144,255,.15);color:#1e90ff;border:1px solid rgba(30,144,255,.3);border-radius:50%;width:18px;height:18px;display:flex;align-items:center;justify-content:center;font-size:.7em;font-weight:700;flex-shrink:0;font-family:monospace">2</span><div><b style="color:#d0dce8;font-size:.9em">Programm eingeben</b><br><span style="color:#7a9ab8;font-size:.82em">Roboterprogramm in den Editor einfügen. Format über das Menü wählen.</span></div></div>
+<div style="display:flex;gap:10px;background:#192030;border:1px solid #1e2d40;border-radius:4px;padding:8px 12px"><span style="background:rgba(30,144,255,.15);color:#1e90ff;border:1px solid rgba(30,144,255,.3);border-radius:50%;width:18px;height:18px;display:flex;align-items:center;justify-content:center;font-size:.7em;font-weight:700;flex-shrink:0;font-family:monospace">3</span><div><b style="color:#d0dce8;font-size:.9em">Parsen</b><br><span style="color:#7a9ab8;font-size:.82em">F9 drücken. Alle Bewegungsbefehle werden in simulierbare Schritte umgewandelt.</span></div></div>
+<div style="display:flex;gap:10px;background:#192030;border:1px solid #1e2d40;border-radius:4px;padding:8px 12px"><span style="background:rgba(30,144,255,.15);color:#1e90ff;border:1px solid rgba(30,144,255,.3);border-radius:50%;width:18px;height:18px;display:flex;align-items:center;justify-content:center;font-size:.7em;font-weight:700;flex-shrink:0;font-family:monospace">4</span><div><b style="color:#d0dce8;font-size:.9em">Simulieren</b><br><span style="color:#7a9ab8;font-size:.82em">Play, Step oder Schieberegler verwenden. TCP-Trace und A-Winkel-Map aktivieren.</span></div></div>
+</div>
+<div style="font-size:.65em;letter-spacing:.14em;text-transform:uppercase;color:#3a5570;border-bottom:1px solid #1e2d40;padding-bottom:4px;margin-bottom:12px">Tastenkürzel</div>
+<table style="width:100%;border-collapse:collapse;font-size:.85em">
+<tr><td style="padding:4px 14px 4px 0;border-bottom:1px solid #1e2d40;color:#d0dce8;font-family:monospace">F5</td><td style="color:#7a9ab8;border-bottom:1px solid #1e2d40;padding:4px 0">Play vorwärts</td></tr>
+<tr><td style="padding:4px 14px 4px 0;border-bottom:1px solid #1e2d40;color:#d0dce8;font-family:monospace">F6</td><td style="color:#7a9ab8;border-bottom:1px solid #1e2d40;padding:4px 0">Stop</td></tr>
+<tr><td style="padding:4px 14px 4px 0;border-bottom:1px solid #1e2d40;color:#d0dce8;font-family:monospace">F7</td><td style="color:#7a9ab8;border-bottom:1px solid #1e2d40;padding:4px 0">Schritt vorwärts</td></tr>
+<tr><td style="padding:4px 14px 4px 0;border-bottom:1px solid #1e2d40;color:#d0dce8;font-family:monospace">F8</td><td style="color:#7a9ab8;border-bottom:1px solid #1e2d40;padding:4px 0">Schritt rückwärts</td></tr>
+<tr><td style="padding:4px 14px 4px 0;border-bottom:1px solid #1e2d40;color:#d0dce8;font-family:monospace">F9</td><td style="color:#7a9ab8;border-bottom:1px solid #1e2d40;padding:4px 0">Programm parsen</td></tr>
+<tr><td style="padding:4px 14px 4px 0;border-bottom:1px solid #1e2d40;color:#d0dce8;font-family:monospace">Space</td><td style="color:#7a9ab8;border-bottom:1px solid #1e2d40;padding:4px 0">Stop</td></tr>
+<tr><td style="padding:4px 14px 4px 0;border-bottom:1px solid #1e2d40;color:#d0dce8;font-family:monospace">← →</td><td style="color:#7a9ab8;border-bottom:1px solid #1e2d40;padding:4px 0">Einzelschritt</td></tr>
+<tr><td style="padding:4px 14px 4px 0;color:#d0dce8;font-family:monospace">Home / End</td><td style="color:#7a9ab8;padding:4px 0">Anfang / Ende</td></tr>
+</table>`,
+en:`<div style="font-size:1.2em;font-weight:700;color:#1e90ff;margin-bottom:4px">▶ RobSimul</div>
+<p style="color:#7a9ab8;margin-bottom:20px;font-size:.92em">6-DOF Robot Simulation — parse programs, visualize motion sequences</p>
+<div style="font-size:.65em;letter-spacing:.14em;text-transform:uppercase;color:#3a5570;border-bottom:1px solid #1e2d40;padding-bottom:4px;margin-bottom:12px">Description</div>
+<p style="margin-bottom:16px">RobSimul simulates 6-axis industrial robots in the browser. A robot program (KRL, RAPID, or other formats) is pasted into the editor or loaded as a file. The simulator calculates FK and IK for each motion command and displays the robot in the 3D scene.</p>
+<div style="font-size:.65em;letter-spacing:.14em;text-transform:uppercase;color:#3a5570;border-bottom:1px solid #1e2d40;padding-bottom:4px;margin-bottom:12px">Workflow</div>
+<div style="display:flex;flex-direction:column;gap:7px;margin-bottom:20px">
+<div style="display:flex;gap:10px;background:#192030;border:1px solid #1e2d40;border-radius:4px;padding:8px 12px"><span style="background:rgba(30,144,255,.15);color:#1e90ff;border:1px solid rgba(30,144,255,.3);border-radius:50%;width:18px;height:18px;display:flex;align-items:center;justify-content:center;font-size:.7em;font-weight:700;flex-shrink:0;font-family:monospace">1</span><div><b style="color:#d0dce8;font-size:.9em">Load robot model</b><br><span style="color:#7a9ab8;font-size:.82em">File → Load: import ZIP package from RobModel.</span></div></div>
+<div style="display:flex;gap:10px;background:#192030;border:1px solid #1e2d40;border-radius:4px;padding:8px 12px"><span style="background:rgba(30,144,255,.15);color:#1e90ff;border:1px solid rgba(30,144,255,.3);border-radius:50%;width:18px;height:18px;display:flex;align-items:center;justify-content:center;font-size:.7em;font-weight:700;flex-shrink:0;font-family:monospace">2</span><div><b style="color:#d0dce8;font-size:.9em">Enter program</b><br><span style="color:#7a9ab8;font-size:.82em">Paste the robot program into the editor. Select format via menu.</span></div></div>
+<div style="display:flex;gap:10px;background:#192030;border:1px solid #1e2d40;border-radius:4px;padding:8px 12px"><span style="background:rgba(30,144,255,.15);color:#1e90ff;border:1px solid rgba(30,144,255,.3);border-radius:50%;width:18px;height:18px;display:flex;align-items:center;justify-content:center;font-size:.7em;font-weight:700;flex-shrink:0;font-family:monospace">3</span><div><b style="color:#d0dce8;font-size:.9em">Parse</b><br><span style="color:#7a9ab8;font-size:.82em">Press F9. All motion commands are converted into simulatable steps.</span></div></div>
+<div style="display:flex;gap:10px;background:#192030;border:1px solid #1e2d40;border-radius:4px;padding:8px 12px"><span style="background:rgba(30,144,255,.15);color:#1e90ff;border:1px solid rgba(30,144,255,.3);border-radius:50%;width:18px;height:18px;display:flex;align-items:center;justify-content:center;font-size:.7em;font-weight:700;flex-shrink:0;font-family:monospace">4</span><div><b style="color:#d0dce8;font-size:.9em">Simulate</b><br><span style="color:#7a9ab8;font-size:.82em">Use Play, Step, or the slider. Activate TCP trace and joint angle map.</span></div></div>
+</div>
+<div style="font-size:.65em;letter-spacing:.14em;text-transform:uppercase;color:#3a5570;border-bottom:1px solid #1e2d40;padding-bottom:4px;margin-bottom:12px">Keyboard Shortcuts</div>
+<table style="width:100%;border-collapse:collapse;font-size:.85em">
+<tr><td style="padding:4px 14px 4px 0;border-bottom:1px solid #1e2d40;color:#d0dce8;font-family:monospace">F5</td><td style="color:#7a9ab8;border-bottom:1px solid #1e2d40;padding:4px 0">Play forward</td></tr>
+<tr><td style="padding:4px 14px 4px 0;border-bottom:1px solid #1e2d40;color:#d0dce8;font-family:monospace">F6</td><td style="color:#7a9ab8;border-bottom:1px solid #1e2d40;padding:4px 0">Stop</td></tr>
+<tr><td style="padding:4px 14px 4px 0;border-bottom:1px solid #1e2d40;color:#d0dce8;font-family:monospace">F7</td><td style="color:#7a9ab8;border-bottom:1px solid #1e2d40;padding:4px 0">Step forward</td></tr>
+<tr><td style="padding:4px 14px 4px 0;border-bottom:1px solid #1e2d40;color:#d0dce8;font-family:monospace">F8</td><td style="color:#7a9ab8;border-bottom:1px solid #1e2d40;padding:4px 0">Step backward</td></tr>
+<tr><td style="padding:4px 14px 4px 0;border-bottom:1px solid #1e2d40;color:#d0dce8;font-family:monospace">F9</td><td style="color:#7a9ab8;border-bottom:1px solid #1e2d40;padding:4px 0">Parse program</td></tr>
+<tr><td style="padding:4px 14px 4px 0;border-bottom:1px solid #1e2d40;color:#d0dce8;font-family:monospace">Space</td><td style="color:#7a9ab8;border-bottom:1px solid #1e2d40;padding:4px 0">Stop</td></tr>
+<tr><td style="padding:4px 14px 4px 0;border-bottom:1px solid #1e2d40;color:#d0dce8;font-family:monospace">← →</td><td style="color:#7a9ab8;border-bottom:1px solid #1e2d40;padding:4px 0">Single step</td></tr>
+<tr><td style="padding:4px 14px 4px 0;color:#d0dce8;font-family:monospace">Home / End</td><td style="color:#7a9ab8;padding:4px 0">Jump to start / end</td></tr>
+</table>`};
+function rsHelpSetLang(l){
+  document.getElementById('rsHlDE').style.cssText=l==='de'?'background:#1e90ff;border:none;color:#fff;font-family:monospace;font-size:.78em;padding:4px 12px;cursor:pointer;font-weight:600':'background:none;border:none;color:#7a9ab8;font-family:monospace;font-size:.78em;padding:4px 12px;cursor:pointer';
+  document.getElementById('rsHlEN').style.cssText=l==='en'?'background:#1e90ff;border:none;color:#fff;font-family:monospace;font-size:.78em;padding:4px 12px;cursor:pointer;font-weight:600':'background:none;border:none;color:#7a9ab8;font-family:monospace;font-size:.78em;padding:4px 12px;cursor:pointer';
+  document.getElementById('rsHelpContent').innerHTML=RS_HELP[l];
+}
+document.getElementById('rsHelpModal')?.addEventListener('click',function(e){if(e.target===this)this.style.display='none';});
+</script>
+
+<script>
+(function(){
+  document.querySelectorAll('.mnu').forEach(function(mnu){
+    mnu.querySelector('.mnubtn')?.addEventListener('click',function(e){
+      e.stopPropagation();
+      var open=mnu.classList.contains('open');
+      document.querySelectorAll('.mnu.open').forEach(function(m){m.classList.remove('open');});
+      if(!open) mnu.classList.add('open');
+    });
+  });
+  document.addEventListener('click',function(){
+    document.querySelectorAll('.mnu.open').forEach(function(m){m.classList.remove('open');});
+  });
+  document.querySelectorAll('.mnudrop button,.mnudrop label').forEach(function(el){
+    el.addEventListener('click',function(){
+      document.querySelectorAll('.mnu.open').forEach(function(m){m.classList.remove('open');});
+    });
+  });
+  // Help button
+  var helpBtn=document.getElementById('btn-help-rs');
+  if(helpBtn) helpBtn.addEventListener('click',function(){
+    var m=document.getElementById('rsHelpModal');
+    if(m){ m.style.display='flex'; rsHelpSetLang('de'); }
+  });
+})();
+</script>
 
 </body>
 </html>
