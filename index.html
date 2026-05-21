@@ -560,8 +560,8 @@ header .title    { display: none !important; }
   <button id="ip-toggle-btn" onclick="toggleRightPanel()" title="Info-Panel ein/ausblenden" style="width:18px;flex-shrink:0;background:var(--bg3);border:none;border-top:1px solid var(--acc);border-bottom:1px solid var(--acc);color:var(--acc);font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;border-left:1px solid var(--acc)">▶</button>
   <div class="info-panel" id="info-panel">
     <!-- Kinematics -->
-    <div class="sec collapsed">
-      <div id="sec-kin" class="sec-t" onclick="toggleSec(this)"><span class="tog">▼</span data-i18n="kin_sec">⚙ Kinematik</div>
+    <div id="sec-kin" class="sec collapsed">
+      <div class="sec-t" onclick="toggleSec(this)"><span class="tog">▼</span data-i18n="kin_sec">⚙ Kinematik</div>
       <div class="sec-b">
         <!-- Name + New/Load/Save -->
         <div style="display:flex;gap:4px;margin-bottom:6px">
@@ -590,8 +590,8 @@ header .title    { display: none !important; }
       </div>
     </div>
     <!-- Robot Settings -->
-    <div class="sec collapsed">
-      <div id="sec-robot" class="sec-t" onclick="toggleSec(this)"><span class="tog">▼</span data-i18n="robo_set">🎨 Robot Einstellungen</div>
+    <div id="sec-robot" class="sec collapsed">
+      <div class="sec-t" onclick="toggleSec(this)"><span class="tog">▼</span data-i18n="robo_set">🎨 Robot Einstellungen</div>
       <div class="sec-b">
         <div class="cfg-grid">
           <div><div class="cfg-lbl">Link-Farbe</div><input type="color" class="cfg-color" id="cfg-link-col" value="#cc4400"></div>
@@ -611,7 +611,7 @@ header .title    { display: none !important; }
     </div>
     <!-- TCP definition -->
     <div class="sec collapsed">
-      <div id="sec-var" class="sec-t" onclick="toggleSec(this)"><span class="tog">▼</span data-i18n="tcp_sec">🔧 TCP</div>
+      <div class="sec-t" onclick="toggleSec(this)"><span class="tog">▼</span data-i18n="tcp_sec">🔧 TCP</div>
       <div class="sec-b">
         <!-- TCP Navigation -->
         <div style="display:flex;align-items:center;gap:4px;margin-bottom:8px">
@@ -646,7 +646,7 @@ header .title    { display: none !important; }
     </div>
     <!-- BASE definition -->
     <div class="sec collapsed">
-      <div id="sec-dout" class="sec-t" onclick="toggleSec(this)"><span class="tog">▼</span>📐 BASE</div>
+      <div class="sec-t" onclick="toggleSec(this)"><span class="tog">▼</span>📐 BASE</div>
       <div class="sec-b">
         <!-- BASE Navigation -->
         <div style="display:flex;align-items:center;gap:4px;margin-bottom:8px">
@@ -673,7 +673,7 @@ header .title    { display: none !important; }
     </div>
     <!-- STL Scene -->
     <div class="sec collapsed">
-      <div id="sec-din" class="sec-t" onclick="toggleSec(this)"><span class="tog">▼</span>📦 STL Szenenmodelle
+      <div class="sec-t" onclick="toggleSec(this)"><span class="tog">▼</span>📦 STL Szenenmodelle
         <button class="add-btn" onclick="event.stopPropagation();stlAddEntry()" style="background:rgba(37,99,235,.2);border-color:rgba(37,99,235,.5);color:#60a5fa">+</button>
         <input type="file" id="stl-file" accept=".stl,.stp,.step" multiple>
       </div>
@@ -684,31 +684,31 @@ header .title    { display: none !important; }
     </div>
     <!-- Positions -->
     <div class="sec collapsed">
-      <div id="sec-anout" class="sec-t" onclick="toggleSec(this)"><span class="tog">▼</span data-i18n="pos_sec">📍 Positionen</div>
+      <div class="sec-t" onclick="toggleSec(this)"><span class="tog">▼</span data-i18n="pos_sec">📍 Positionen</div>
       <div class="sec-b" id="pos-list"><div class="empty">Keine Positionen gefunden</div></div>
     </div>
     <!-- Variables -->
-    <div class="sec collapsed">
-      <div id="sec-ain" class="sec-t" onclick="toggleSec(this)"><span class="tog">▼</span data-i18n="var_sec">📦 Variablen</div>
+    <div id="sec-var" class="sec collapsed">
+      <div class="sec-t" onclick="toggleSec(this)"><span class="tog">▼</span data-i18n="var_sec">📦 Variablen</div>
       <div class="sec-b" id="var-list"><div class="empty">Keine Variablen</div></div>
     </div>
     <!-- Digital Out -->
-    <div class="sec collapsed">
+    <div id="sec-dout" class="sec collapsed">
       <div class="sec-t" onclick="toggleSec(this)"><span class="tog">▼</span data-i18n="dout_sec">🔴 Digital Outputs ($OUT)</div>
       <div class="sec-b" id="dout-list"><div class="empty">Kein $OUT</div></div>
     </div>
     <!-- Digital In -->
-    <div class="sec collapsed">
+    <div id="sec-din" class="sec collapsed">
       <div class="sec-t" onclick="toggleSec(this)"><span class="tog">▼</span data-i18n="din_sec">🔵 Digital Inputs ($IN)</div>
       <div class="sec-b" id="din-list"><div class="empty">Kein $IN</div></div>
     </div>
     <!-- Analog Out -->
-    <div class="sec collapsed">
+    <div id="sec-anout" class="sec collapsed">
       <div class="sec-t" onclick="toggleSec(this)"><span class="tog">▼</span>📊 Analog Out ($ANOUT)</div>
       <div class="sec-b" id="anout-list"><div class="empty">Kein $ANOUT</div></div>
     </div>
     <!-- Analog In -->
-    <div class="sec collapsed">
+    <div id="sec-ain" class="sec collapsed">
       <div class="sec-t" onclick="toggleSec(this)"><span class="tog">▼</span>📈 Analog In ($ANIN)</div>
       <div class="sec-b" id="ain-list"><div class="empty">Kein $ANIN</div></div>
     </div>
