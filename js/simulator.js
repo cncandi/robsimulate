@@ -1866,7 +1866,9 @@ function sceneNeu() {
 
   // Podest + Tool STL
   if (pedestalMesh) { scene.remove(pedestalMesh); pedestalMesh.geometry.dispose(); pedestalMesh=null; }
-  if (toolMesh) { markerGrp.remove(toolMesh); toolMesh.geometry.dispose(); toolMesh.material.dispose(); toolMesh=null; }
+  if (toolMesh) { if(toolMesh.parent) toolMesh.parent.remove(toolMesh); toolMesh.geometry.dispose(); toolMesh.material.dispose(); toolMesh=null; }
+  var tcEl=document.getElementById('tool-controls'); if(tcEl) tcEl.style.display='none';
+  var tfEl=document.getElementById('tool-filename'); if(tfEl) tfEl.textContent='';
   window._pedestalSTLBuffer = null; window._toolSTLBuffer = null;
 
   // Szenenmodelle
