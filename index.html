@@ -321,8 +321,7 @@ header .title    { display: none !important; }
 
   <!-- KAMERA -->
   <div class="rib-group">
-    <button class="rib-btn on" id="rib-persp" onclick="if(activeCam!==perspCam)toggleProjection()" title="Perspektive"><svg><use href="#s-iso"/></svg>Perspektive</button>
-    <button class="rib-btn" id="rib-ortho-rs" onclick="if(activeCam!==orthoCam)toggleProjection()" title="Ortho"><svg><use href="#s-ortho"/></svg>Ortho</button>
+    <button class="rib-btn on" id="rib-cammode-rs" onclick="toggleProjection()" title="Perspektive / Ortho"><svg><use href="#s-iso"/></svg>Perspektive</button>
     <span class="rib-group-label">Kamera</span>
   </div>
 
@@ -1350,6 +1349,9 @@ document.getElementById('rsHelpModal')?.addEventListener('click',function(e){if(
 document.addEventListener('DOMContentLoaded', function(){
   var b = document.getElementById('btn-persp');
   if(b){ b.textContent = '⊡ Perspektiv'; b.classList.add('on'); }
+  // ribbon cam default
+  var rc=document.getElementById('rib-cammode-rs');
+  if(rc){ rc.classList.add('on'); }
 });
 </script>
 <script>
@@ -1374,9 +1376,12 @@ document.addEventListener('DOMContentLoaded', function(){
     if(origTP) origTP();
     setTimeout(function(){
       var isPersp=window.activeCam===window.perspCam;
-      var rp=document.getElementById('rib-persp'),ro=document.getElementById('rib-ortho-rs');
-      if(rp) rp.classList.toggle('on', isPersp);
-      if(ro) ro.classList.toggle('on',!isPersp);
+      var rb=document.getElementById('rib-cammode-rs');
+      if(rb){
+        rb.classList.toggle('on', isPersp);
+        var t=[...rb.childNodes].find(function(n){return n.nodeType===3&&n.textContent.trim();});
+        if(t) t.textContent = isPersp ? 'Perspektive' : 'Ortho';
+      }
     },0);
   };
 })();
