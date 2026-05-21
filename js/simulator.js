@@ -3436,6 +3436,8 @@ const stlLoader = new STLLoader();
 function osdToBinaryStl(arrayBuffer) {
   var data=new Uint8Array(arrayBuffer),view=new DataView(arrayBuffer);
   if(!data.length)return new ArrayBuffer(84);
+  // Prüfen ob bereits binäres STL (80-Byte-Header + Triangle-Count)
+  if(data.length>=84){var tc=new DataView(arrayBuffer).getUint32(80,true);if(tc>0&&84+tc*50===data.length)return arrayBuffer;}
   var hdr=new TextDecoder('utf-8',{fatal:false}).decode(data.slice(0,100));
   var isV2=hdr.includes('+SprutCAM: OpenGL stream file (version 2.00)');
   var headerSize=isV2?105:165;
