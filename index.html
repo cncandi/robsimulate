@@ -220,6 +220,15 @@ header .title    { display: none !important; }
         <button id="btn-tcp-trace" data-i18n="tcptrace"><svg class="ico"><use href="#s-trace"/></svg>TCP Trace</button>
         <button id="btn-grid" onclick="toggleGrid()"><svg class="ico"><use href="#s-grid"/></svg>Grid ein/aus</button>
         <button id="btn-bg" data-i18n="bg"><svg class="ico"><use href="#s-palette"/></svg>Hintergrund</button>
+        <button id="btn-persp" class="on" onclick="toggleProjection()">Perspektive / Ortho</button>
+        <div class="mnusep"></div>
+        <button onclick="setView('iso')"><svg class="ico"><use href="#s-iso"/></svg>ISO</button>
+        <button onclick="setView('top')"><svg class="ico"><use href="#s-top"/></svg>Top</button>
+        <button onclick="setView('bottom')"><svg class="ico"><use href="#s-bot"/></svg>Bottom</button>
+        <button onclick="setView('front')"><svg class="ico"><use href="#s-front"/></svg>Front</button>
+        <button onclick="setView('back')"><svg class="ico"><use href="#s-back"/></svg>Back</button>
+        <button onclick="setView('left')"><svg class="ico"><use href="#s-left"/></svg>Left</button>
+        <button onclick="setView('right')"><svg class="ico"><use href="#s-right"/></svg>Right</button>
         <div class="mnusep"></div>
         <button id="btn-steuer" onclick="toggleSteuerPanel()"><svg class="ico"><use href="#s-monitor"/></svg>Status Panel</button>
         <button id="btn-aplot"><svg class="ico"><use href="#s-chart"/></svg>A-Winkel Map</button>
@@ -467,7 +476,6 @@ header .title    { display: none !important; }
       <button class="vbtn" id="vb-back" onclick="setView('back')" data-i18n="back">Back</button>
       <button class="vbtn" id="vb-left" onclick="setView('left')">Left</button>
       <button class="vbtn" id="vb-right" onclick="setView('right')">Right</button>
-      <button class="vbtn on" id="btn-persp" onclick="toggleProjection()" data-i18n="persp">⊡ Perspektiv</button>
     </div>
     <div class="legend">
       <div class="lrow"><div class="lbar" style="background:#ff4444"></div>X</div>
@@ -1260,6 +1268,8 @@ document.getElementById('rsHelpModal')?.addEventListener('click',function(e){if(
   window.addEventListener('load', loadPanelTabs);
 })();
 </script>
+
+
 
 </body>
 </html>
