@@ -1063,21 +1063,39 @@ document.getElementById('btn-robot3d').addEventListener('click', function(){
 });
 function toggleProjection(){
   var isPersp = activeCam === perspCam;
+  var asp = canvas.clientWidth / canvas.clientHeight;
   if(isPersp){
-    // Wechsel zu Ortho — aktuelle View-Richtung beibehalten (ISO bleibt ISO)
+    // Perspektive → Ortho: aktuelle Kameraposition/Richtung übernehmen
+    var fovRad = perspCam.fov * Math.PI / 360;
+    orthoHalfSize = Math.tan(fovRad) * orbitState.radius;
+    orthoCam.position.copy(perspCam.position);
+    orthoCam.quaternion.copy(perspCam.quaternion);
+    orthoCam.up.copy(perspCam.up);
+    orthoCam.left  = -orthoHalfSize * asp;
+    orthoCam.right =  orthoHalfSize * asp;
+    orthoCam.top    =  orthoHalfSize;
+    orthoCam.bottom = -orthoHalfSize;
+    orthoCam.zoom = 1;
+    orthoCam.updateProjectionMatrix();
     activeCam = orthoCam;
-    // currentView unverändert lassen
-    document.getElementById('btn-persp').setAttribute('data-i18n','ortho');
-    document.getElementById('btn-persp').textContent = t('ortho');
-    document.getElementById('btn-persp').classList.remove('on');
+    var btn=document.getElementById('btn-persp');
+    if(btn){btn.setAttribute('data-i18n','ortho');btn.textContent=t('ortho');btn.classList.remove('on');}
   } else {
+    // Ortho → Perspektive: Position zurück + orbitState ableiten
+    perspCam.position.copy(orthoCam.position);
+    perspCam.quaternion.copy(orthoCam.quaternion);
+    perspCam.up.copy(orthoCam.up);
+    var dx=perspCam.position.x-orbitTarget.x,dy=perspCam.position.y-orbitTarget.y,dz=perspCam.position.z-orbitTarget.z;
+    orbitState.radius=Math.sqrt(dx*dx+dy*dy+dz*dz)||orbitState.radius;
+    orbitState.phi=Math.acos(Math.max(-1,Math.min(1,dz/orbitState.radius)));
+    orbitState.theta=Math.atan2(dy,dx);
+    perspCam.aspect=asp;
+    perspCam.updateProjectionMatrix();
     activeCam = perspCam;
-    // currentView unverändert lassen
-    document.getElementById('btn-persp').setAttribute('data-i18n','persp');
-    document.getElementById('btn-persp').textContent = t('persp');
-    document.getElementById('btn-persp').classList.add('on');
+    var btn=document.getElementById('btn-persp');
+    if(btn){btn.setAttribute('data-i18n','persp');btn.textContent=t('persp');btn.classList.add('on');}
   }
-  updateCamera();resize();
+  resize();
 }
 
 // ── Steuerungspanel ────────────────────────────────────────
