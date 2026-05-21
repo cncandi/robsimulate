@@ -1398,8 +1398,11 @@ function applyKinematicData(data, stlBuffers, sceneBuffers) {
     if (sm.pedestal) {
       sceneSTLOffsets.pedestal = Object.assign(sceneSTLOffsets.pedestal, sm.pedestal);
       var pname = (sm.pedestal.name || 'podest').toLowerCase();
-      if (stlBuffers[pname]) {
-        var buf = stlBuffers[pname];
+      // Fallback: wenn kein exakter Treffer, suche nach Schlüssel mit 'base' oder 'podest'
+      var pbuf = stlBuffers[pname] ||
+        (Object.entries(stlBuffers).find(function(e){ return /base|podest/i.test(e[0]); })||[])[1];
+      if (pbuf) {
+        var buf = pbuf;
         window._pedestalSTLBuffer = buf;
         if (!window._zipSTLCache) window._zipSTLCache = {};
         window._zipSTLCache['podest'] = buf; window._zipSTLCache['pedestal'] = buf;
