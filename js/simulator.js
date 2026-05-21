@@ -1333,6 +1333,8 @@ function applyKinematicData(data, stlBuffers, sceneBuffers) {
     stlRefAngles = data.stlRefAngles;
     const inp = document.getElementById('stl-ref-angles');
     if (inp) inp.value = stlRefAngles.join(',');
+    // Kanonenstellung auf aktuelle Gelenkwinkel anwenden
+    jointAngles = stlRefAngles.slice();
   }
   if (data.stlFiles) {
     Object.entries(data.stlFiles).forEach(function(entry) {
