@@ -207,6 +207,8 @@ header .title    { display: none !important; }
         <div class="mnusep"></div>
         <button onclick="sceneLaden()"><svg class="ico"><use href="#s-open"/></svg>Laden…</button>
         <button onclick="sceneSpeichern()"><svg class="ico"><use href="#s-save"/></svg>Speichern</button>
+        <div class="mnusep"></div>
+        <button onclick="openRobLib?.()"><svg class="ico"><use href="#s-lib"/></svg>Library…</button>
         <input type="file" id="scene-file-in" accept=".zip,.json,.stp,.step" style="display:none">
       </div>
     </div>
@@ -1205,6 +1207,7 @@ document.getElementById('rsHelpModal')?.addEventListener('click',function(e){if(
 })();
 </script>
 
+<script>window.addEventListener("load",function(){var ep=document.querySelector(".ep");if(ep&&!ep._panelClosed)toggleLeftPanel();});</script>
 </body>
 </html>
 
