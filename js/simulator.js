@@ -1362,7 +1362,7 @@ function applyKinematicData(data, stlBuffers, sceneBuffers) {
       window._axisExtraMeshes[axIdx] = [];
       var keyLower = key.toLowerCase();
       parts.forEach(function(p, pi) {
-        var fname = (p.name||'').replace(/\.stl$/i,'').toLowerCase();
+        var fname = (p.name||'').replace(/\.(stl|osd)$/i,'').toLowerCase();
         var buf = stlBuffers[fname] || (pi===0 ? stlBuffers[keyLower]||stlBuffers['axis'+keyLower] : null);
         if (!buf && p.data) { /* base64 fallback */ }
         if (!buf) return;
