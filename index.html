@@ -269,6 +269,7 @@ header .title    { display: none !important; }
   </nav>
 
   <div class="mnu-right">
+    <button onclick="openLibPickerModal('all')"><svg class="ico"><use href="#s-lib"/></svg>Library</button>
     <span style="color:var(--txt3);font-size:.72em">© CAD/CAM Systeme Datentechnik Reitz</span>
   </div>
 </header>
@@ -468,15 +469,6 @@ header .title    { display: none !important; }
   <div id="ep-resize-handle" class="ep-resize-handle"></div>
   <div class="vp">
     <canvas id="c3d"></canvas>
-    <div class="view-btns">
-      <button class="vbtn on" id="vb-iso" onclick="setView('iso')">ISO</button>
-      <button class="vbtn" id="vb-top" onclick="setView('top')" data-i18n="top">Top</button>
-      <button class="vbtn" id="vb-bottom" onclick="setView('bottom')" data-i18n="bottom">Bottom</button>
-      <button class="vbtn" id="vb-front" onclick="setView('front')" data-i18n="front">Front</button>
-      <button class="vbtn" id="vb-back" onclick="setView('back')" data-i18n="back">Back</button>
-      <button class="vbtn" id="vb-left" onclick="setView('left')">Left</button>
-      <button class="vbtn" id="vb-right" onclick="setView('right')">Right</button>
-    </div>
     <div class="legend">
       <div class="lrow"><div class="lbar" style="background:#ff4444"></div>X</div>
       <div class="lrow"><div class="lbar" style="background:#44ff44"></div>Y</div>
