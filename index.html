@@ -166,6 +166,19 @@ header .title    { display: none !important; }
 /* SVG icons */
 .ico{width:13px;height:13px;stroke:currentColor;fill:none;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round;vertical-align:middle;flex-shrink:0;display:inline-block}
 .ico-sm{width:11px;height:11px}
+
+/* ── Ribbon ─────────────────────────────────────────────────── */
+.ribbon{display:flex;align-items:stretch;background:var(--bg3);border-bottom:1px solid var(--bdr);padding:0 6px;gap:0;min-height:58px;flex-shrink:0}
+.rib-group{display:flex;align-items:stretch;gap:1px;padding:4px 6px 18px;position:relative}
+.rib-group+.rib-group::before{content:'';position:absolute;left:0;top:8px;bottom:8px;width:1px;background:var(--bdr)}
+.rib-group-label{position:absolute;bottom:2px;left:0;right:0;text-align:center;font-size:.6em;color:var(--txt3);letter-spacing:.05em;text-transform:uppercase;pointer-events:none}
+.rib-btn{display:flex;flex-direction:column;align-items:center;justify-content:flex-start;gap:3px;background:none;border:none;border-radius:3px;padding:5px 7px 0;cursor:pointer;color:var(--txt2);font-family:monospace;font-size:.68em;white-space:nowrap;min-width:38px;transition:background .1s,color .1s;position:relative}
+.rib-btn:hover{background:rgba(255,255,255,.07);color:var(--txt)}
+.rib-btn.on{background:rgba(30,144,255,.12);color:#1e90ff}
+.rib-btn:disabled{opacity:.3;cursor:not-allowed}
+.rib-btn svg{width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:1.4;stroke-linecap:round;stroke-linejoin:round}
+.rib-btn svg.filled{fill:currentColor;stroke:none}
+
 </style>
 </head>
 <body>
@@ -194,6 +207,14 @@ header .title    { display: none !important; }
 <symbol id="s-key"      viewBox="0 0 16 16"><path d="M2 10a4 4 0 1 1 8 0 4 4 0 0 1-8 0z"/><path d="M9 7l5 5M12 10l2 2"/></symbol>
 <symbol id="s-mapping"  viewBox="0 0 16 16"><path d="M3 4h10M3 8h6M3 12h8"/><path d="M11 6l3 2-3 2"/></symbol>
 <symbol id="s-lib"      viewBox="0 0 16 16"><rect x="2" y="2" width="3" height="12" rx="1"/><rect x="7" y="4" width="3" height="10" rx="1"/><rect x="12" y="2" width="3" height="12" rx="1"/></symbol>
+<symbol id="s-iso"    viewBox="0 0 16 16"><path d="M8 1l7 4v6l-7 4-7-4V5z"/><path d="M8 1v10M1 5l7 4 7-4"/></symbol>
+<symbol id="s-vtop"   viewBox="0 0 16 16"><path d="M8 12V4M4 8l4-4 4 4"/><path d="M3 13h10" stroke-width="1.5"/></symbol>
+<symbol id="s-vbot"   viewBox="0 0 16 16"><path d="M8 4v8M4 8l4 4 4-4"/><path d="M3 3h10" stroke-width="1.5"/></symbol>
+<symbol id="s-vfront" viewBox="0 0 16 16"><path d="M4 8h8M8 4l4 4-4 4"/><path d="M3 2v12" stroke-width="1.5"/></symbol>
+<symbol id="s-vback"  viewBox="0 0 16 16"><path d="M12 8H4M8 4 4 8l4 4"/><path d="M13 2v12" stroke-width="1.5"/></symbol>
+<symbol id="s-vleft"  viewBox="0 0 16 16"><path d="M10 8H2M6 4 2 8l4 4"/><path d="M13 3v10" stroke-width="1.5"/></symbol>
+<symbol id="s-vright" viewBox="0 0 16 16"><path d="M6 8h8M10 4l4 4-4 4"/><path d="M3 3v10" stroke-width="1.5"/></symbol>
+<symbol id="s-ortho"  viewBox="0 0 16 16"><rect x="2" y="2" width="12" height="12" rx="1"/><path d="M2 6h12M2 10h12M6 2v12M10 2v12" stroke-width="1"/></symbol>
 </svg>
 <header>
   <div class="appname"><svg class="ico"><use href="#s-robot"/></svg> RobSimul <span id="ver-header" class="ver-tag"></span></div>
@@ -273,6 +294,66 @@ header .title    { display: none !important; }
     <span style="color:var(--txt3);font-size:.72em">© CAD/CAM Systeme Datentechnik Reitz</span>
   </div>
 </header>
+
+
+<!-- ── RIBBON ──────────────────────────────────────────────── -->
+<div class="ribbon">
+
+  <!-- DATEI -->
+  <div class="rib-group">
+    <button class="rib-btn" onclick="sceneNeu()" title="Neu"><svg><use href="#s-new"/></svg>Neu</button>
+    <button class="rib-btn" onclick="sceneLaden()" title="Laden"><svg><use href="#s-open"/></svg>Laden</button>
+    <button class="rib-btn" onclick="sceneSpeichern()" title="Speichern"><svg><use href="#s-save"/></svg>Speichern</button>
+    <button class="rib-btn" onclick="openLibPickerModal('all')" title="Library"><svg><use href="#s-lib"/></svg>Library</button>
+    <span class="rib-group-label">Datei</span>
+  </div>
+
+  <!-- ANZEIGE -->
+  <div class="rib-group">
+    <button class="rib-btn on" id="rib-robot3d" onclick="document.getElementById('btn-robot3d')?.click()" title="Roboter 3D"><svg><use href="#s-robot"/></svg>Roboter 3D</button>
+    <button class="rib-btn" id="rib-tcp-trace" onclick="document.getElementById('btn-tcp-trace')?.click()" title="TCP Trace"><svg><use href="#s-trace"/></svg>TCP Trace</button>
+    <button class="rib-btn" id="rib-grid" onclick="toggleGrid()" title="Grid"><svg><use href="#s-grid"/></svg>Grid</button>
+    <button class="rib-btn" id="rib-bg" onclick="document.getElementById('btn-bg')?.click()" title="Hintergrund"><svg><use href="#s-palette"/></svg>BG</button>
+    <button class="rib-btn" id="rib-steuer" onclick="toggleSteuerPanel()" title="Status Panel"><svg><use href="#s-monitor"/></svg>Status</button>
+    <button class="rib-btn" id="rib-aplot" onclick="toggleAPlot?.()" title="A-Winkel Map"><svg><use href="#s-chart"/></svg>A-Plot</button>
+    <span class="rib-group-label">Anzeige</span>
+  </div>
+
+  <!-- KAMERA -->
+  <div class="rib-group">
+    <button class="rib-btn on" id="rib-persp" onclick="if(activeCam!==perspCam)toggleProjection()" title="Perspektive"><svg><use href="#s-iso"/></svg>Perspektive</button>
+    <button class="rib-btn" id="rib-ortho-rs" onclick="if(activeCam!==orthoCam)toggleProjection()" title="Ortho"><svg><use href="#s-ortho"/></svg>Ortho</button>
+    <span class="rib-group-label">Kamera</span>
+  </div>
+
+  <!-- ANSICHTEN -->
+  <div class="rib-group">
+    <button class="rib-btn on" id="rib-iso"    onclick="setView('iso')"    title="ISO"><svg><use href="#s-iso"/></svg>ISO</button>
+    <button class="rib-btn" id="rib-top"    onclick="setView('top')"    title="Top"><svg><use href="#s-vtop"/></svg>Top</button>
+    <button class="rib-btn" id="rib-bottom" onclick="setView('bottom')" title="Bottom"><svg><use href="#s-vbot"/></svg>Bot</button>
+    <button class="rib-btn" id="rib-front"  onclick="setView('front')"  title="Front"><svg><use href="#s-vfront"/></svg>Front</button>
+    <button class="rib-btn" id="rib-back"   onclick="setView('back')"   title="Back"><svg><use href="#s-vback"/></svg>Back</button>
+    <button class="rib-btn" id="rib-left"   onclick="setView('left')"   title="Left"><svg><use href="#s-vleft"/></svg>Left</button>
+    <button class="rib-btn" id="rib-right"  onclick="setView('right')"  title="Right"><svg><use href="#s-vright"/></svg>Right</button>
+    <span class="rib-group-label">Ansichten</span>
+  </div>
+
+  <!-- WERKZEUGE -->
+  <div class="rib-group">
+    <button class="rib-btn" onclick="toggleSettings()" title="Einstellungen"><svg><use href="#s-gear"/></svg>Einst.</button>
+    <button class="rib-btn" onclick="openMappingTable()" title="Postprozessor"><svg><use href="#s-mapping"/></svg>Mapping</button>
+    <button class="rib-btn" onclick="clearTCPTrace()" title="TCP Trace löschen"><svg><use href="#s-trash"/></svg>Trace ✕</button>
+    <button class="rib-btn" onclick="resetAll()" title="Alles zurücksetzen"><svg><use href="#s-reset"/></svg>Reset</button>
+    <span class="rib-group-label">Werkzeuge</span>
+  </div>
+
+  <!-- HILFE -->
+  <div class="rib-group" style="margin-left:auto">
+    <button class="rib-btn" onclick="document.getElementById('btn-help-rs')?.click()" title="Hilfe"><svg><use href="#s-help"/></svg>Hilfe</button>
+    <span class="rib-group-label">Hilfe</span>
+  </div>
+
+</div>
 
 <!-- ── SLIM TOOLBAR ──────────────────────────────────────────── -->
 <div class="tb">
@@ -1271,6 +1352,36 @@ document.addEventListener('DOMContentLoaded', function(){
   if(b){ b.textContent = '⊡ Perspektiv'; b.classList.add('on'); }
 });
 </script>
+<script>
+(function(){
+  // Sync view buttons
+  var views=['iso','top','bottom','front','back','left','right'];
+  var origSetView=window.setView;
+  window.setView=function(v){
+    if(origSetView) origSetView(v);
+    views.forEach(function(k){
+      var rb=document.getElementById('rib-'+k);
+      if(rb) rb.classList.toggle('on',k===v);
+    });
+    // camera sync
+    var rp=document.getElementById('rib-persp'),ro=document.getElementById('rib-ortho-rs');
+    if(rp) rp.classList.toggle('on',v==='iso');
+    if(ro) ro.classList.toggle('on',v!=='iso');
+  };
+  // Sync camera toggle
+  var origTP=window.toggleProjection;
+  window.toggleProjection=function(){
+    if(origTP) origTP();
+    setTimeout(function(){
+      var isPersp=window.activeCam===window.perspCam;
+      var rp=document.getElementById('rib-persp'),ro=document.getElementById('rib-ortho-rs');
+      if(rp) rp.classList.toggle('on', isPersp);
+      if(ro) ro.classList.toggle('on',!isPersp);
+    },0);
+  };
+})();
+</script>
+
 </body>
 </html>
 
