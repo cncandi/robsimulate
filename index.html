@@ -289,7 +289,10 @@ header .title    { display: none !important; }
 
   </nav>
 
-  <div class="mnu-right">
+  <div class="mnu" id="mnuKabel">
+      <button class="mnubtn" onclick="window.cableSystem?.toggleVisible()">Kabel</button>
+    </div>
+    <div class="mnu-right">
     <button onclick="openLibPickerModal('all')"><svg class="ico"><use href="#s-lib"/></svg>Library</button>
     <span style="color:var(--txt3);font-size:.72em">© CAD/CAM Systeme Datentechnik Reitz</span>
   </div>
@@ -805,6 +808,7 @@ header .title    { display: none !important; }
 <script src="./js/dp-solver.js"></script>
 <script src="./js/formats/registry.js"></script>
 <script src="./js/simulator.js"></script>
+<script src="./js/cable-system.js"></script>
 <script src="./js/formats/kuka-form.js"></script>
 <script src="./js/formats/kuka.js"></script>
 <script src="./js/formats/converters.js"></script>
