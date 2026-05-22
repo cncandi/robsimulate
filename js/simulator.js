@@ -484,6 +484,8 @@ const canvas=document.getElementById('c3d');
 const renderer=new THREE.WebGLRenderer({canvas,antialias:true});
 renderer.setPixelRatio(window.devicePixelRatio);
 const scene=new THREE.Scene();
+// Kabel-System initialisieren (Y-Achse = oben in RobSimul)
+if(window.cableSystem) window.cableSystem.init(THREE, scene, { upAxis: 'y' });
 scene.background=new THREE.Color(0x1e1e1e); // bg-pro default
 
 const perspCam=new THREE.PerspectiveCamera(50,1,1,80000);
