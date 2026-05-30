@@ -394,7 +394,7 @@ function generateKRL(pd) {
     lines.push('$TOOL = TOOL_DATA[1]');
     lines.push('$VEL.CP=0.167');
     positions.forEach(function(pos) {
-      var posR = worldToBase(pos, 1);
+      var posR = pos.rel || pos;
       var S = (pos.S != null ? ' S '+pos.S : ''), T = (pos.T != null ? ' T '+pos.T : '');
       lines.push('LIN {X '+posR.X.toFixed(3)+',Y '+posR.Y.toFixed(3)+',Z '+posR.Z.toFixed(3)+',A '+posR.A.toFixed(3)+',B '+posR.B.toFixed(3)+',C '+posR.C.toFixed(3)+S+T+'}');
     });
@@ -432,7 +432,7 @@ function generateKRL(pd) {
       case 'move': {
         var pos = positions[s.posIdx];
         if (!pos) break;
-        var posR = worldToBase(pos, curBase);
+        var posR = pos.rel || pos;
         var Sv = (pos.S != null ? ' S '+pos.S : ''), Tv = (pos.T != null ? ' T '+pos.T : '');
         var coord = '{X '+posR.X.toFixed(3)+',Y '+posR.Y.toFixed(3)+',Z '+posR.Z.toFixed(3)+',A '+posR.A.toFixed(3)+',B '+posR.B.toFixed(3)+',C '+posR.C.toFixed(3)+Sv+Tv+'}';
         lines.push((s.moveType || 'LIN') + ' ' + coord);
@@ -441,7 +441,7 @@ function generateKRL(pd) {
       case 'circ': {
         var pVia = positions[s.viaIdx], pTo = positions[s.posIdx];
         if (pVia && pTo) {
-          var pViaR = worldToBase(pVia, curBase), pToR = worldToBase(pTo, curBase);
+          var pViaR = pVia.rel || pVia, pToR = pTo.rel || pTo;
           var cVia = '{X '+pViaR.X.toFixed(3)+',Y '+pViaR.Y.toFixed(3)+',Z '+pViaR.Z.toFixed(3)+',A '+pViaR.A.toFixed(3)+',B '+pViaR.B.toFixed(3)+',C '+pViaR.C.toFixed(3)+'}';
           var cTo  = '{X '+pToR.X.toFixed(3)+',Y '+pToR.Y.toFixed(3)+',Z '+pToR.Z.toFixed(3)+',A '+pToR.A.toFixed(3)+',B '+pToR.B.toFixed(3)+',C '+pToR.C.toFixed(3)+'}';
           lines.push('CIRC ' + cVia + ', ' + cTo);
@@ -458,8 +458,8 @@ function parseKRL(code){
   function snap(){return{variables:{...vars},digitalIn:{...din},digitalOut:{...dout},analogOut:{...anout},analogIn:{...anin}};}
   function pushStep(ln,type,extra){steps.push({lineNum:ln,type,...extra,snapshot:snap()});}
   let curBase = 0; // aktiver BASE (BASE_DATA[n]); 0 = Welt-Nullframe
-  // KRL-{X..} ist base-relativ: rel merken und mit aktivem BASE in Welt einbacken (ueberlebt Re-Parse)
-  function W(o){ o.rel={X:o.X,Y:o.Y,Z:o.Z,A:o.A,B:o.B,C:o.C}; var w=baseToWorld(o,curBase); o.X=w.X;o.Y=w.Y;o.Z=w.Z;o.A=w.A;o.B=w.B;o.C=w.C; o.baseN=curBase; return o; }
+  // KRL-{X..} ist die Code-Koordinate -> als rel merken (Welt = rel + aktueller BASE-Offset, separat angewandt)
+  function W(o){ o.rel={X:o.X,Y:o.Y,Z:o.Z,A:o.A,B:o.B,C:o.C}; o.baseN=curBase; return o; }
   for(let ln=0;ln<lines.length;ln++){
     let raw=lines[ln];const ci=raw.indexOf(';');if(ci===0)continue;
     let line=(ci>0?raw.slice(0,ci):raw).trim();if(!line)continue;
@@ -1807,26 +1807,24 @@ function updateBaseDef() {
   applyBase(); // Trace/Endpunkte aus rel + aktuellem BASE neu berechnen
 }
 
-// Berechnet die Weltlage jeder Position aus ihren base-relativen Werten (rel) und dem aktuellen BASE.
-// Angezeigte/exportierte Koordinaten bleiben base-relativ; intern (IK/Sim) zielen die Endpunkte auf rel + BASE-Offset.
-function applyBase() {
-  if (typeof parsedData === 'undefined' || !parsedData || !parsedData.positions || !parsedData.positions.length) return;
-  // Altsession ohne baseN: aus der Step-Reihenfolge zuordnen
-  if (parsedData.positions.some(function(p){ return p.baseN == null; }) && parsedData.steps) {
-    var cb = 0;
-    parsedData.steps.forEach(function(s){
-      if (s.type === 'base') cb = s.n;
-      else if (s.type === 'move') { var p = parsedData.positions[s.posIdx]; if (p && p.baseN == null) p.baseN = cb; }
-      else if (s.type === 'circ') { var pv = parsedData.positions[s.viaIdx], pt = parsedData.positions[s.posIdx]; if (pv && pv.baseN == null) pv.baseN = cb; if (pt && pt.baseN == null) pt.baseN = cb; }
-    });
-    parsedData.positions.forEach(function(p){ if (p.baseN == null) p.baseN = 0; });
-  }
+// Aktiver BASE (der im Panel gewaehlte). KUKA: BASE_DATA[n] -> baseList[n-1]
+function _activeBaseN() { return ((typeof baseNavIdx !== 'undefined' && baseNavIdx >= 0) ? baseNavIdx : 0) + 1; }
+
+// Welt = Code-Koordinate (rel) + aktueller BASE-Offset. Nur Transformation, kein Neuzeichnen.
+function bakeBaseOffset() {
+  if (typeof parsedData === 'undefined' || !parsedData || !parsedData.positions) return;
+  var bn = _activeBaseN();
   parsedData.positions.forEach(function(p){
-    if (!p.rel) p.rel = { X:p.X, Y:p.Y, Z:p.Z, A:p.A, B:p.B, C:p.C }; // Altsession: aktuelle Lage als base-relative Referenz
-    var w = baseToWorld(p.rel, p.baseN);
+    if (!p.rel) p.rel = { X:p.X, Y:p.Y, Z:p.Z, A:p.A, B:p.B, C:p.C };
+    var w = baseToWorld(p.rel, bn);
     p.X=w.X; p.Y=w.Y; p.Z=w.Z; p.A=w.A; p.B=w.B; p.C=w.C;
   });
-  // Szene neu zeichnen, Kamera dabei NICHT umspringen lassen
+}
+
+// Bei Uebernehmen: Offset neu rechnen und Szene/IK/Karten neu zeichnen (Kamera bleibt).
+function applyBase() {
+  if (typeof parsedData === 'undefined' || !parsedData || !parsedData.positions || !parsedData.positions.length) return;
+  bakeBaseOffset();
   var savedT = (typeof orbitTarget !== 'undefined' && orbitTarget && orbitTarget.clone) ? orbitTarget.clone() : null;
   var savedR = (typeof orbitState !== 'undefined' && orbitState) ? orbitState.radius : null;
   var savedH = (typeof orthoHalfSize !== 'undefined') ? orthoHalfSize : null;
@@ -3397,7 +3395,7 @@ function selectPosition(idx){
   }
   selSphere.position.set(pos.X,pos.Y,pos.Z);selSphere.visible=true;
   document.getElementById('ep-title').textContent=`#${idx+1}  ${pos.type}  (Z.${pos.lineNum+1})`;
-  const dDisp=worldToBase(pos, pos.baseN);
+  const dDisp=pos.rel || pos;
   ['x','y','z','a','b','c'].forEach(k=>document.getElementById('ep-'+k).value=dDisp[k.toUpperCase()].toFixed(3));
   document.getElementById('edit-panel').style.display='block';
   document.querySelectorAll('.pc').forEach((el,i)=>el.classList.toggle('selected',i===idx));
@@ -3448,15 +3446,15 @@ function applyEditPanel(){
   if(selectedPosIdx===null)return;
   const pos=parsedData.positions[selectedPosIdx];
   const disp={X:parseFloat(document.getElementById('ep-x').value)||0,Y:parseFloat(document.getElementById('ep-y').value)||0,Z:parseFloat(document.getElementById('ep-z').value)||0,A:parseFloat(document.getElementById('ep-a').value)||0,B:parseFloat(document.getElementById('ep-b').value)||0,C:parseFloat(document.getElementById('ep-c').value)||0};
-  const w=baseToWorld(disp, pos.baseN); // Eingabe ist base-relativ -> Welt
-  const newPos={...pos,X:w.X,Y:w.Y,Z:w.Z,A:w.A,B:w.B,C:w.C};
+  const w=baseToWorld(disp, _activeBaseN()); // Eingabe ist Code-Koordinate -> Welt (+ BASE-Offset)
+  const newPos={...pos,X:w.X,Y:w.Y,Z:w.Z,A:w.A,B:w.B,C:w.C,rel:{X:disp.X,Y:disp.Y,Z:disp.Z,A:disp.A,B:disp.B,C:disp.C}};
   applyDraggedPos(selectedPosIdx,newPos,true);
 }
 
 ['ep-x','ep-y','ep-z','ep-a','ep-b','ep-c'].forEach(id=>document.getElementById(id).addEventListener('keydown',e=>{if(e.key==='Enter')applyEditPanel();}));
 
 function applyDraggedPos(idx,newPos,syncCode){
-  const dD=worldToBase(newPos, newPos.baseN); // base-relative Anzeige + Quelle
+  const dD = newPos.rel || worldToBase(newPos, _activeBaseN()); // Code-Koordinate (rel)
   newPos.rel={X:dD.X,Y:dD.Y,Z:dD.Z,A:dD.A,B:dD.B,C:dD.C};
   parsedData.positions[idx]=newPos;
   const grp=posGrp.children[idx];
@@ -3480,7 +3478,7 @@ function applyDraggedPos(idx,newPos,syncCode){
 
 function syncPositionToCode(idx){
   const pos=parsedData.positions[idx];if(pos.lineNum===undefined)return;
-  const pr=worldToBase(pos, pos.baseN); // Welt -> base-relativ fuer KRL-Text
+  const pr=pos.rel || pos; // Code-Koordinate (unveraendert) in den Text schreiben
   const ta=document.getElementById('code-input');const lines=ta.value.split(/\r?\n/);const oldLine=lines[pos.lineNum];
   const str=`{X ${pr.X.toFixed(3)},Y ${pr.Y.toFixed(3)},Z ${pr.Z.toFixed(3)},A ${pr.A.toFixed(3)},B ${pr.B.toFixed(3)},C ${pr.C.toFixed(3)}${pos.S!==null&&pos.S!==undefined?',S '+pos.S:''}${pos.T!==null&&pos.T!==undefined?',T '+pos.T:''}}`;
   lines[pos.lineNum]=oldLine.replace(/\{[^}]+\}/,str);ta.value=lines.join('\n');
@@ -4502,7 +4500,7 @@ function renderPositions(positions){
   el.innerHTML=positions.map((p,i)=>{
     const tc=(p.type||'').toLowerCase();
     const ik=ikTable[i];
-    const d=worldToBase(p, p.baseN);
+    const d=p.rel || p;
     const ikHtml=ik?`<div class="psep"></div><div class="ik-reach${ik.ok?'':' err'}">${ik.ok?`IK ✓  Δ${ik.score.toFixed(1)}`:'IK ✗ nicht erreichbar'}</div>`:'';
     return`<div class="pc ${tc}" id="pcard-${i}">
       <div class="pc-type ${tc}">#${i+1} &nbsp;${TYPE_LBL[p.type]||p.type}${p.lineNum!==undefined?`<span style="color:var(--txt3);font-weight:normal;font-size:.85em"> L.${p.lineNum+1}</span>`:''}
@@ -4834,6 +4832,7 @@ function parseAndLoad(){
     _krlSnapshotParsed = true;
   }
   parsedData=parseKRL(code);const N=parsedData.positions.length;
+  bakeBaseOffset(); // Code-Koordinaten + aktueller BASE-Offset -> Welt (ueberlebt Parse/Start)
   posLineNums=new Set(parsedData.positions.map(p=>p.lineNum).filter(n=>n!==undefined));
   for(const bp of[...breakpoints])if(!posLineNums.has(bp))breakpoints.delete(bp);
   buildGutter(code.split(/\r?\n/).length);
@@ -6140,7 +6139,7 @@ function parsedDataToXml(pd) {
   // Positions
   lines.push('  <Positions>');
   (pd.positions || []).forEach(function(p, i) {
-    var pr = (typeof worldToBase === 'function') ? worldToBase(p, p.baseN) : p; // Welt -> base-relativ
+    var pr = p.rel || p; // Code-Koordinaten exportieren
     lines.push('    <Pos idx="' + i + '" type="' + (p.type||'LIN') + '"' +
       ' X="' + pr.X.toFixed(4) + '" Y="' + pr.Y.toFixed(4) + '" Z="' + pr.Z.toFixed(4) +
       '" A="' + pr.A.toFixed(4) + '" B="' + pr.B.toFixed(4) + '" C="' + pr.C.toFixed(4) +
@@ -6238,9 +6237,7 @@ function xmlToParsedData(xmlText) {
   });
   positions.forEach(function(p){
     if (p.baseN == null) p.baseN = 0;
-    p.rel = { X:p.X, Y:p.Y, Z:p.Z, A:p.A, B:p.B, C:p.C }; // gespeicherte Werte sind base-relativ
-    var w = (typeof baseToWorld === 'function') ? baseToWorld(p.rel, p.baseN) : p;
-    p.X=w.X; p.Y=w.Y; p.Z=w.Z; p.A=w.A; p.B=w.B; p.C=w.C;
+    p.rel = { X:p.X, Y:p.Y, Z:p.Z, A:p.A, B:p.B, C:p.C }; // <Pos> sind die Code-Koordinaten
   });
 
   return {positions: positions, steps: steps, finalState: {variables:{}, digitalIn:{}, digitalOut:{}, analogOut:{}, analogIn:{}}};
@@ -6304,6 +6301,7 @@ function fmtLoadFile() {
           var pd = xmlToParsedData(text);
           if (!pd.positions.length && !pd.steps.length) { alert('XML konnte nicht gelesen werden.'); return; }
           parsedData = pd;
+          if (typeof bakeBaseOffset === 'function') bakeBaseOffset();
           _krlSnapshot = generateKRL ? (generateKRL(pd)||'') : '';
           _krlSnapshotParsed = true;
           if (typeof FormatRegistry !== 'undefined') FormatRegistry.setActive('kuka-form');
