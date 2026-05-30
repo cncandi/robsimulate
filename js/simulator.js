@@ -1808,16 +1808,24 @@ function updateBaseDef() {
 
 // BASE wurde verschoben/gewechselt (Modell B, KUKA-konform):
 // Programmzahlen sind base-relativ und bleiben; die Weltpositionen werden daraus neu berechnet,
-// sodass sich die physischen Punkte (Trace) mitbewegen. Text wird NICHT veraendert.
+// sodass sich die physischen Punkte (Pfad) mitbewegen. Text wird NICHT veraendert.
 function refreshBaseRelativeViews() {
   if (typeof parsedData === 'undefined' || !parsedData || !parsedData.positions || !parsedData.positions.length) return;
-  parsedData.positions.forEach(function(p){
-    if (!p.rel) return;                       // keine base-relative Quelle (z.B. Altdaten) -> unveraendert
+  // Stale Session ohne base-relative Quellwerte (vor dem Update geparst) -> einmal neu parsen.
+  // Der KRL-Text ist die base-relative Quelle; parseAndLoad fuellt rel + Welt aus dem aktuellen BASE.
+  if (!parsedData.positions[0].rel) {
+    if (typeof parseAndLoad === 'function') parseAndLoad();
+    return;
+  }
+  // Welt aus base-relativen Werten neu berechnen; Frames in-place setzen (kein buildScene -> keine Kamera-Zentrierung)
+  parsedData.positions.forEach(function(p,i){
+    if (!p.rel) return;
     var w = baseToWorld(p.rel, p.baseN);
     p.X=w.X; p.Y=w.Y; p.Z=w.Z; p.A=w.A; p.B=w.B; p.C=w.C;
+    var grp = posGrp.children[i];
+    if (grp) { grp.position.set(p.X,p.Y,p.Z); grp.setRotationFromEuler(kukaEuler(p.A,p.B,p.C)); }
   });
-  // Szene/Trajektorie + Erreichbarkeit neu bauen
-  if (typeof buildScene === 'function') buildScene(parsedData.positions);
+  // Pfadlinie + Trajektorie + Erreichbarkeit neu (computeIKTable ruft buildTrajectory, zeichnet die Pfadlinie neu)
   if (typeof computeIKTable === 'function') computeIKTable(parsedData.positions);
   if (typeof renderPositions === 'function') renderPositions(parsedData.positions);
   // Auswahl-Markierung + Marker + Edit-Panel-Felder
@@ -1825,7 +1833,7 @@ function refreshBaseRelativeViews() {
     var sp = parsedData.positions[selectedPosIdx];
     var c = document.getElementById('pcard-'+selectedPosIdx); if (c) c.classList.add('selected');
     if (sp) {
-      if (typeof selSphere !== 'undefined' && selSphere) { selSphere.position.set(sp.X,sp.Y,sp.Z); }
+      if (typeof selSphere !== 'undefined' && selSphere) selSphere.position.set(sp.X,sp.Y,sp.Z);
       var d = worldToBase(sp, sp.baseN);
       ['x','y','z','a','b','c'].forEach(function(k){ var el=document.getElementById('ep-'+k); if(el) el.value=d[k.toUpperCase()].toFixed(3); });
     }
