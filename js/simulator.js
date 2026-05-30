@@ -1814,39 +1814,26 @@ function ensureBasesForProgram() {
   if (changed) renderBaseNav();
 }
 
-// ── TOOL-Verwaltung (analog BASE) ─────────────────────────────
-// toolList[n-1] entspricht TOOL_DATA[n]; Offset + optionale STL (STL spaeter via robmodel-XML).
-var toolList = [];
+// ── TOOL/TCP-Umschaltung ──────────────────────────────────────
+// $TOOL=TOOL_DATA[n] wird auf die bestehende tcpList abgebildet: TOOL_DATA[n] -> tcpList[n-1].
+// (STL-Umschaltung pro Tool folgt via robmodel-XML.)
 var _activeToolN = 1;
 
-function _seedToolListFromCurrent() {
-  if (!toolList.length) {
-    toolList.push({
-      x:TCP_DEF.x, y:TCP_DEF.y, z:TCP_DEF.z, a:TCP_DEF.a, b:TCP_DEF.b, c:TCP_DEF.c,
-      name:'TOOL 1', defined:false, // false = Live-TCP/STL aus UI verwenden (echte Tools kommen via robmodel-XML)
-      stl: (window._toolSTLBuffer ? { buffer: window._toolSTLBuffer, name: ((typeof sceneSTLOffsets!=='undefined' && sceneSTLOffsets.tool && sceneSTLOffsets.tool.name) || 'tool1_tcp') } : null)
-    });
+// TCP-Eintrag fuer eine Tool-Nummer aus der tcpList holen (mit Fallback)
+function _tcpEntryForTool(toolN) {
+  if (!toolN) toolN = 1;
+  if (typeof tcpList !== 'undefined' && tcpList) {
+    if (tcpList[toolN-1]) return tcpList[toolN-1];
+    if (tcpList.length) return tcpList[(typeof tcpNavIdx!=='undefined' && tcpNavIdx>=0)?tcpNavIdx:0] || tcpList[0];
   }
+  return null;
 }
 
-function ensureToolsForProgram() {
-  if (typeof parsedData === 'undefined' || !parsedData || !parsedData.positions) return;
-  _seedToolListFromCurrent();
-  var maxN = 1;
-  parsedData.positions.forEach(function(p){ if (p.toolN && p.toolN > maxN) maxN = p.toolN; });
-  if (parsedData.steps) parsedData.steps.forEach(function(s){ if (s && s.type==='tool' && s.n && s.n > maxN) maxN = s.n; });
-  while (toolList.length < maxN) {
-    // Platzhalter (defined:false): nutzt Live-TCP/STL; echte Offsets/STL kommen via robmodel-XML
-    var t0 = toolList[0] || {x:0,y:0,z:0,a:0,b:0,c:0};
-    toolList.push({ x:t0.x, y:t0.y, z:t0.z, a:t0.a, b:t0.b, c:t0.c, name:'TOOL '+(toolList.length+1), defined:false, stl:null });
-  }
-}
-
-// TCP_DEF (per Property-Mutation, da const) auf das gegebene Tool setzen – nur fuer echte Tools (defined)
+// TCP_DEF (per Property-Mutation, da const) auf das TCP der Tool-Nummer setzen
 function _applyToolToTCPDEF(toolN) {
-  var t = toolN ? toolList[toolN-1] : null;
-  if (!t || !t.defined) return; // undefiniert/Platzhalter -> Live-TCP_DEF (UI) beibehalten
-  TCP_DEF.x=t.x; TCP_DEF.y=t.y; TCP_DEF.z=t.z; TCP_DEF.a=t.a; TCP_DEF.b=t.b; TCP_DEF.c=t.c;
+  var t = _tcpEntryForTool(toolN);
+  if (!t) return;
+  TCP_DEF.x=t.x||0; TCP_DEF.y=t.y||0; TCP_DEF.z=t.z||0; TCP_DEF.a=t.a||0; TCP_DEF.b=t.b||0; TCP_DEF.c=t.c||0;
 }
 
 // true wenn alle Punkte dasselbe Tool nutzen
@@ -1857,29 +1844,12 @@ function _toolsAreUniform(positions) {
   return true;
 }
 
-// Aktives Tool fuer die Anzeige setzen: nur echte (defined) Tools schalten TCP-Offset + Tool-STL um;
-// Platzhalter lassen den Live-TCP/STL aus der UI unveraendert (echte Tools kommen via robmodel-XML).
+// Aktives Tool fuer die Anzeige setzen: TCP-Offset aus tcpList umschalten
 function setActiveTool(toolN) {
   if (!toolN) toolN = 1;
-  var t = toolList[toolN-1];
-  if (t && t.defined) {
-    _applyToolToTCPDEF(toolN);
-    if (toolN !== _activeToolN) { _activeToolN = toolN; _swapToolMesh(t.stl); }
-  } else {
-    _activeToolN = toolN; // nur merken, nichts ueberschreiben
-  }
-}
-
-function _swapToolMesh(stl) {
-  try {
-    if (toolMesh) { if(toolMesh.parent)toolMesh.parent.remove(toolMesh); if(toolMesh.geometry)toolMesh.geometry.dispose(); if(toolMesh.material)toolMesh.material.dispose(); toolMesh=null; }
-    if (stl && stl.buffer) {
-      var geo = stlLoader.parse(stl.buffer); geo.computeVertexNormals();
-      var mat = new THREE.MeshPhongMaterial({color:0xdd9944, side:THREE.DoubleSide, specular:0x666666});
-      toolMesh = new THREE.Mesh(geo, mat); scene.add(toolMesh);
-      window._toolSTLBuffer = stl.buffer;
-    }
-  } catch(e) {}
+  _applyToolToTCPDEF(toolN);
+  _activeToolN = toolN;
+  // STL-Umschaltung pro Tool folgt via robmodel-XML
 }
 
 function updateBaseDef() {
@@ -4976,7 +4946,6 @@ function parseAndLoad(){
   }
   parsedData=parseKRL(code);const N=parsedData.positions.length;
   ensureBasesForProgram(); // Eintraege fuer alle referenzierten BASE_DATA[n] sicherstellen
-  ensureToolsForProgram(); // Eintraege fuer alle referenzierten TOOL_DATA[n] sicherstellen
   bakeBaseOffset(); // Code-Koordinaten + jeweils aktiver BASE-Offset pro Punkt -> Welt
   posLineNums=new Set(parsedData.positions.map(p=>p.lineNum).filter(n=>n!==undefined));
   for(const bp of[...breakpoints])if(!posLineNums.has(bp))breakpoints.delete(bp);
