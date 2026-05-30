@@ -3253,9 +3253,48 @@ function computeIKTable(positions) {
   buildTrajectory(positions, ikTable);
 }
 
-// ═══════════════════════════════════════════════════
-// CAMERA / VIEW MANAGEMENT
-// ═══════════════════════════════════════════════════
+// ── Fortschrittsleiste für Parse & Load ──────────────────────
+function parseProgress(pct, msg) {
+  var w = document.getElementById('parse-prog'); if (w) w.style.display = 'block';
+  var b = document.getElementById('parse-prog-bar'); if (b) b.style.width = Math.max(0, Math.min(100, pct)) + '%';
+  var m = document.getElementById('parse-prog-msg'); if (m) m.textContent = msg || '';
+}
+function parseProgressHide() {
+  var b = document.getElementById('parse-prog-bar'); if (b) b.style.width = '100%';
+  setTimeout(function(){ var w = document.getElementById('parse-prog'); if (w) w.style.display = 'none'; if (b) b.style.width = '0%'; }, 250);
+}
+
+// IK-Tabelle häppchenweise berechnen, damit die Fortschrittsleiste echt mitläuft (UI bleibt responsiv).
+function computeIKTableProgressive(positions, done) {
+  ikTable = [];
+  var N = positions.length;
+  if (!N) { buildTrajectory(positions, ikTable); done && done(); return; }
+  // Kleine Programme: DPSolver in einem Rutsch (schnell genug)
+  if (N <= 150) {
+    parseProgress(40, N + ' Punkte — IK wird berechnet…');
+    setTimeout(function(){
+      try { _ikTableDPSolver(positions, N); } catch(e) { _ikTableFallbackDP(positions, N); }
+      buildTrajectory(positions, ikTable);
+      parseProgress(100, 'fertig'); done && done();
+    }, 20);
+    return;
+  }
+  // Große Programme: Schnell-IK in Häppchen mit echtem Fortschritt
+  var prevQ = _ikGetStartQ(), i = 0, CH = Math.max(25, Math.floor(N/50));
+  (function chunk(){
+    var end = Math.min(i + CH, N);
+    for (; i < end; i++) {
+      var p = positions[i];
+      var res = solveIKFast(p.X, p.Y, p.Z, p.A, p.B, p.C, prevQ);
+      var angles = (res.ok ? res.angles : prevQ).map(function(v, j){ return prevQ[j] + shortestAngleDiff(prevQ[j], v); });
+      ikTable.push({ angles: angles, score: res.score, ok: res.ok });
+      prevQ = angles.slice();
+    }
+    parseProgress(Math.round(i/N*100), 'IK: ' + i + ' / ' + N);
+    if (i < N) setTimeout(chunk, 0);
+    else { buildTrajectory(positions, ikTable); parseProgress(100, 'fertig'); done && done(); }
+  })();
+}
 const orbitTarget=new THREE.Vector3(500,0,600);
 const orbitState={theta:-0.7,phi:1.05,radius:3500};
 
@@ -4843,14 +4882,17 @@ function parseAndLoad(){
   document.getElementById('pos-v').textContent=N>0?`1 / ${N}`:'— / —';
   stopSim(0);setStatus('stopped','STOPPED');document.getElementById('marker-info').style.display='none';deselectPosition();
   buildScene(parsedData.positions);
-  // Pre-compute IK for all positions
+  // Pre-compute IK for all positions (häppchenweise mit Fortschrittsleiste)
   setStatus('paused','IK lädt…');
+  parseProgress(15, N + ' Punkte');
   setTimeout(()=>{
-    computeIKTable(parsedData.positions);
-    renderPositions(parsedData.positions);
-    renderVariables(parsedData.finalState.variables);renderDigital(parsedData.finalState.digitalIn,'$IN','din-list');renderDigital(parsedData.finalState.digitalOut,'$OUT','dout-list');renderAnalog(parsedData.finalState.analogOut);
-    if(N>0){applySimT(0);sim.stepIdx=0;if((parsedData.steps&&parsedData.steps.length))applyStep(0);else setStatus('paused','BEREIT');}
-    else setStatus('stopped','STOPPED');
+    computeIKTableProgressive(parsedData.positions, ()=>{
+      renderPositions(parsedData.positions);
+      renderVariables(parsedData.finalState.variables);renderDigital(parsedData.finalState.digitalIn,'$IN','din-list');renderDigital(parsedData.finalState.digitalOut,'$OUT','dout-list');renderAnalog(parsedData.finalState.analogOut);
+      if(N>0){applySimT(0);sim.stepIdx=0;if((parsedData.steps&&parsedData.steps.length))applyStep(0);else setStatus('paused','BEREIT');}
+      else setStatus('stopped','STOPPED');
+      parseProgressHide();
+    });
   },10);
 }
 

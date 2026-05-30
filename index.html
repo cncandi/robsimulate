@@ -747,14 +747,14 @@ header .title    { display: none !important; }
         <input id="base-name" type="text" placeholder="Name" oninput="baseNameChanged(this.value)" style="width:100%;background:var(--bg1);border:1px solid var(--bdr);border-radius:3px;padding:3px 6px;font-family:monospace;font-size:.82em;color:var(--txt);margin-bottom:6px;box-sizing:border-box">
         <div style="font-size:.7em;color:var(--txt3);margin-bottom:4px">Position [mm] / Orientierung [°] vom Roboter-BASE:</div>
         <div class="stl-grid" style="margin-bottom:5px">
-          <span class="stl-lbl">X</span><input class="stl-inp" id="base-x" type="number" value="0" step="1"><span class="stl-unit">mm</span>
-          <span class="stl-lbl">Y</span><input class="stl-inp" id="base-y" type="number" value="0" step="0.1"><span class="stl-unit">mm</span>
-          <span class="stl-lbl">Z</span><input class="stl-inp" id="base-z" type="number" value="0" step="1"><span class="stl-unit">mm</span>
-          <span class="stl-lbl">A(Z)</span><input class="stl-inp" id="base-a" type="number" value="0" step="1"><span class="stl-unit">°</span>
-          <span class="stl-lbl">B(Y)</span><input class="stl-inp" id="base-b" type="number" value="0" step="1"><span class="stl-unit">°</span>
-          <span class="stl-lbl">C(X)</span><input class="stl-inp" id="base-c" type="number" value="0" step="1"><span class="stl-unit">°</span>
+          <span class="stl-lbl">X</span><input class="stl-inp" id="base-x" type="number" value="0" step="1" oninput="updateBaseDef()"><span class="stl-unit">mm</span>
+          <span class="stl-lbl">Y</span><input class="stl-inp" id="base-y" type="number" value="0" step="0.1" oninput="updateBaseDef()"><span class="stl-unit">mm</span>
+          <span class="stl-lbl">Z</span><input class="stl-inp" id="base-z" type="number" value="0" step="1" oninput="updateBaseDef()"><span class="stl-unit">mm</span>
+          <span class="stl-lbl">A(Z)</span><input class="stl-inp" id="base-a" type="number" value="0" step="1" oninput="updateBaseDef()"><span class="stl-unit">°</span>
+          <span class="stl-lbl">B(Y)</span><input class="stl-inp" id="base-b" type="number" value="0" step="1" oninput="updateBaseDef()"><span class="stl-unit">°</span>
+          <span class="stl-lbl">C(X)</span><input class="stl-inp" id="base-c" type="number" value="0" step="1" oninput="updateBaseDef()"><span class="stl-unit">°</span>
         </div>
-        <div style="margin-top:6px"><button class="sbtn on" onclick="updateBaseDef()" style="width:100%;background:var(--acc);color:#fff;border-color:#c04200;font-weight:bold">▶ Übernehmen</button></div>
+        
       </div>
     </div>
     <!-- STL Scene -->
@@ -805,15 +805,15 @@ header .title    { display: none !important; }
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/occt-import-js@0.0.23/dist/occt-import-js.js"></script>
-<script src="./js/i18n.js?v=20260530b"></script>
-<script src="./js/dp-solver.js?v=20260530b"></script>
-<script src="./js/formats/registry.js?v=20260530b"></script>
-<script src="./js/simulator.js?v=20260530b"></script>
-<script src="./js/cable-system.js?v=20260530b"></script>
-<script src="./js/formats/kuka-form.js?v=20260530b"></script>
-<script src="./js/formats/kuka.js?v=20260530b"></script>
-<script src="./js/formats/converters.js?v=20260530b"></script>
-<script src="./js/formats/abb-binary.js?v=20260530b"></script>
+<script src="./js/i18n.js?v=20260530c"></script>
+<script src="./js/dp-solver.js?v=20260530c"></script>
+<script src="./js/formats/registry.js?v=20260530c"></script>
+<script src="./js/simulator.js?v=20260530c"></script>
+<script src="./js/cable-system.js?v=20260530c"></script>
+<script src="./js/formats/kuka-form.js?v=20260530c"></script>
+<script src="./js/formats/kuka.js?v=20260530c"></script>
+<script src="./js/formats/converters.js?v=20260530c"></script>
+<script src="./js/formats/abb-binary.js?v=20260530c"></script>
 
 <!-- A-Winkel Diagramm -->
 <div id="aplot-panel" style="position:fixed;bottom:60px;left:320px;width:660px;background:rgba(8,18,28,.97);border:1px solid var(--acc);border-radius:5px;z-index:30;user-select:none;box-shadow:0 4px 20px rgba(0,0,0,.8);display:none">
@@ -954,6 +954,10 @@ header .title    { display: none !important; }
     <div id="splash-bar" style="height:100%;width:0%;background:var(--acc);border-radius:2px;transition:width .3s ease"></div>
   </div>
   <div id="splash-msg" style="color:#3a6080;font-size:.8em">Robsimul wird gestartet. Bitte warten…</div>
+</div>
+<div id="parse-prog" style="position:fixed;top:0;left:0;right:0;z-index:9998;display:none">
+  <div style="height:4px;background:var(--bg2)"><div id="parse-prog-bar" style="height:100%;width:0%;background:var(--acc);transition:width .12s linear"></div></div>
+  <div id="parse-prog-msg" style="position:absolute;top:6px;right:10px;color:var(--acc);font-size:.72em;font-family:monospace;background:var(--bg2);padding:2px 8px;border-radius:3px"></div>
 </div>
 
 <!-- ── ROBLIB Modal ─────────────────────────────────────────── -->
