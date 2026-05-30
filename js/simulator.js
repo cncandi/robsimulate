@@ -458,8 +458,9 @@ function parseKRL(code){
   function snap(){return{variables:{...vars},digitalIn:{...din},digitalOut:{...dout},analogOut:{...anout},analogIn:{...anin}};}
   function pushStep(ln,type,extra){steps.push({lineNum:ln,type,...extra,snapshot:snap()});}
   let curBase = 0; // aktiver BASE (BASE_DATA[n]); 0 = Welt-Nullframe
+  let curTool = 1; // aktives TOOL (TOOL_DATA[n]); 1 = Standard
   // KRL-{X..} ist die Code-Koordinate -> als rel merken (Welt = rel + aktueller BASE-Offset, separat angewandt)
-  function W(o){ o.rel={X:o.X,Y:o.Y,Z:o.Z,A:o.A,B:o.B,C:o.C}; o.baseN=curBase; return o; }
+  function W(o){ o.rel={X:o.X,Y:o.Y,Z:o.Z,A:o.A,B:o.B,C:o.C}; o.baseN=curBase; o.toolN=curTool; return o; }
   for(let ln=0;ln<lines.length;ln++){
     let raw=lines[ln];const ci=raw.indexOf(';');if(ci===0)continue;
     let line=(ci>0?raw.slice(0,ci):raw).trim();if(!line)continue;
@@ -492,7 +493,7 @@ function parseKRL(code){
       pushStep(ln,'move',{posIdx:pi,label:moveType});continue;}
     let m;
     // ── Systemvariablen mit vollständigen Daten ──────────────────────────
-    if((m=line.match(/^\$TOOL\s*=\s*TOOL_DATA\[(\d+)\]/i))){pushStep(ln,'tool',{n:+m[1]});continue;}
+    if((m=line.match(/^\$TOOL\s*=\s*TOOL_DATA\[(\d+)\]/i))){curTool=+m[1];pushStep(ln,'tool',{n:+m[1]});continue;}
     if((m=line.match(/^\$BASE\s*=\s*BASE_DATA\[(\d+)\]/i))){curBase=+m[1];pushStep(ln,'base',{n:+m[1]});continue;}
     if((m=line.match(/^\$VEL\.CP\s*=\s*([\d.]+)/i))){_velCP=parseFloat(m[1])||0.167;pushStep(ln,'velcp',{v:_velCP});continue;}
     if((m=line.match(/^\$VEL\.PTP\s*=\s*([\d.]+)/i))){pushStep(ln,'velptp',{v:parseFloat(m[1])});continue;}
@@ -1811,6 +1812,71 @@ function ensureBasesForProgram() {
   }
   if (baseNavIdx < 0 && baseList.length) baseNavIdx = 0;
   if (changed) renderBaseNav();
+}
+
+// ── TOOL-Verwaltung (analog BASE) ─────────────────────────────
+// toolList[n-1] entspricht TOOL_DATA[n]; Offset + optionale STL (STL spaeter via robmodel-XML).
+var toolList = [];
+var _activeToolN = 1;
+
+function _seedToolListFromCurrent() {
+  if (!toolList.length) {
+    toolList.push({
+      x:TCP_DEF.x, y:TCP_DEF.y, z:TCP_DEF.z, a:TCP_DEF.a, b:TCP_DEF.b, c:TCP_DEF.c,
+      name:'TOOL 1',
+      stl: (window._toolSTLBuffer ? { buffer: window._toolSTLBuffer, name: ((typeof sceneSTLOffsets!=='undefined' && sceneSTLOffsets.tool && sceneSTLOffsets.tool.name) || 'tool1_tcp') } : null)
+    });
+  }
+}
+
+function ensureToolsForProgram() {
+  if (typeof parsedData === 'undefined' || !parsedData || !parsedData.positions) return;
+  _seedToolListFromCurrent();
+  var maxN = 1;
+  parsedData.positions.forEach(function(p){ if (p.toolN && p.toolN > maxN) maxN = p.toolN; });
+  if (parsedData.steps) parsedData.steps.forEach(function(s){ if (s && s.type==='tool' && s.n && s.n > maxN) maxN = s.n; });
+  while (toolList.length < maxN) {
+    // Platzhalter: Offset von TOOL 1; echte Offsets/STL kommen spaeter via robmodel-XML
+    var t0 = toolList[0] || {x:0,y:0,z:0,a:0,b:0,c:0};
+    toolList.push({ x:t0.x, y:t0.y, z:t0.z, a:t0.a, b:t0.b, c:t0.c, name:'TOOL '+(toolList.length+1), stl:null });
+  }
+}
+
+// TCP_DEF (per Property-Mutation, da const) auf das gegebene Tool setzen
+function _applyToolToTCPDEF(toolN) {
+  var t = (toolN && toolList[toolN-1]) ? toolList[toolN-1] : toolList[0];
+  if (!t) return;
+  TCP_DEF.x=t.x; TCP_DEF.y=t.y; TCP_DEF.z=t.z; TCP_DEF.a=t.a; TCP_DEF.b=t.b; TCP_DEF.c=t.c;
+}
+
+// true wenn alle Punkte dasselbe Tool nutzen
+function _toolsAreUniform(positions) {
+  if (!positions || !positions.length) return true;
+  var t0 = positions[0].toolN || 1;
+  for (var i=1;i<positions.length;i++){ if ((positions[i].toolN||1) !== t0) return false; }
+  return true;
+}
+
+// Aktives Tool fuer die Anzeige setzen: TCP-Offset + (falls vorhanden) Tool-STL umschalten
+function setActiveTool(toolN) {
+  if (!toolN) toolN = 1;
+  _applyToolToTCPDEF(toolN);
+  if (toolN !== _activeToolN) {
+    _activeToolN = toolN;
+    _swapToolMesh(toolList[toolN-1] && toolList[toolN-1].stl);
+  }
+}
+
+function _swapToolMesh(stl) {
+  try {
+    if (toolMesh) { if(toolMesh.parent)toolMesh.parent.remove(toolMesh); if(toolMesh.geometry)toolMesh.geometry.dispose(); if(toolMesh.material)toolMesh.material.dispose(); toolMesh=null; }
+    if (stl && stl.buffer) {
+      var geo = stlLoader.parse(stl.buffer); geo.computeVertexNormals();
+      var mat = new THREE.MeshPhongMaterial({color:0xdd9944, side:THREE.DoubleSide, specular:0x666666});
+      toolMesh = new THREE.Mesh(geo, mat); scene.add(toolMesh);
+      window._toolSTLBuffer = stl.buffer;
+    }
+  } catch(e) {}
 }
 
 function updateBaseDef() {
@@ -3174,6 +3240,7 @@ function _ikTableWarmStart(positions, N) {
   var prevQ = _ikGetStartQ();
   for (let i = 0; i < N; i++) {
     var p = positions[i];
+    _applyToolToTCPDEF(p.toolN); // aktives Tool dieses Punkts
     var res = solveIKFast(p.X, p.Y, p.Z, p.A, p.B, p.C, prevQ);
     var angles = (res.ok ? res.angles : prevQ)
       .map(function(v, j) { return prevQ[j] + shortestAngleDiff(prevQ[j], v); });
@@ -3257,12 +3324,13 @@ function computeIKTable(positions) {
   var N = positions.length;
   if (!N) { buildTrajectory(positions, ikTable); return; }
 
-  if (N > 150) {
+  if (N > 150 || !_toolsAreUniform(positions)) {
     _ikTableWarmStart(positions, N);
     buildTrajectory(positions, ikTable);
     return;
   }
 
+  _applyToolToTCPDEF(positions[0].toolN || 1);
   try {
     _ikTableDPSolver(positions, N);
   } catch(e) {
@@ -3289,8 +3357,9 @@ function computeIKTableProgressive(positions, done) {
   ikTable = [];
   var N = positions.length;
   if (!N) { buildTrajectory(positions, ikTable); done && done(); return; }
-  // Kleine Programme: DPSolver in einem Rutsch (schnell genug)
-  if (N <= 150) {
+  // Kleine Programme MIT einheitlichem Tool: DPSolver in einem Rutsch (schnell genug)
+  if (N <= 150 && _toolsAreUniform(positions)) {
+    _applyToolToTCPDEF(positions[0].toolN || 1);
     parseProgress(40, N + ' Punkte — IK wird berechnet…');
     setTimeout(function(){
       try { _ikTableDPSolver(positions, N); } catch(e) { _ikTableFallbackDP(positions, N); }
@@ -3299,12 +3368,13 @@ function computeIKTableProgressive(positions, done) {
     }, 20);
     return;
   }
-  // Große Programme: Schnell-IK in Häppchen mit echtem Fortschritt
+  // Große Programme oder mehrere Tools: Schnell-IK in Häppchen, TCP pro Punkt gesetzt
   var prevQ = _ikGetStartQ(), i = 0, CH = Math.max(25, Math.floor(N/50));
   (function chunk(){
     var end = Math.min(i + CH, N);
     for (; i < end; i++) {
       var p = positions[i];
+      _applyToolToTCPDEF(p.toolN); // aktives Tool dieses Punkts
       var res = solveIKFast(p.X, p.Y, p.Z, p.A, p.B, p.C, prevQ);
       var angles = (res.ok ? res.angles : prevQ).map(function(v, j){ return prevQ[j] + shortestAngleDiff(prevQ[j], v); });
       ikTable.push({ angles: angles, score: res.score, ok: res.ok });
@@ -3448,6 +3518,7 @@ function setDragMode(mode){currentDragMode=mode;document.getElementById('ep-tran
 
 function selectPosition(idx){
   selectedPosIdx=idx;_epNavUpdateInfo();const pos=parsedData.positions[idx];
+  if(typeof setActiveTool==='function')setActiveTool(pos.toolN); // TCP/Tool dieses Punkts aktiv
   // Wenn Formular aktiv: zugehörige Karte öffnen + scrollen
   if (typeof FormatRegistry !== 'undefined' && FormatRegistry.getActiveId() === 'kuka-form') {
     if (typeof fvBuild === 'function' && pos.lineNum !== undefined) {
@@ -4241,6 +4312,7 @@ function applySimT(t){ _tween = null;
   sim.t=Math.max(0,Math.min(N-1,t));
   document.getElementById('pos-s').value=sim.t;
   const idx=Math.min(Math.floor(sim.t),N-1);
+  if(typeof setActiveTool==='function')setActiveTool(pos[idx]&&pos[idx].toolN); // aktives TCP/Tool dieses Satzes
   // Show trajectory sample count
   const trajSamples = trajectory.length;
   document.getElementById('pos-v').textContent=`${idx+1} / ${N}` + (trajSamples>N?` (${trajSamples} Schritte)`:'');
@@ -4298,7 +4370,7 @@ function applyStep(idx){
   let posIdx=-1;for(let i=idx;i>=0;i--){if(steps[i].type==='move'){posIdx=steps[i].posIdx;break;}}
   const N=parsedData.positions.length;
   if(posIdx>=0){
-    const pos=parsedData.positions[posIdx];updateMarkerPose(pos);markerGrp.visible=true;updatePosCards(posIdx);updateVisitedPath(posIdx);
+    const pos=parsedData.positions[posIdx];if(typeof setActiveTool==='function')setActiveTool(pos.toolN);updateMarkerPose(pos);markerGrp.visible=true;updatePosCards(posIdx);updateVisitedPath(posIdx);
     document.getElementById('pos-s').value=posIdx;document.getElementById('pos-v').textContent=`${posIdx+1} / ${N}`;
     document.getElementById('marker-info').style.display='block';document.getElementById('marker-info').textContent=`Z.${step.lineNum+1}  #${posIdx+1} ${pos.type}  X${pos.X.toFixed(1)} Y${pos.Y.toFixed(1)} Z${pos.Z.toFixed(1)}`;
     if((ikTable[posIdx]&&ikTable[posIdx].ok))applyAngles(ikTable[posIdx].angles);
@@ -4901,6 +4973,7 @@ function parseAndLoad(){
   }
   parsedData=parseKRL(code);const N=parsedData.positions.length;
   ensureBasesForProgram(); // Eintraege fuer alle referenzierten BASE_DATA[n] sicherstellen
+  ensureToolsForProgram(); // Eintraege fuer alle referenzierten TOOL_DATA[n] sicherstellen
   bakeBaseOffset(); // Code-Koordinaten + jeweils aktiver BASE-Offset pro Punkt -> Welt
   posLineNums=new Set(parsedData.positions.map(p=>p.lineNum).filter(n=>n!==undefined));
   for(const bp of[...breakpoints])if(!posLineNums.has(bp))breakpoints.delete(bp);
