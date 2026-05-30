@@ -4352,15 +4352,17 @@ function _simCalcSpeed(pos, curPosIdx, nextPosIdx) {
   const p0 = pos[curPosIdx], p1 = pos[nextPosIdx];
   const segDist = (p0 && p1 && nextPosIdx !== curPosIdx)
     ? Math.sqrt((p1.X-p0.X)**2+(p1.Y-p0.Y)**2+(p1.Z-p0.Z)**2) : 0;
-  if (!_realtimeMode) {
-    // Tatsächliche Simulationsgeschwindigkeit: simSpeed [Segmente/s] × segDist [mm] → mm/s
-    const actualMmS = simSpeed() * segDist;
-    return { speed: simSpeed(), velCP: curVelCP, displayMmMin: Math.round(actualMmS * 60) };
-  }
   const velMmS = curVelCP * 1000;
+  // Anzeige IMMER die programmierte TCP-Geschwindigkeit des aktuellen Satzes (passt zum Programm),
+  // unabhaengig vom Abspieltempo (Slider).
+  const dispMmMin = Math.round(velMmS * 60);
+  if (!_realtimeMode) {
+    // Slider steuert nur, wie schnell abgespielt wird – nicht den angezeigten Wert
+    return { speed: simSpeed(), velCP: curVelCP, displayMmMin: dispMmMin };
+  }
   const N = pos.length;
   const speed = Math.max(0.01, segDist > 1 ? velMmS/segDist : (N > 1 ? velMmS/100 : simSpeed()));
-  return { speed, velCP: curVelCP, displayMmMin: Math.round(velMmS * 60) };
+  return { speed, velCP: curVelCP, displayMmMin: dispMmMin };
 }
 
 // Simulationszeit um dt vorrücken; rendert selbst und gibt false zurück wenn frame() nicht weiterrendern soll
