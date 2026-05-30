@@ -457,8 +457,8 @@ function parseKRL(code){
   function snap(){return{variables:{...vars},digitalIn:{...din},digitalOut:{...dout},analogOut:{...anout},analogIn:{...anin}};}
   function pushStep(ln,type,extra){steps.push({lineNum:ln,type,...extra,snapshot:snap()});}
   let curBase = 0; // aktiver BASE (BASE_DATA[n]); 0 = Welt-Nullframe
-  // KRL-{X..} ist base-relativ; as-is speichern, nur baseN merken (Welt = aktiver BASE o Koordinaten, per Delta angewandt)
-  function W(o){ o.baseN=curBase; return o; }
+  // KRL-{X..} ist base-relativ: rel merken und mit aktivem BASE in Welt einbacken (ueberlebt Re-Parse)
+  function W(o){ o.rel={X:o.X,Y:o.Y,Z:o.Z,A:o.A,B:o.B,C:o.C}; var w=baseToWorld(o,curBase); o.X=w.X;o.Y=w.Y;o.Z=w.Z;o.A=w.A;o.B=w.B;o.C=w.C; o.baseN=curBase; return o; }
   for(let ln=0;ln<lines.length;ln++){
     let raw=lines[ln];const ci=raw.indexOf(';');if(ci===0)continue;
     let line=(ci>0?raw.slice(0,ci):raw).trim();if(!line)continue;
@@ -1796,8 +1796,6 @@ function renderBaseNav() {
   dis('base-nav-del',   !n);
 }
 
-var _basePrev = {}; // zuletzt angewandte BASE-Lage je Index (fuer Delta)
-
 function updateBaseDef() {
   var b = baseGetInputs();
   if (baseList[baseNavIdx]) {
@@ -1805,25 +1803,18 @@ function updateBaseDef() {
     baseList[baseNavIdx].a = b.a; baseList[baseNavIdx].b = b.b; baseList[baseNavIdx].c = b.c;
   }
   syncBaseFrameGroups();
-  applyBaseDelta(); // Trace um die Aenderung dieses BASE verschieben/drehen
+  applyBase(); // Trace/Endpunkte aus rel + aktuellem BASE neu berechnen
 }
 
-// Verschiebt/dreht den Trace um genau die Differenz, um die der aktuelle BASE geaendert wurde.
-// Koordinaten (base-relativ) bleiben unveraendert; nur die physische Lage der Punkte aendert sich.
-function applyBaseDelta() {
+// Berechnet die Weltlage jeder Position aus ihren base-relativen Werten (rel) und dem aktuellen BASE.
+// Angezeigte/exportierte Koordinaten bleiben base-relativ; intern (IK/Sim) zielen die Endpunkte auf rel + BASE-Offset.
+function applyBase() {
   if (typeof parsedData === 'undefined' || !parsedData || !parsedData.positions || !parsedData.positions.length) return;
-  var bi = (typeof baseNavIdx !== 'undefined' && baseNavIdx >= 0) ? baseNavIdx : 0;
-  var bn = bi + 1;                // BASE_DATA[n] -> baseList[n-1]
-  var nb = baseList[bi]; if (!nb) return;
-  var pv = _basePrev[bi] || {x:0,y:0,z:0,a:0,b:0,c:0};
-  var bm = function(v){ return _poseT({X:v.x||0,Y:v.y||0,Z:v.z||0,A:v.a||0,B:v.b||0,C:v.c||0}); };
-  var dM = _mul4(bm(nb), _invRigid(bm(pv))); // Differenz neue vs. vorige BASE-Lage
   parsedData.positions.forEach(function(p){
-    if (p.baseN != null && p.baseN !== bn) return; // nur Punkte dieses BASE (ohne Zuordnung: mitnehmen)
-    var w = _fromT(_mul4(dM, _poseT(p)));
+    if (!p.rel) return;
+    var w = baseToWorld(p.rel, p.baseN);
     p.X=w.X; p.Y=w.Y; p.Z=w.Z; p.A=w.A; p.B=w.B; p.C=w.C;
   });
-  _basePrev[bi] = {x:nb.x, y:nb.y, z:nb.z, a:nb.a, b:nb.b, c:nb.c};
   // Szene neu zeichnen, Kamera dabei NICHT umspringen lassen
   var savedT = (typeof orbitTarget !== 'undefined' && orbitTarget && orbitTarget.clone) ? orbitTarget.clone() : null;
   var savedR = (typeof orbitState !== 'undefined' && orbitState) ? orbitState.radius : null;
@@ -3454,7 +3445,8 @@ function applyEditPanel(){
 ['ep-x','ep-y','ep-z','ep-a','ep-b','ep-c'].forEach(id=>document.getElementById(id).addEventListener('keydown',e=>{if(e.key==='Enter')applyEditPanel();}));
 
 function applyDraggedPos(idx,newPos,syncCode){
-  const dD=worldToBase(newPos, newPos.baseN); // base-relative Anzeige
+  const dD=worldToBase(newPos, newPos.baseN); // base-relative Anzeige + Quelle
+  newPos.rel={X:dD.X,Y:dD.Y,Z:dD.Z,A:dD.A,B:dD.B,C:dD.C};
   parsedData.positions[idx]=newPos;
   const grp=posGrp.children[idx];
   if(grp){grp.position.set(newPos.X,newPos.Y,newPos.Z);grp.setRotationFromEuler(kukaEuler(newPos.A,newPos.B,newPos.C));}
@@ -4831,7 +4823,6 @@ function parseAndLoad(){
     _krlSnapshotParsed = true;
   }
   parsedData=parseKRL(code);const N=parsedData.positions.length;
-  _basePrev = {}; // BASE-Delta-Tracking zuruecksetzen (Koordinaten sind frisch base-relativ)
   posLineNums=new Set(parsedData.positions.map(p=>p.lineNum).filter(n=>n!==undefined));
   for(const bp of[...breakpoints])if(!posLineNums.has(bp))breakpoints.delete(bp);
   buildGutter(code.split(/\r?\n/).length);
@@ -6234,7 +6225,12 @@ function xmlToParsedData(xmlText) {
     else if (s.type === 'move') { var p = positions[s.posIdx]; if (p && p.baseN == null) p.baseN = _cb; }
     else if (s.type === 'circ') { var pv = positions[s.viaIdx], pt = positions[s.posIdx]; if (pv && pv.baseN == null) pv.baseN = _cb; if (pt && pt.baseN == null) pt.baseN = _cb; }
   });
-  positions.forEach(function(p){ if (p.baseN == null) p.baseN = 0; });
+  positions.forEach(function(p){
+    if (p.baseN == null) p.baseN = 0;
+    p.rel = { X:p.X, Y:p.Y, Z:p.Z, A:p.A, B:p.B, C:p.C }; // gespeicherte Werte sind base-relativ
+    var w = (typeof baseToWorld === 'function') ? baseToWorld(p.rel, p.baseN) : p;
+    p.X=w.X; p.Y=w.Y; p.Z=w.Z; p.A=w.A; p.B=w.B; p.C=w.C;
+  });
 
   return {positions: positions, steps: steps, finalState: {variables:{}, digitalIn:{}, digitalOut:{}, analogOut:{}, analogIn:{}}};
 }
@@ -6297,7 +6293,6 @@ function fmtLoadFile() {
           var pd = xmlToParsedData(text);
           if (!pd.positions.length && !pd.steps.length) { alert('XML konnte nicht gelesen werden.'); return; }
           parsedData = pd;
-          _basePrev = {}; // BASE-Delta-Tracking zuruecksetzen
           _krlSnapshot = generateKRL ? (generateKRL(pd)||'') : '';
           _krlSnapshotParsed = true;
           if (typeof FormatRegistry !== 'undefined') FormatRegistry.setActive('kuka-form');

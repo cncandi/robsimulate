@@ -747,12 +747,12 @@ header .title    { display: none !important; }
         <input id="base-name" type="text" placeholder="Name" oninput="baseNameChanged(this.value)" style="width:100%;background:var(--bg1);border:1px solid var(--bdr);border-radius:3px;padding:3px 6px;font-family:monospace;font-size:.82em;color:var(--txt);margin-bottom:6px;box-sizing:border-box">
         <div style="font-size:.7em;color:var(--txt3);margin-bottom:4px">Position [mm] / Orientierung [°] vom Roboter-BASE:</div>
         <div class="stl-grid" style="margin-bottom:5px">
-          <span class="stl-lbl">X</span><input class="stl-inp" id="base-x" type="number" oninput="if(baseList[baseNavIdx])baseList[baseNavIdx].x=parseFloat(this.value)||0;syncBaseFrameGroups()" value="0" step="1"><span class="stl-unit">mm</span>
-          <span class="stl-lbl">Y</span><input class="stl-inp" id="base-y" type="number" oninput="if(baseList[baseNavIdx])baseList[baseNavIdx].y=parseFloat(this.value)||0;syncBaseFrameGroups()" value="0" step="0.1"><span class="stl-unit">mm</span>
-          <span class="stl-lbl">Z</span><input class="stl-inp" id="base-z" type="number" oninput="if(baseList[baseNavIdx])baseList[baseNavIdx].z=parseFloat(this.value)||0;syncBaseFrameGroups()" value="0" step="1"><span class="stl-unit">mm</span>
-          <span class="stl-lbl">A(Z)</span><input class="stl-inp" id="base-a" type="number" oninput="if(baseList[baseNavIdx])baseList[baseNavIdx].a=parseFloat(this.value)||0;syncBaseFrameGroups()" value="0" step="1"><span class="stl-unit">°</span>
-          <span class="stl-lbl">B(Y)</span><input class="stl-inp" id="base-b" type="number" oninput="if(baseList[baseNavIdx])baseList[baseNavIdx].b=parseFloat(this.value)||0;syncBaseFrameGroups()" value="0" step="1"><span class="stl-unit">°</span>
-          <span class="stl-lbl">C(X)</span><input class="stl-inp" id="base-c" type="number" oninput="if(baseList[baseNavIdx])baseList[baseNavIdx].c=parseFloat(this.value)||0;syncBaseFrameGroups()" value="0" step="1"><span class="stl-unit">°</span>
+          <span class="stl-lbl">X</span><input class="stl-inp" id="base-x" type="number" value="0" step="1"><span class="stl-unit">mm</span>
+          <span class="stl-lbl">Y</span><input class="stl-inp" id="base-y" type="number" value="0" step="0.1"><span class="stl-unit">mm</span>
+          <span class="stl-lbl">Z</span><input class="stl-inp" id="base-z" type="number" value="0" step="1"><span class="stl-unit">mm</span>
+          <span class="stl-lbl">A(Z)</span><input class="stl-inp" id="base-a" type="number" value="0" step="1"><span class="stl-unit">°</span>
+          <span class="stl-lbl">B(Y)</span><input class="stl-inp" id="base-b" type="number" value="0" step="1"><span class="stl-unit">°</span>
+          <span class="stl-lbl">C(X)</span><input class="stl-inp" id="base-c" type="number" value="0" step="1"><span class="stl-unit">°</span>
         </div>
         <div style="margin-top:6px"><button class="sbtn on" onclick="updateBaseDef()" style="width:100%;background:var(--acc);color:#fff;border-color:#c04200;font-weight:bold">▶ Übernehmen</button></div>
       </div>
