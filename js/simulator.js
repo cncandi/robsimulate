@@ -4302,6 +4302,8 @@ function applyStep(idx){
     document.getElementById('pos-s').value=posIdx;document.getElementById('pos-v').textContent=`${posIdx+1} / ${N}`;
     document.getElementById('marker-info').style.display='block';document.getElementById('marker-info').textContent=`Z.${step.lineNum+1}  #${posIdx+1} ${pos.type}  X${pos.X.toFixed(1)} Y${pos.Y.toFixed(1)} Z${pos.Z.toFixed(1)}`;
     if((ikTable[posIdx]&&ikTable[posIdx].ok))applyAngles(ikTable[posIdx].angles);
+    var _vEl=document.getElementById('tcp-vel-v');
+    if(_vEl){var _v=(pos.velCP?pos.velCP:0.167);_vEl.textContent=Math.round(_v*60000)+' mm/min';}
   }else{document.getElementById('marker-info').style.display='none';if(N>0)document.getElementById('pos-v').textContent=`— / ${N}`;}
   const typeLabel={move:'MOVE',signal:'SIGNAL',var:'VARIABLE',other:'STATEMENT'};
   setStatus('paused',`L.${step.lineNum+1}  ${typeLabel[step.type]||''}`);
