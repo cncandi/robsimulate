@@ -1754,7 +1754,7 @@ function baseNavTo(idx) {
   var n = document.getElementById('base-name');
   if (n) n.value = entry ? entry.name : '';
   renderBaseNav();
-  updateBaseDef();
+  syncBaseFrameGroups(); // nur Frame/Anzeige; keine Trace-Verschiebung beim Navigieren
 }
 
 function baseAddCurrent() {
