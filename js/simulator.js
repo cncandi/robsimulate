@@ -1817,7 +1817,6 @@ function ensureBasesForProgram() {
 // ── TOOL/TCP-Umschaltung ──────────────────────────────────────
 // $TOOL=TOOL_DATA[n] wird auf die bestehende tcpList abgebildet: TOOL_DATA[n] -> tcpList[n-1].
 // (STL-Umschaltung pro Tool folgt via robmodel-XML.)
-var _activeToolN = 1;
 
 // TCP-Eintrag fuer eine Tool-Nummer aus der tcpList holen (mit Fallback)
 function _tcpEntryForTool(toolN) {
@@ -1848,7 +1847,6 @@ function _toolsAreUniform(positions) {
 function setActiveTool(toolN) {
   if (!toolN) toolN = 1;
   _applyToolToTCPDEF(toolN);
-  _activeToolN = toolN;
   // STL-Umschaltung pro Tool folgt via robmodel-XML
 }
 
