@@ -4899,23 +4899,8 @@ function updateTCPDef(){
   TCP_DEF.b=parseFloat(document.getElementById('tcp-b').value)||0;
   TCP_DEF.c=parseFloat(document.getElementById('tcp-c').value)||0;
   buildRobotModel(jointAngles);
-  // Recompute IK for all program positions with new TCP
-  // so robot reaches same Cartesian points despite different TCP
-  if (parsedData.positions.length > 0) {
-    setStatus('paused','TCP geändert — IK wird neu berechnet…');
-    setTimeout(() => {
-      computeIKTable(parsedData.positions);
-      renderPositions(parsedData.positions);
-      if (trajectory.length > 0) {
-        // Rebuild trajectory with new IK
-        buildTrajectory(parsedData.positions, ikTable);
-      }
-      // Update robot to current simulation position
-      const angles = getIKAngles(simTToTrajT(sim.t));
-      if (angles) applyAngles(angles);
-      setStatus('paused','TCP aktualisiert · IK neu berechnet');
-    }, 10);
-  }
+  // KEINE IK-Neuberechnung hier — IK wird nur beim Parsen berechnet (dann pro Punkt mit seinem TCP).
+  // Editieren des TCP setzt nur TCP_DEF bzw. den tcpList-Eintrag; zum Anwenden neu parsen (F9).
 }
 
 // ═══════════════════════════════════════════════════
