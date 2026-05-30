@@ -367,13 +367,14 @@ function _invRigid(M){ var R=[M[0],M[1],M[2],M[4],M[5],M[6],M[8],M[9],M[10]], t=
 function _fromT(M){ var R=[M[0],M[1],M[2],M[4],M[5],M[6],M[8],M[9],M[10]], e=_eulZYX(R);
   return { X:M[3], Y:M[7], Z:M[11], A:e.A, B:e.B, C:e.C }; }
 // Welt -> base-relativ (fuer Anzeige/Ausgabe)
+function _baseMat(b){ return _poseT({X:b.x||0,Y:b.y||0,Z:b.z||0,A:b.a||0,B:b.b||0,C:b.c||0}); } // BASE-Felder sind klein geschrieben
 function worldToBase(p, baseN){ var b=_baseByN(baseN);
   if(!b) return { X:p.X, Y:p.Y, Z:p.Z, A:p.A, B:p.B, C:p.C };
-  return _fromT(_mul4(_invRigid(_poseT(b)), _poseT(p))); }
+  return _fromT(_mul4(_invRigid(_baseMat(b)), _poseT(p))); }
 // base-relativ -> Welt (fuer Speicherung/Eingabe)
 function baseToWorld(p, baseN){ var b=_baseByN(baseN);
   if(!b) return { X:p.X, Y:p.Y, Z:p.Z, A:p.A, B:p.B, C:p.C };
-  return _fromT(_mul4(_poseT(b), _poseT(p))); }
+  return _fromT(_mul4(_baseMat(b), _poseT(p))); }
 // aktiver BASE-Index (BASE_DATA[n]) an einer Textzeile, durch Vorwaerts-Scan
 function activeBaseAtLine(lineIdx){
   try { var lns=document.getElementById('code-input').value.split(/\r?\n/), cur=0;
