@@ -1797,6 +1797,22 @@ function renderBaseNav() {
   dis('base-nav-del',   !n);
 }
 
+// Stellt sicher, dass baseList einen Eintrag fuer jede im Programm referenzierte BASE_DATA[n] hat.
+// Fehlende Bases werden als Identitaet (Offset 0) angelegt, damit sie navigier-/einstellbar sind.
+function ensureBasesForProgram() {
+  if (typeof parsedData === 'undefined' || !parsedData || !parsedData.positions) return;
+  var maxN = 0;
+  parsedData.positions.forEach(function(p){ if (p.baseN && p.baseN > maxN) maxN = p.baseN; });
+  if (parsedData.steps) parsedData.steps.forEach(function(s){ if (s && s.type==='base' && s.n && s.n > maxN) maxN = s.n; });
+  var changed = false;
+  while (baseList.length < maxN) {
+    baseList.push({ x:0, y:0, z:0, a:0, b:0, c:0, name: 'BASE ' + (baseList.length+1) });
+    changed = true;
+  }
+  if (baseNavIdx < 0 && baseList.length) baseNavIdx = 0;
+  if (changed) renderBaseNav();
+}
+
 function updateBaseDef() {
   var b = baseGetInputs();
   if (baseList[baseNavIdx]) {
@@ -1813,10 +1829,14 @@ function _activeBaseN() { return ((typeof baseNavIdx !== 'undefined' && baseNavI
 // Welt = Code-Koordinate (rel) + aktueller BASE-Offset. Nur Transformation, kein Neuzeichnen.
 function bakeBaseOffset() {
   if (typeof parsedData === 'undefined' || !parsedData || !parsedData.positions) return;
-  var bn = _activeBaseN();
   parsedData.positions.forEach(function(p){
     try {
-      if (!p.rel) p.rel = { X:p.X, Y:p.Y, Z:p.Z, A:p.A, B:p.B, C:p.C };
+      if (!p.rel) {
+        if (typeof p.X !== 'number' || !isFinite(p.X)) return; // Achs-/Nicht-Kartesisch: kein BASE-Offset
+        p.rel = { X:p.X, Y:p.Y, Z:p.Z, A:p.A, B:p.B, C:p.C };
+      }
+      if (typeof p.rel.X !== 'number' || !isFinite(p.rel.X)) return;
+      var bn = (p.baseN != null) ? p.baseN : 0; // jeder Punkt nutzt seinen eigenen aktiven BASE
       var w = baseToWorld(p.rel, bn);
       p.X=w.X; p.Y=w.Y; p.Z=w.Z; p.A=w.A; p.B=w.B; p.C=w.C;
     } catch(e) {}
@@ -3488,7 +3508,7 @@ function applyEditPanel(){
   if(selectedPosIdx===null)return;
   const pos=parsedData.positions[selectedPosIdx];
   const disp={X:parseFloat(document.getElementById('ep-x').value)||0,Y:parseFloat(document.getElementById('ep-y').value)||0,Z:parseFloat(document.getElementById('ep-z').value)||0,A:parseFloat(document.getElementById('ep-a').value)||0,B:parseFloat(document.getElementById('ep-b').value)||0,C:parseFloat(document.getElementById('ep-c').value)||0};
-  const w=baseToWorld(disp, _activeBaseN()); // Eingabe ist Code-Koordinate -> Welt (+ BASE-Offset)
+  const w=baseToWorld(disp, (pos.baseN!=null?pos.baseN:_activeBaseN())); // Eingabe ist Code-Koordinate -> Welt (+ BASE-Offset des Punkts)
   const newPos={...pos,X:w.X,Y:w.Y,Z:w.Z,A:w.A,B:w.B,C:w.C,rel:{X:disp.X,Y:disp.Y,Z:disp.Z,A:disp.A,B:disp.B,C:disp.C}};
   applyDraggedPos(selectedPosIdx,newPos,true);
 }
@@ -3496,7 +3516,9 @@ function applyEditPanel(){
 ['ep-x','ep-y','ep-z','ep-a','ep-b','ep-c'].forEach(id=>document.getElementById(id).addEventListener('keydown',e=>{if(e.key==='Enter')applyEditPanel();}));
 
 function applyDraggedPos(idx,newPos,syncCode){
-  const dD = newPos.rel || worldToBase(newPos, _activeBaseN()); // Code-Koordinate (rel)
+  var _bn = (newPos.baseN!=null) ? newPos.baseN : ((parsedData.positions[idx] && parsedData.positions[idx].baseN!=null) ? parsedData.positions[idx].baseN : _activeBaseN());
+  newPos.baseN = _bn;
+  const dD = newPos.rel || worldToBase(newPos, _bn); // Code-Koordinate (rel)
   newPos.rel={X:dD.X,Y:dD.Y,Z:dD.Z,A:dD.A,B:dD.B,C:dD.C};
   parsedData.positions[idx]=newPos;
   const grp=posGrp.children[idx];
@@ -4874,7 +4896,8 @@ function parseAndLoad(){
     _krlSnapshotParsed = true;
   }
   parsedData=parseKRL(code);const N=parsedData.positions.length;
-  bakeBaseOffset(); // Code-Koordinaten + aktueller BASE-Offset -> Welt (ueberlebt Parse/Start)
+  ensureBasesForProgram(); // Eintraege fuer alle referenzierten BASE_DATA[n] sicherstellen
+  bakeBaseOffset(); // Code-Koordinaten + jeweils aktiver BASE-Offset pro Punkt -> Welt
   posLineNums=new Set(parsedData.positions.map(p=>p.lineNum).filter(n=>n!==undefined));
   for(const bp of[...breakpoints])if(!posLineNums.has(bp))breakpoints.delete(bp);
   buildGutter(code.split(/\r?\n/).length);
