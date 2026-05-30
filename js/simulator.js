@@ -1006,7 +1006,8 @@ function loadPedestalSTL() {
 
 function toggleSkeleton() {
   showSkeleton = !showSkeleton;
-  document.getElementById('btn-show-skeleton').classList.toggle('on', showSkeleton);
+  document.getElementById('btn-show-skeleton')?.classList.toggle('on', showSkeleton);
+  var cb = document.getElementById('cfg-show-skeleton'); if (cb) cb.checked = showSkeleton;
   buildRobotModel(jointAngles);
 }
 
