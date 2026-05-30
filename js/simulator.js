@@ -1810,8 +1810,18 @@ function updateBaseDef() {
 // Angezeigte/exportierte Koordinaten bleiben base-relativ; intern (IK/Sim) zielen die Endpunkte auf rel + BASE-Offset.
 function applyBase() {
   if (typeof parsedData === 'undefined' || !parsedData || !parsedData.positions || !parsedData.positions.length) return;
+  // Altsession ohne baseN: aus der Step-Reihenfolge zuordnen
+  if (parsedData.positions.some(function(p){ return p.baseN == null; }) && parsedData.steps) {
+    var cb = 0;
+    parsedData.steps.forEach(function(s){
+      if (s.type === 'base') cb = s.n;
+      else if (s.type === 'move') { var p = parsedData.positions[s.posIdx]; if (p && p.baseN == null) p.baseN = cb; }
+      else if (s.type === 'circ') { var pv = parsedData.positions[s.viaIdx], pt = parsedData.positions[s.posIdx]; if (pv && pv.baseN == null) pv.baseN = cb; if (pt && pt.baseN == null) pt.baseN = cb; }
+    });
+    parsedData.positions.forEach(function(p){ if (p.baseN == null) p.baseN = 0; });
+  }
   parsedData.positions.forEach(function(p){
-    if (!p.rel) return;
+    if (!p.rel) p.rel = { X:p.X, Y:p.Y, Z:p.Z, A:p.A, B:p.B, C:p.C }; // Altsession: aktuelle Lage als base-relative Referenz
     var w = baseToWorld(p.rel, p.baseN);
     p.X=w.X; p.Y=w.Y; p.Z=w.Z; p.A=w.A; p.B=w.B; p.C=w.C;
   });
