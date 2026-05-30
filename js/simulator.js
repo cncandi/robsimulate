@@ -457,8 +457,8 @@ function parseKRL(code){
   function snap(){return{variables:{...vars},digitalIn:{...din},digitalOut:{...dout},analogOut:{...anout},analogIn:{...anin}};}
   function pushStep(ln,type,extra){steps.push({lineNum:ln,type,...extra,snapshot:snap()});}
   let curBase = 0; // aktiver BASE (BASE_DATA[n]); 0 = Welt-Nullframe
-  // KRL-{X..} ist base-relativ -> in Weltkoordinaten umrechnen, baseN + Originalwerte (rel) merken
-  function W(o){ o.rel={X:o.X,Y:o.Y,Z:o.Z,A:o.A,B:o.B,C:o.C}; var w=baseToWorld(o,curBase); o.X=w.X;o.Y=w.Y;o.Z=w.Z;o.A=w.A;o.B=w.B;o.C=w.C; o.baseN=curBase; return o; }
+  // KRL-{X..} ist base-relativ; as-is speichern, nur baseN merken (Welt = aktiver BASE o Koordinaten, per Delta angewandt)
+  function W(o){ o.baseN=curBase; return o; }
   for(let ln=0;ln<lines.length;ln++){
     let raw=lines[ln];const ci=raw.indexOf(';');if(ci===0)continue;
     let line=(ci>0?raw.slice(0,ci):raw).trim();if(!line)continue;
@@ -1796,6 +1796,8 @@ function renderBaseNav() {
   dis('base-nav-del',   !n);
 }
 
+var _basePrev = {}; // zuletzt angewandte BASE-Lage je Index (fuer Delta)
+
 function updateBaseDef() {
   var b = baseGetInputs();
   if (baseList[baseNavIdx]) {
@@ -1803,41 +1805,37 @@ function updateBaseDef() {
     baseList[baseNavIdx].a = b.a; baseList[baseNavIdx].b = b.b; baseList[baseNavIdx].c = b.c;
   }
   syncBaseFrameGroups();
-  refreshBaseRelativeViews(); // angezeigte (base-relative) Zahlen aktualisieren; Welt bleibt
+  applyBaseDelta(); // Trace um die Aenderung dieses BASE verschieben/drehen
 }
 
-// BASE wurde verschoben/gewechselt (Modell B, KUKA-konform):
-// Programmzahlen sind base-relativ und bleiben; die Weltpositionen werden daraus neu berechnet,
-// sodass sich die physischen Punkte (Pfad) mitbewegen. Text wird NICHT veraendert.
-function refreshBaseRelativeViews() {
+// Verschiebt/dreht den Trace um genau die Differenz, um die der aktuelle BASE geaendert wurde.
+// Koordinaten (base-relativ) bleiben unveraendert; nur die physische Lage der Punkte aendert sich.
+function applyBaseDelta() {
   if (typeof parsedData === 'undefined' || !parsedData || !parsedData.positions || !parsedData.positions.length) return;
-  // Stale Session ohne base-relative Quellwerte (vor dem Update geparst) -> einmal neu parsen.
-  // Nur fuer KRL-Editor-Sessions; bei kuka-form (XML) wuerde parseAndLoad parseKRL auf XML anwenden -> daher dort ueberspringen.
-  if (!parsedData.positions[0].rel) {
-    var _actId = (typeof FormatRegistry !== 'undefined' && FormatRegistry.getActiveId) ? FormatRegistry.getActiveId() : null;
-    if (_actId !== 'kuka-form' && typeof parseAndLoad === 'function') parseAndLoad();
-    return; // kuka-form: Datei neu laden, damit xmlToParsedData rel/baseN setzt
-  }
-  // Welt aus base-relativen Werten neu berechnen; Frames in-place setzen (kein buildScene -> keine Kamera-Zentrierung)
-  parsedData.positions.forEach(function(p,i){
-    if (!p.rel) return;
-    var w = baseToWorld(p.rel, p.baseN);
+  var bi = (typeof baseNavIdx !== 'undefined' && baseNavIdx >= 0) ? baseNavIdx : 0;
+  var bn = bi + 1;                // BASE_DATA[n] -> baseList[n-1]
+  var nb = baseList[bi]; if (!nb) return;
+  var pv = _basePrev[bi] || {x:0,y:0,z:0,a:0,b:0,c:0};
+  var bm = function(v){ return _poseT({X:v.x||0,Y:v.y||0,Z:v.z||0,A:v.a||0,B:v.b||0,C:v.c||0}); };
+  var dM = _mul4(bm(nb), _invRigid(bm(pv))); // Differenz neue vs. vorige BASE-Lage
+  parsedData.positions.forEach(function(p){
+    if (p.baseN != null && p.baseN !== bn) return; // nur Punkte dieses BASE (ohne Zuordnung: mitnehmen)
+    var w = _fromT(_mul4(dM, _poseT(p)));
     p.X=w.X; p.Y=w.Y; p.Z=w.Z; p.A=w.A; p.B=w.B; p.C=w.C;
-    var grp = posGrp.children[i];
-    if (grp) { grp.position.set(p.X,p.Y,p.Z); grp.setRotationFromEuler(kukaEuler(p.A,p.B,p.C)); }
   });
-  // Pfadlinie + Trajektorie + Erreichbarkeit neu (computeIKTable ruft buildTrajectory, zeichnet die Pfadlinie neu)
+  _basePrev[bi] = {x:nb.x, y:nb.y, z:nb.z, a:nb.a, b:nb.b, c:nb.c};
+  // Szene neu zeichnen, Kamera dabei NICHT umspringen lassen
+  var savedT = (typeof orbitTarget !== 'undefined' && orbitTarget && orbitTarget.clone) ? orbitTarget.clone() : null;
+  var savedR = (typeof orbitState !== 'undefined' && orbitState) ? orbitState.radius : null;
+  var savedH = (typeof orthoHalfSize !== 'undefined') ? orthoHalfSize : null;
+  if (typeof buildScene === 'function') buildScene(parsedData.positions);
+  if (savedT) { orbitTarget.copy(savedT); if (savedR!=null) orbitState.radius=savedR; if (savedH!=null) orthoHalfSize=savedH; if (typeof updateCamera==='function') updateCamera(); }
   if (typeof computeIKTable === 'function') computeIKTable(parsedData.positions);
   if (typeof renderPositions === 'function') renderPositions(parsedData.positions);
-  // Auswahl-Markierung + Marker + Edit-Panel-Felder
   if (typeof selectedPosIdx !== 'undefined' && selectedPosIdx !== null) {
-    var sp = parsedData.positions[selectedPosIdx];
     var c = document.getElementById('pcard-'+selectedPosIdx); if (c) c.classList.add('selected');
-    if (sp) {
-      if (typeof selSphere !== 'undefined' && selSphere) selSphere.position.set(sp.X,sp.Y,sp.Z);
-      var d = worldToBase(sp, sp.baseN);
-      ['x','y','z','a','b','c'].forEach(function(k){ var el=document.getElementById('ep-'+k); if(el) el.value=d[k.toUpperCase()].toFixed(3); });
-    }
+    var sp = parsedData.positions[selectedPosIdx];
+    if (sp && typeof selSphere !== 'undefined' && selSphere) { selSphere.position.set(sp.X,sp.Y,sp.Z); selSphere.visible=true; }
   }
 }
 
@@ -3456,8 +3454,7 @@ function applyEditPanel(){
 ['ep-x','ep-y','ep-z','ep-a','ep-b','ep-c'].forEach(id=>document.getElementById(id).addEventListener('keydown',e=>{if(e.key==='Enter')applyEditPanel();}));
 
 function applyDraggedPos(idx,newPos,syncCode){
-  const dD=worldToBase(newPos, newPos.baseN); // Anzeige + base-relative Quelle
-  newPos.rel={X:dD.X,Y:dD.Y,Z:dD.Z,A:dD.A,B:dD.B,C:dD.C};
+  const dD=worldToBase(newPos, newPos.baseN); // base-relative Anzeige
   parsedData.positions[idx]=newPos;
   const grp=posGrp.children[idx];
   if(grp){grp.position.set(newPos.X,newPos.Y,newPos.Z);grp.setRotationFromEuler(kukaEuler(newPos.A,newPos.B,newPos.C));}
@@ -4834,6 +4831,7 @@ function parseAndLoad(){
     _krlSnapshotParsed = true;
   }
   parsedData=parseKRL(code);const N=parsedData.positions.length;
+  _basePrev = {}; // BASE-Delta-Tracking zuruecksetzen (Koordinaten sind frisch base-relativ)
   posLineNums=new Set(parsedData.positions.map(p=>p.lineNum).filter(n=>n!==undefined));
   for(const bp of[...breakpoints])if(!posLineNums.has(bp))breakpoints.delete(bp);
   buildGutter(code.split(/\r?\n/).length);
@@ -6229,19 +6227,14 @@ function xmlToParsedData(xmlText) {
     }
   });
 
-  // BASE je Position aus Step-Reihenfolge zuordnen, dann base-relativ -> Welt (analog parseKRL)
+  // BASE je Position aus Step-Reihenfolge zuordnen (Koordinaten bleiben as-is = base-relativ)
   var _cb = 0;
   steps.forEach(function(s){
     if (s.type === 'base') _cb = s.n;
     else if (s.type === 'move') { var p = positions[s.posIdx]; if (p && p.baseN == null) p.baseN = _cb; }
     else if (s.type === 'circ') { var pv = positions[s.viaIdx], pt = positions[s.posIdx]; if (pv && pv.baseN == null) pv.baseN = _cb; if (pt && pt.baseN == null) pt.baseN = _cb; }
   });
-  positions.forEach(function(p){
-    if (p.baseN == null) p.baseN = 0;
-    p.rel = { X:p.X, Y:p.Y, Z:p.Z, A:p.A, B:p.B, C:p.C }; // gespeicherte Werte sind base-relativ
-    var w = (typeof baseToWorld === 'function') ? baseToWorld(p.rel, p.baseN) : p;
-    p.X=w.X; p.Y=w.Y; p.Z=w.Z; p.A=w.A; p.B=w.B; p.C=w.C;
-  });
+  positions.forEach(function(p){ if (p.baseN == null) p.baseN = 0; });
 
   return {positions: positions, steps: steps, finalState: {variables:{}, digitalIn:{}, digitalOut:{}, analogOut:{}, analogIn:{}}};
 }
@@ -6304,6 +6297,7 @@ function fmtLoadFile() {
           var pd = xmlToParsedData(text);
           if (!pd.positions.length && !pd.steps.length) { alert('XML konnte nicht gelesen werden.'); return; }
           parsedData = pd;
+          _basePrev = {}; // BASE-Delta-Tracking zuruecksetzen
           _krlSnapshot = generateKRL ? (generateKRL(pd)||'') : '';
           _krlSnapshotParsed = true;
           if (typeof FormatRegistry !== 'undefined') FormatRegistry.setActive('kuka-form');
