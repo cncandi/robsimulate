@@ -1815,9 +1815,11 @@ function bakeBaseOffset() {
   if (typeof parsedData === 'undefined' || !parsedData || !parsedData.positions) return;
   var bn = _activeBaseN();
   parsedData.positions.forEach(function(p){
-    if (!p.rel) p.rel = { X:p.X, Y:p.Y, Z:p.Z, A:p.A, B:p.B, C:p.C };
-    var w = baseToWorld(p.rel, bn);
-    p.X=w.X; p.Y=w.Y; p.Z=w.Z; p.A=w.A; p.B=w.B; p.C=w.C;
+    try {
+      if (!p.rel) p.rel = { X:p.X, Y:p.Y, Z:p.Z, A:p.A, B:p.B, C:p.C };
+      var w = baseToWorld(p.rel, bn);
+      p.X=w.X; p.Y=w.Y; p.Z=w.Z; p.A=w.A; p.B=w.B; p.C=w.C;
+    } catch(e) {}
   });
 }
 
@@ -1830,7 +1832,8 @@ function applyBase() {
   var savedH = (typeof orthoHalfSize !== 'undefined') ? orthoHalfSize : null;
   if (typeof buildScene === 'function') buildScene(parsedData.positions);
   if (savedT) { orbitTarget.copy(savedT); if (savedR!=null) orbitState.radius=savedR; if (savedH!=null) orthoHalfSize=savedH; if (typeof updateCamera==='function') updateCamera(); }
-  if (typeof computeIKTable === 'function') computeIKTable(parsedData.positions);
+  // IK NICHT hier neu rechnen (blockiert ~5s) – Pfad/Frames sind via buildScene aktualisiert;
+  // die IK fuer die verschobenen Endpunkte wird beim naechsten Parsen/Start berechnet.
   if (typeof renderPositions === 'function') renderPositions(parsedData.positions);
   if (typeof selectedPosIdx !== 'undefined' && selectedPosIdx !== null) {
     var c = document.getElementById('pcard-'+selectedPosIdx); if (c) c.classList.add('selected');
