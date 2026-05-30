@@ -1812,10 +1812,11 @@ function updateBaseDef() {
 function refreshBaseRelativeViews() {
   if (typeof parsedData === 'undefined' || !parsedData || !parsedData.positions || !parsedData.positions.length) return;
   // Stale Session ohne base-relative Quellwerte (vor dem Update geparst) -> einmal neu parsen.
-  // Der KRL-Text ist die base-relative Quelle; parseAndLoad fuellt rel + Welt aus dem aktuellen BASE.
+  // Nur fuer KRL-Editor-Sessions; bei kuka-form (XML) wuerde parseAndLoad parseKRL auf XML anwenden -> daher dort ueberspringen.
   if (!parsedData.positions[0].rel) {
-    if (typeof parseAndLoad === 'function') parseAndLoad();
-    return;
+    var _actId = (typeof FormatRegistry !== 'undefined' && FormatRegistry.getActiveId) ? FormatRegistry.getActiveId() : null;
+    if (_actId !== 'kuka-form' && typeof parseAndLoad === 'function') parseAndLoad();
+    return; // kuka-form: Datei neu laden, damit xmlToParsedData rel/baseN setzt
   }
   // Welt aus base-relativen Werten neu berechnen; Frames in-place setzen (kein buildScene -> keine Kamera-Zentrierung)
   parsedData.positions.forEach(function(p,i){
@@ -6139,9 +6140,10 @@ function parsedDataToXml(pd) {
   // Positions
   lines.push('  <Positions>');
   (pd.positions || []).forEach(function(p, i) {
+    var pr = (typeof worldToBase === 'function') ? worldToBase(p, p.baseN) : p; // Welt -> base-relativ
     lines.push('    <Pos idx="' + i + '" type="' + (p.type||'LIN') + '"' +
-      ' X="' + p.X.toFixed(4) + '" Y="' + p.Y.toFixed(4) + '" Z="' + p.Z.toFixed(4) +
-      '" A="' + p.A.toFixed(4) + '" B="' + p.B.toFixed(4) + '" C="' + p.C.toFixed(4) +
+      ' X="' + pr.X.toFixed(4) + '" Y="' + pr.Y.toFixed(4) + '" Z="' + pr.Z.toFixed(4) +
+      '" A="' + pr.A.toFixed(4) + '" B="' + pr.B.toFixed(4) + '" C="' + pr.C.toFixed(4) +
       '" velCP="' + (p.velCP || 0.167).toFixed(4) + '"' +
       (p.S != null ? ' S="' + p.S + '"' : '') +
       (p.T != null ? ' T="' + p.T + '"' : '') + '/>');
@@ -6225,6 +6227,20 @@ function xmlToParsedData(xmlText) {
       case 'PTPAxis': steps.push({type:'ptpAxis',angles: (el.getAttribute('angles')||'').split(',').map(Number)}); break;
       case 'Other':   steps.push({type:'other',  raw: el.getAttribute('raw')||''}); break;
     }
+  });
+
+  // BASE je Position aus Step-Reihenfolge zuordnen, dann base-relativ -> Welt (analog parseKRL)
+  var _cb = 0;
+  steps.forEach(function(s){
+    if (s.type === 'base') _cb = s.n;
+    else if (s.type === 'move') { var p = positions[s.posIdx]; if (p && p.baseN == null) p.baseN = _cb; }
+    else if (s.type === 'circ') { var pv = positions[s.viaIdx], pt = positions[s.posIdx]; if (pv && pv.baseN == null) pv.baseN = _cb; if (pt && pt.baseN == null) pt.baseN = _cb; }
+  });
+  positions.forEach(function(p){
+    if (p.baseN == null) p.baseN = 0;
+    p.rel = { X:p.X, Y:p.Y, Z:p.Z, A:p.A, B:p.B, C:p.C }; // gespeicherte Werte sind base-relativ
+    var w = (typeof baseToWorld === 'function') ? baseToWorld(p.rel, p.baseN) : p;
+    p.X=w.X; p.Y=w.Y; p.Z=w.Z; p.A=w.A; p.B=w.B; p.C=w.C;
   });
 
   return {positions: positions, steps: steps, finalState: {variables:{}, digitalIn:{}, digitalOut:{}, analogOut:{}, analogIn:{}}};
