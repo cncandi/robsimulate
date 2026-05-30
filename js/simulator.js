@@ -457,8 +457,8 @@ function parseKRL(code){
   function snap(){return{variables:{...vars},digitalIn:{...din},digitalOut:{...dout},analogOut:{...anout},analogIn:{...anin}};}
   function pushStep(ln,type,extra){steps.push({lineNum:ln,type,...extra,snapshot:snap()});}
   let curBase = 0; // aktiver BASE (BASE_DATA[n]); 0 = Welt-Nullframe
-  // KRL-{X..} ist base-relativ -> in Weltkoordinaten umrechnen, baseN merken
-  function W(o){ var w=baseToWorld(o,curBase); o.X=w.X;o.Y=w.Y;o.Z=w.Z;o.A=w.A;o.B=w.B;o.C=w.C; o.baseN=curBase; return o; }
+  // KRL-{X..} ist base-relativ -> in Weltkoordinaten umrechnen, baseN + Originalwerte (rel) merken
+  function W(o){ o.rel={X:o.X,Y:o.Y,Z:o.Z,A:o.A,B:o.B,C:o.C}; var w=baseToWorld(o,curBase); o.X=w.X;o.Y=w.Y;o.Z=w.Z;o.A=w.A;o.B=w.B;o.C=w.C; o.baseN=curBase; return o; }
   for(let ln=0;ln<lines.length;ln++){
     let raw=lines[ln];const ci=raw.indexOf(';');if(ci===0)continue;
     let line=(ci>0?raw.slice(0,ci):raw).trim();if(!line)continue;
@@ -1806,35 +1806,30 @@ function updateBaseDef() {
   refreshBaseRelativeViews(); // angezeigte (base-relative) Zahlen aktualisieren; Welt bleibt
 }
 
-// BASE wurde verschoben/gewechselt: alle base-relativen Anzeigen aus parsedData (Welt) neu erzeugen.
-// Kein Re-Parse und kein generateKRL (verlustbehaftet) — nur die {X..}-Bloecke je Zeile chirurgisch ersetzen,
-// damit C_DIS, Kommentare, Gruppen etc. erhalten bleiben. Weltkoordinaten bleiben unveraendert.
+// BASE wurde verschoben/gewechselt (Modell B, KUKA-konform):
+// Programmzahlen sind base-relativ und bleiben; die Weltpositionen werden daraus neu berechnet,
+// sodass sich die physischen Punkte (Trace) mitbewegen. Text wird NICHT veraendert.
 function refreshBaseRelativeViews() {
   if (typeof parsedData === 'undefined' || !parsedData || !parsedData.positions || !parsedData.positions.length) return;
-  var ta = document.getElementById('code-input');
-  if (ta) {
-    var lines = ta.value.split(/\r?\n/);
-    var perLine = {}; // mehrere {..}-Bloecke pro Zeile (z.B. CIRC) korrekt adressieren
-    parsedData.positions.forEach(function(p){
-      if (p.lineNum == null || !lines[p.lineNum]) return;
-      var pr = worldToBase(p, p.baseN);
-      var st = (p.S!=null?',S '+p.S:'') + (p.T!=null?',T '+p.T:'');
-      var blk = '{X '+pr.X.toFixed(3)+',Y '+pr.Y.toFixed(3)+',Z '+pr.Z.toFixed(3)+',A '+pr.A.toFixed(3)+',B '+pr.B.toFixed(3)+',C '+pr.C.toFixed(3)+st+'}';
-      var n = perLine[p.lineNum] || 0; perLine[p.lineNum] = n + 1;
-      var c = -1;
-      lines[p.lineNum] = lines[p.lineNum].replace(/\{[^}]*\}/g, function(m){ c++; return c===n ? blk : m; });
-    });
-    ta.value = lines.join('\n');
-    if (typeof rebuildGutter === 'function') rebuildGutter();
-  }
+  parsedData.positions.forEach(function(p){
+    if (!p.rel) return;                       // keine base-relative Quelle (z.B. Altdaten) -> unveraendert
+    var w = baseToWorld(p.rel, p.baseN);
+    p.X=w.X; p.Y=w.Y; p.Z=w.Z; p.A=w.A; p.B=w.B; p.C=w.C;
+  });
+  // Szene/Trajektorie + Erreichbarkeit neu bauen
+  if (typeof buildScene === 'function') buildScene(parsedData.positions);
+  if (typeof computeIKTable === 'function') computeIKTable(parsedData.positions);
   if (typeof renderPositions === 'function') renderPositions(parsedData.positions);
+  // Auswahl-Markierung + Marker + Edit-Panel-Felder
   if (typeof selectedPosIdx !== 'undefined' && selectedPosIdx !== null) {
-    var cc = document.getElementById('pcard-'+selectedPosIdx); if (cc) cc.classList.add('selected');
     var sp = parsedData.positions[selectedPosIdx];
-    if (sp) { var d = worldToBase(sp, sp.baseN);
-      ['x','y','z','a','b','c'].forEach(function(k){ var el=document.getElementById('ep-'+k); if(el) el.value=d[k.toUpperCase()].toFixed(3); }); }
+    var c = document.getElementById('pcard-'+selectedPosIdx); if (c) c.classList.add('selected');
+    if (sp) {
+      if (typeof selSphere !== 'undefined' && selSphere) { selSphere.position.set(sp.X,sp.Y,sp.Z); }
+      var d = worldToBase(sp, sp.baseN);
+      ['x','y','z','a','b','c'].forEach(function(k){ var el=document.getElementById('ep-'+k); if(el) el.value=d[k.toUpperCase()].toFixed(3); });
+    }
   }
-  if (typeof FormatRegistry !== 'undefined' && FormatRegistry.getActiveId && FormatRegistry.getActiveId()==='kuka-form' && typeof fvBuild==='function') fvBuild(-1);
 }
 
 document.addEventListener('DOMContentLoaded', function() {
@@ -3452,8 +3447,9 @@ function applyEditPanel(){
 ['ep-x','ep-y','ep-z','ep-a','ep-b','ep-c'].forEach(id=>document.getElementById(id).addEventListener('keydown',e=>{if(e.key==='Enter')applyEditPanel();}));
 
 function applyDraggedPos(idx,newPos,syncCode){
+  const dD=worldToBase(newPos, newPos.baseN); // Anzeige + base-relative Quelle
+  newPos.rel={X:dD.X,Y:dD.Y,Z:dD.Z,A:dD.A,B:dD.B,C:dD.C};
   parsedData.positions[idx]=newPos;
-  const dD=worldToBase(newPos, newPos.baseN); // Anzeige base-relativ
   const grp=posGrp.children[idx];
   if(grp){grp.position.set(newPos.X,newPos.Y,newPos.Z);grp.setRotationFromEuler(kukaEuler(newPos.A,newPos.B,newPos.C));}
   if(idx===selectedPosIdx){selSphere.position.set(newPos.X,newPos.Y,newPos.Z);['x','y','z','a','b','c'].forEach(k=>document.getElementById('ep-'+k).value=dD[k.toUpperCase()].toFixed(3));}
