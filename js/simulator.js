@@ -1823,7 +1823,7 @@ function _seedToolListFromCurrent() {
   if (!toolList.length) {
     toolList.push({
       x:TCP_DEF.x, y:TCP_DEF.y, z:TCP_DEF.z, a:TCP_DEF.a, b:TCP_DEF.b, c:TCP_DEF.c,
-      name:'TOOL 1',
+      name:'TOOL 1', defined:false, // false = Live-TCP/STL aus UI verwenden (echte Tools kommen via robmodel-XML)
       stl: (window._toolSTLBuffer ? { buffer: window._toolSTLBuffer, name: ((typeof sceneSTLOffsets!=='undefined' && sceneSTLOffsets.tool && sceneSTLOffsets.tool.name) || 'tool1_tcp') } : null)
     });
   }
@@ -1836,16 +1836,16 @@ function ensureToolsForProgram() {
   parsedData.positions.forEach(function(p){ if (p.toolN && p.toolN > maxN) maxN = p.toolN; });
   if (parsedData.steps) parsedData.steps.forEach(function(s){ if (s && s.type==='tool' && s.n && s.n > maxN) maxN = s.n; });
   while (toolList.length < maxN) {
-    // Platzhalter: Offset von TOOL 1; echte Offsets/STL kommen spaeter via robmodel-XML
+    // Platzhalter (defined:false): nutzt Live-TCP/STL; echte Offsets/STL kommen via robmodel-XML
     var t0 = toolList[0] || {x:0,y:0,z:0,a:0,b:0,c:0};
-    toolList.push({ x:t0.x, y:t0.y, z:t0.z, a:t0.a, b:t0.b, c:t0.c, name:'TOOL '+(toolList.length+1), stl:null });
+    toolList.push({ x:t0.x, y:t0.y, z:t0.z, a:t0.a, b:t0.b, c:t0.c, name:'TOOL '+(toolList.length+1), defined:false, stl:null });
   }
 }
 
-// TCP_DEF (per Property-Mutation, da const) auf das gegebene Tool setzen
+// TCP_DEF (per Property-Mutation, da const) auf das gegebene Tool setzen – nur fuer echte Tools (defined)
 function _applyToolToTCPDEF(toolN) {
-  var t = (toolN && toolList[toolN-1]) ? toolList[toolN-1] : toolList[0];
-  if (!t) return;
+  var t = toolN ? toolList[toolN-1] : null;
+  if (!t || !t.defined) return; // undefiniert/Platzhalter -> Live-TCP_DEF (UI) beibehalten
   TCP_DEF.x=t.x; TCP_DEF.y=t.y; TCP_DEF.z=t.z; TCP_DEF.a=t.a; TCP_DEF.b=t.b; TCP_DEF.c=t.c;
 }
 
@@ -1857,13 +1857,16 @@ function _toolsAreUniform(positions) {
   return true;
 }
 
-// Aktives Tool fuer die Anzeige setzen: TCP-Offset + (falls vorhanden) Tool-STL umschalten
+// Aktives Tool fuer die Anzeige setzen: nur echte (defined) Tools schalten TCP-Offset + Tool-STL um;
+// Platzhalter lassen den Live-TCP/STL aus der UI unveraendert (echte Tools kommen via robmodel-XML).
 function setActiveTool(toolN) {
   if (!toolN) toolN = 1;
-  _applyToolToTCPDEF(toolN);
-  if (toolN !== _activeToolN) {
-    _activeToolN = toolN;
-    _swapToolMesh(toolList[toolN-1] && toolList[toolN-1].stl);
+  var t = toolList[toolN-1];
+  if (t && t.defined) {
+    _applyToolToTCPDEF(toolN);
+    if (toolN !== _activeToolN) { _activeToolN = toolN; _swapToolMesh(t.stl); }
+  } else {
+    _activeToolN = toolN; // nur merken, nichts ueberschreiben
   }
 }
 
