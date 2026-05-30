@@ -335,6 +335,52 @@ function parseVal(s){
   if(/^TRUE$/i.test(s))return true;if(/^FALSE$/i.test(s))return false;
   const n=Number(s);return(!isNaN(n)&&s!=='')?n:s.replace(/^"|"$/g,'');
 }
+// ── BASE-Transformation (KUKA): Welt <-> base-relativ ───────────────
+// Punkte werden in Weltkoordinaten gespeichert; KRL-{X..}-Werte sind base-relativ.
+// BASE_DATA[n]: n>=1 -> baseList[n-1]; n<1 oder unbekannt -> Welt-Nullframe (Identitaet).
+function _baseByN(n){
+  if (typeof baseList === 'undefined' || !baseList) return null;
+  if (!n || n < 1) return null;
+  return baseList[n-1] || null;
+}
+function _rotZYX(A,B,C){ // KUKA: R = Rz(A)Ry(B)Rx(C), flat 3x3 (row-major)
+  var d=Math.PI/180, a=A*d,b=B*d,c=C*d;
+  var ca=Math.cos(a),sa=Math.sin(a),cb=Math.cos(b),sb=Math.sin(b),cc=Math.cos(c),sc=Math.sin(c);
+  return [ ca*cb, ca*sb*sc-sa*cc, ca*sb*cc+sa*sc,
+           sa*cb, sa*sb*sc+ca*cc, sa*sb*cc-ca*sc,
+           -sb,   cb*sc,          cb*cc ];
+}
+function _eulZYX(R){ // flat 3x3 -> {A,B,C} deg
+  var r2d=180/Math.PI, A,B,C, sy=Math.sqrt(R[0]*R[0]+R[3]*R[3]);
+  if (sy>1e-9){ A=Math.atan2(R[3],R[0]); B=Math.atan2(-R[6],sy); C=Math.atan2(R[7],R[8]); }
+  else        { A=Math.atan2(-R[1],R[4]); B=Math.atan2(-R[6],sy); C=0; }
+  return { A:A*r2d, B:B*r2d, C:C*r2d };
+}
+function _poseT(p){ var R=_rotZYX(p.A||0,p.B||0,p.C||0);
+  return [R[0],R[1],R[2],p.X||0, R[3],R[4],R[5],p.Y||0, R[6],R[7],R[8],p.Z||0, 0,0,0,1]; }
+function _mul4(M,N){ var o=new Array(16).fill(0);
+  for(var r=0;r<4;r++)for(var c=0;c<4;c++)for(var k=0;k<4;k++)o[r*4+c]+=M[r*4+k]*N[k*4+c]; return o; }
+function _invRigid(M){ var R=[M[0],M[1],M[2],M[4],M[5],M[6],M[8],M[9],M[10]], t=[M[3],M[7],M[11]];
+  var Rt=[R[0],R[3],R[6],R[1],R[4],R[7],R[2],R[5],R[8]];
+  var ti=[-(Rt[0]*t[0]+Rt[1]*t[1]+Rt[2]*t[2]), -(Rt[3]*t[0]+Rt[4]*t[1]+Rt[5]*t[2]), -(Rt[6]*t[0]+Rt[7]*t[1]+Rt[8]*t[2])];
+  return [Rt[0],Rt[1],Rt[2],ti[0], Rt[3],Rt[4],Rt[5],ti[1], Rt[6],Rt[7],Rt[8],ti[2], 0,0,0,1]; }
+function _fromT(M){ var R=[M[0],M[1],M[2],M[4],M[5],M[6],M[8],M[9],M[10]], e=_eulZYX(R);
+  return { X:M[3], Y:M[7], Z:M[11], A:e.A, B:e.B, C:e.C }; }
+// Welt -> base-relativ (fuer Anzeige/Ausgabe)
+function worldToBase(p, baseN){ var b=_baseByN(baseN);
+  if(!b) return { X:p.X, Y:p.Y, Z:p.Z, A:p.A, B:p.B, C:p.C };
+  return _fromT(_mul4(_invRigid(_poseT(b)), _poseT(p))); }
+// base-relativ -> Welt (fuer Speicherung/Eingabe)
+function baseToWorld(p, baseN){ var b=_baseByN(baseN);
+  if(!b) return { X:p.X, Y:p.Y, Z:p.Z, A:p.A, B:p.B, C:p.C };
+  return _fromT(_mul4(_poseT(b), _poseT(p))); }
+// aktiver BASE-Index (BASE_DATA[n]) an einer Textzeile, durch Vorwaerts-Scan
+function activeBaseAtLine(lineIdx){
+  try { var lns=document.getElementById('code-input').value.split(/\r?\n/), cur=0;
+    for(var i=0;i<lns.length && i<=lineIdx;i++){ var m=lns[i].match(/^\s*\$BASE\s*=\s*BASE_DATA\[(\d+)\]/i); if(m) cur=+m[1]; }
+    return cur; } catch(e){ return 0; }
+}
+
 // Generiert KRL-Code aus parsedData (Umkehrung von parseKRL)
 function generateKRL(pd) {
   var lines = [];
@@ -347,17 +393,19 @@ function generateKRL(pd) {
     lines.push('$TOOL = TOOL_DATA[1]');
     lines.push('$VEL.CP=0.167');
     positions.forEach(function(pos) {
+      var posR = worldToBase(pos, 1);
       var S = (pos.S != null ? ' S '+pos.S : ''), T = (pos.T != null ? ' T '+pos.T : '');
-      lines.push('LIN {X '+pos.X.toFixed(3)+',Y '+pos.Y.toFixed(3)+',Z '+pos.Z.toFixed(3)+',A '+pos.A.toFixed(3)+',B '+pos.B.toFixed(3)+',C '+pos.C.toFixed(3)+S+T+'}');
+      lines.push('LIN {X '+posR.X.toFixed(3)+',Y '+posR.Y.toFixed(3)+',Z '+posR.Z.toFixed(3)+',A '+posR.A.toFixed(3)+',B '+posR.B.toFixed(3)+',C '+posR.C.toFixed(3)+S+T+'}');
     });
     return lines.join('\n');
   }
 
+  var curBase = 0; // aktiver BASE (BASE_DATA[n]); 0 = Welt
   pd.steps.forEach(function(s) {
     switch (s.type) {
       case 'comment':  lines.push('; ' + (s.text || '')); break;
       case 'tool':     lines.push('$TOOL=TOOL_DATA[' + s.n + ']'); break;
-      case 'base':     lines.push('$BASE=BASE_DATA[' + s.n + ']'); break;
+      case 'base':     curBase = s.n; lines.push('$BASE=BASE_DATA[' + s.n + ']'); break;
       case 'velcp':    lines.push('$VEL.CP=' + parseFloat(s.v || 0.167).toFixed(3)); break;
       case 'velptp':   lines.push('$VEL.PTP=' + Math.round(s.v || 100)); break;
       case 'acccp':    lines.push('$ACC.CP=' + parseFloat(s.v || 1).toFixed(1)); break;
@@ -383,16 +431,18 @@ function generateKRL(pd) {
       case 'move': {
         var pos = positions[s.posIdx];
         if (!pos) break;
+        var posR = worldToBase(pos, curBase);
         var Sv = (pos.S != null ? ' S '+pos.S : ''), Tv = (pos.T != null ? ' T '+pos.T : '');
-        var coord = '{X '+pos.X.toFixed(3)+',Y '+pos.Y.toFixed(3)+',Z '+pos.Z.toFixed(3)+',A '+pos.A.toFixed(3)+',B '+pos.B.toFixed(3)+',C '+pos.C.toFixed(3)+Sv+Tv+'}';
+        var coord = '{X '+posR.X.toFixed(3)+',Y '+posR.Y.toFixed(3)+',Z '+posR.Z.toFixed(3)+',A '+posR.A.toFixed(3)+',B '+posR.B.toFixed(3)+',C '+posR.C.toFixed(3)+Sv+Tv+'}';
         lines.push((s.moveType || 'LIN') + ' ' + coord);
         break;
       }
       case 'circ': {
         var pVia = positions[s.viaIdx], pTo = positions[s.posIdx];
         if (pVia && pTo) {
-          var cVia = '{X '+pVia.X.toFixed(3)+',Y '+pVia.Y.toFixed(3)+',Z '+pVia.Z.toFixed(3)+',A '+pVia.A.toFixed(3)+',B '+pVia.B.toFixed(3)+',C '+pVia.C.toFixed(3)+'}';
-          var cTo  = '{X '+pTo.X.toFixed(3)+',Y '+pTo.Y.toFixed(3)+',Z '+pTo.Z.toFixed(3)+',A '+pTo.A.toFixed(3)+',B '+pTo.B.toFixed(3)+',C '+pTo.C.toFixed(3)+'}';
+          var pViaR = worldToBase(pVia, curBase), pToR = worldToBase(pTo, curBase);
+          var cVia = '{X '+pViaR.X.toFixed(3)+',Y '+pViaR.Y.toFixed(3)+',Z '+pViaR.Z.toFixed(3)+',A '+pViaR.A.toFixed(3)+',B '+pViaR.B.toFixed(3)+',C '+pViaR.C.toFixed(3)+'}';
+          var cTo  = '{X '+pToR.X.toFixed(3)+',Y '+pToR.Y.toFixed(3)+',Z '+pToR.Z.toFixed(3)+',A '+pToR.A.toFixed(3)+',B '+pToR.B.toFixed(3)+',C '+pToR.C.toFixed(3)+'}';
           lines.push('CIRC ' + cVia + ', ' + cTo);
         }
         break;
@@ -406,21 +456,24 @@ function parseKRL(code){
   let _velCP = 0.167; // m/s aktuelle Geschwindigkeit
   function snap(){return{variables:{...vars},digitalIn:{...din},digitalOut:{...dout},analogOut:{...anout},analogIn:{...anin}};}
   function pushStep(ln,type,extra){steps.push({lineNum:ln,type,...extra,snapshot:snap()});}
+  let curBase = 0; // aktiver BASE (BASE_DATA[n]); 0 = Welt-Nullframe
+  // KRL-{X..} ist base-relativ -> in Weltkoordinaten umrechnen, baseN merken
+  function W(o){ var w=baseToWorld(o,curBase); o.X=w.X;o.Y=w.Y;o.Z=w.Z;o.A=w.A;o.B=w.B;o.C=w.C; o.baseN=curBase; return o; }
   for(let ln=0;ln<lines.length;ln++){
     let raw=lines[ln];const ci=raw.indexOf(';');if(ci===0)continue;
     let line=(ci>0?raw.slice(0,ci):raw).trim();if(!line)continue;
     const circM=line.match(/^CIRC\s+(\{[^}]+\})\s*,\s*(\{[^}]+\})/i);
     if(circM){const s=snap();const pi=positions.length;
-      positions.push({type:'CIRC_AUX',...parsePos(circM[1].slice(1,-1)),lineNum:ln,snapshot:s});
-      positions.push({type:'CIRC',...parsePos(circM[2].slice(1,-1)),lineNum:ln,snapshot:s});
+      positions.push(W({type:'CIRC_AUX',...parsePos(circM[1].slice(1,-1)),lineNum:ln,snapshot:s}));
+      positions.push(W({type:'CIRC',...parsePos(circM[2].slice(1,-1)),lineNum:ln,snapshot:s}));
       pushStep(ln,'move',{posIdx:pi+1,label:'CIRC'});continue;}
     const circP=line.match(/^CIRC\s+(\{[^}]+\})\s*,?\s*$/i);
     if(circP){let next='';
       for(let j=ln+1;j<Math.min(ln+3,lines.length);j++){next=lines[j].trim().replace(/^;.*/,'');if(next)break;}
       const endM=next.match(/^\{([^}]+)\}/);
       if(endM){const s=snap(),pi=positions.length;
-        positions.push({type:'CIRC_AUX',...parsePos(circP[1].slice(1,-1)),lineNum:ln,snapshot:s});
-        positions.push({type:'CIRC',...parsePos(endM[1]),lineNum:ln,snapshot:s});
+        positions.push(W({type:'CIRC_AUX',...parsePos(circP[1].slice(1,-1)),lineNum:ln,snapshot:s}));
+        positions.push(W({type:'CIRC',...parsePos(endM[1]),lineNum:ln,snapshot:s}));
         pushStep(ln,'move',{posIdx:pi+1,label:'CIRC'});}continue;}
     const moveM=line.match(/^(LIN|PTP|SLIN)\s+\{([^}]+)\}/i);
     if(moveM){const pi=positions.length;
@@ -434,12 +487,12 @@ function parseKRL(code){
         aMatch.forEach(function(s){const m2=s.match(/A([1-6])\s*([-\d.]+)/i);if(m2)ptpQ[+m2[1]-1]=parseFloat(m2[2]);});
         pushStep(ln,'ptpAxis',{angles:ptpQ.slice()});continue;
       }
-      positions.push({type:moveType,...parsedMove,lineNum:ln,velCP:_velCP,snapshot:snap()});
+      positions.push(W({type:moveType,...parsedMove,lineNum:ln,velCP:_velCP,snapshot:snap()}));
       pushStep(ln,'move',{posIdx:pi,label:moveType});continue;}
     let m;
     // ── Systemvariablen mit vollständigen Daten ──────────────────────────
     if((m=line.match(/^\$TOOL\s*=\s*TOOL_DATA\[(\d+)\]/i))){pushStep(ln,'tool',{n:+m[1]});continue;}
-    if((m=line.match(/^\$BASE\s*=\s*BASE_DATA\[(\d+)\]/i))){pushStep(ln,'base',{n:+m[1]});continue;}
+    if((m=line.match(/^\$BASE\s*=\s*BASE_DATA\[(\d+)\]/i))){curBase=+m[1];pushStep(ln,'base',{n:+m[1]});continue;}
     if((m=line.match(/^\$VEL\.CP\s*=\s*([\d.]+)/i))){_velCP=parseFloat(m[1])||0.167;pushStep(ln,'velcp',{v:_velCP});continue;}
     if((m=line.match(/^\$VEL\.PTP\s*=\s*([\d.]+)/i))){pushStep(ln,'velptp',{v:parseFloat(m[1])});continue;}
     if((m=line.match(/^\$ACC\.CP\s*=\s*([\d.]+)/i))){pushStep(ln,'acccp',{v:parseFloat(m[1])});continue;}
@@ -1750,6 +1803,38 @@ function updateBaseDef() {
     baseList[baseNavIdx].a = b.a; baseList[baseNavIdx].b = b.b; baseList[baseNavIdx].c = b.c;
   }
   syncBaseFrameGroups();
+  refreshBaseRelativeViews(); // angezeigte (base-relative) Zahlen aktualisieren; Welt bleibt
+}
+
+// BASE wurde verschoben/gewechselt: alle base-relativen Anzeigen aus parsedData (Welt) neu erzeugen.
+// Kein Re-Parse und kein generateKRL (verlustbehaftet) — nur die {X..}-Bloecke je Zeile chirurgisch ersetzen,
+// damit C_DIS, Kommentare, Gruppen etc. erhalten bleiben. Weltkoordinaten bleiben unveraendert.
+function refreshBaseRelativeViews() {
+  if (typeof parsedData === 'undefined' || !parsedData || !parsedData.positions || !parsedData.positions.length) return;
+  var ta = document.getElementById('code-input');
+  if (ta) {
+    var lines = ta.value.split(/\r?\n/);
+    var perLine = {}; // mehrere {..}-Bloecke pro Zeile (z.B. CIRC) korrekt adressieren
+    parsedData.positions.forEach(function(p){
+      if (p.lineNum == null || !lines[p.lineNum]) return;
+      var pr = worldToBase(p, p.baseN);
+      var st = (p.S!=null?',S '+p.S:'') + (p.T!=null?',T '+p.T:'');
+      var blk = '{X '+pr.X.toFixed(3)+',Y '+pr.Y.toFixed(3)+',Z '+pr.Z.toFixed(3)+',A '+pr.A.toFixed(3)+',B '+pr.B.toFixed(3)+',C '+pr.C.toFixed(3)+st+'}';
+      var n = perLine[p.lineNum] || 0; perLine[p.lineNum] = n + 1;
+      var c = -1;
+      lines[p.lineNum] = lines[p.lineNum].replace(/\{[^}]*\}/g, function(m){ c++; return c===n ? blk : m; });
+    });
+    ta.value = lines.join('\n');
+    if (typeof rebuildGutter === 'function') rebuildGutter();
+  }
+  if (typeof renderPositions === 'function') renderPositions(parsedData.positions);
+  if (typeof selectedPosIdx !== 'undefined' && selectedPosIdx !== null) {
+    var cc = document.getElementById('pcard-'+selectedPosIdx); if (cc) cc.classList.add('selected');
+    var sp = parsedData.positions[selectedPosIdx];
+    if (sp) { var d = worldToBase(sp, sp.baseN);
+      ['x','y','z','a','b','c'].forEach(function(k){ var el=document.getElementById('ep-'+k); if(el) el.value=d[k.toUpperCase()].toFixed(3); }); }
+  }
+  if (typeof FormatRegistry !== 'undefined' && FormatRegistry.getActiveId && FormatRegistry.getActiveId()==='kuka-form' && typeof fvBuild==='function') fvBuild(-1);
 }
 
 document.addEventListener('DOMContentLoaded', function() {
@@ -3308,7 +3393,8 @@ function selectPosition(idx){
   }
   selSphere.position.set(pos.X,pos.Y,pos.Z);selSphere.visible=true;
   document.getElementById('ep-title').textContent=`#${idx+1}  ${pos.type}  (Z.${pos.lineNum+1})`;
-  ['x','y','z','a','b','c'].forEach(k=>document.getElementById('ep-'+k).value=pos[k.toUpperCase()].toFixed(3));
+  const dDisp=worldToBase(pos, pos.baseN);
+  ['x','y','z','a','b','c'].forEach(k=>document.getElementById('ep-'+k).value=dDisp[k.toUpperCase()].toFixed(3));
   document.getElementById('edit-panel').style.display='block';
   document.querySelectorAll('.pc').forEach((el,i)=>el.classList.toggle('selected',i===idx));
   // Hochpräzisions-IK für exakte Zielposition
@@ -3357,7 +3443,9 @@ document.getElementById('ep-close').onclick=deselectPosition;
 function applyEditPanel(){
   if(selectedPosIdx===null)return;
   const pos=parsedData.positions[selectedPosIdx];
-  const newPos={...pos,X:parseFloat(document.getElementById('ep-x').value)||0,Y:parseFloat(document.getElementById('ep-y').value)||0,Z:parseFloat(document.getElementById('ep-z').value)||0,A:parseFloat(document.getElementById('ep-a').value)||0,B:parseFloat(document.getElementById('ep-b').value)||0,C:parseFloat(document.getElementById('ep-c').value)||0};
+  const disp={X:parseFloat(document.getElementById('ep-x').value)||0,Y:parseFloat(document.getElementById('ep-y').value)||0,Z:parseFloat(document.getElementById('ep-z').value)||0,A:parseFloat(document.getElementById('ep-a').value)||0,B:parseFloat(document.getElementById('ep-b').value)||0,C:parseFloat(document.getElementById('ep-c').value)||0};
+  const w=baseToWorld(disp, pos.baseN); // Eingabe ist base-relativ -> Welt
+  const newPos={...pos,X:w.X,Y:w.Y,Z:w.Z,A:w.A,B:w.B,C:w.C};
   applyDraggedPos(selectedPosIdx,newPos,true);
 }
 
@@ -3365,11 +3453,12 @@ function applyEditPanel(){
 
 function applyDraggedPos(idx,newPos,syncCode){
   parsedData.positions[idx]=newPos;
+  const dD=worldToBase(newPos, newPos.baseN); // Anzeige base-relativ
   const grp=posGrp.children[idx];
   if(grp){grp.position.set(newPos.X,newPos.Y,newPos.Z);grp.setRotationFromEuler(kukaEuler(newPos.A,newPos.B,newPos.C));}
-  if(idx===selectedPosIdx){selSphere.position.set(newPos.X,newPos.Y,newPos.Z);['x','y','z','a','b','c'].forEach(k=>document.getElementById('ep-'+k).value=newPos[k.toUpperCase()].toFixed(3));}
+  if(idx===selectedPosIdx){selSphere.position.set(newPos.X,newPos.Y,newPos.Z);['x','y','z','a','b','c'].forEach(k=>document.getElementById('ep-'+k).value=dD[k.toUpperCase()].toFixed(3));}
   const card=document.getElementById('pcard-'+idx);
-  if(card)card.querySelectorAll('.pf').forEach((el,i)=>{const vals=[newPos.X,newPos.Y,newPos.Z,newPos.A,newPos.B,newPos.C];const labels=['X','Y','Z','A(Z)','B(Y)','C(X)'];const units=['mm','mm','mm','°','°','°'];if(i<6)el.innerHTML=`<span>${labels[i]}</span> ${vals[i].toFixed(2)} ${units[i]}`;});
+  if(card)card.querySelectorAll('.pf').forEach((el,i)=>{const vals=[dD.X,dD.Y,dD.Z,dD.A,dD.B,dD.C];const labels=['X','Y','Z','A(Z)','B(Y)','C(X)'];const units=['mm','mm','mm','°','°','°'];if(i<6)el.innerHTML=`<span>${labels[i]}</span> ${vals[i].toFixed(2)} ${units[i]}`;});
   updateVisitedPath(sim.t);
   if(syncCode){
     syncPositionToCode(idx);
@@ -3386,8 +3475,9 @@ function applyDraggedPos(idx,newPos,syncCode){
 
 function syncPositionToCode(idx){
   const pos=parsedData.positions[idx];if(pos.lineNum===undefined)return;
+  const pr=worldToBase(pos, pos.baseN); // Welt -> base-relativ fuer KRL-Text
   const ta=document.getElementById('code-input');const lines=ta.value.split(/\r?\n/);const oldLine=lines[pos.lineNum];
-  const str=`{X ${pos.X.toFixed(3)},Y ${pos.Y.toFixed(3)},Z ${pos.Z.toFixed(3)},A ${pos.A.toFixed(3)},B ${pos.B.toFixed(3)},C ${pos.C.toFixed(3)}${pos.S!==null&&pos.S!==undefined?',S '+pos.S:''}${pos.T!==null&&pos.T!==undefined?',T '+pos.T:''}}`;
+  const str=`{X ${pr.X.toFixed(3)},Y ${pr.Y.toFixed(3)},Z ${pr.Z.toFixed(3)},A ${pr.A.toFixed(3)},B ${pr.B.toFixed(3)},C ${pr.C.toFixed(3)}${pos.S!==null&&pos.S!==undefined?',S '+pos.S:''}${pos.T!==null&&pos.T!==undefined?',T '+pos.T:''}}`;
   lines[pos.lineNum]=oldLine.replace(/\{[^}]+\}/,str);ta.value=lines.join('\n');
   rebuildGutter();
   // Formular-Ansicht aktualisieren
@@ -4407,14 +4497,15 @@ function renderPositions(positions){
   el.innerHTML=positions.map((p,i)=>{
     const tc=(p.type||'').toLowerCase();
     const ik=ikTable[i];
+    const d=worldToBase(p, p.baseN);
     const ikHtml=ik?`<div class="psep"></div><div class="ik-reach${ik.ok?'':' err'}">${ik.ok?`IK ✓  Δ${ik.score.toFixed(1)}`:'IK ✗ nicht erreichbar'}</div>`:'';
     return`<div class="pc ${tc}" id="pcard-${i}">
       <div class="pc-type ${tc}">#${i+1} &nbsp;${TYPE_LBL[p.type]||p.type}${p.lineNum!==undefined?`<span style="color:var(--txt3);font-weight:normal;font-size:.85em"> L.${p.lineNum+1}</span>`:''}
       </div>
       <div class="pc-grid">
-        <div class="pf"><span>X</span> ${ff(p.X)} mm</div><div class="pf"><span>Y</span> ${ff(p.Y)} mm</div><div class="pf"><span>Z</span> ${ff(p.Z)} mm</div>
+        <div class="pf"><span>X</span> ${ff(d.X)} mm</div><div class="pf"><span>Y</span> ${ff(d.Y)} mm</div><div class="pf"><span>Z</span> ${ff(d.Z)} mm</div>
         <div class="psep"></div>
-        <div class="pf"><span>A(Z)</span> ${ff(p.A)}°</div><div class="pf"><span>B(Y)</span> ${ff(p.B)}°</div><div class="pf"><span>C(X)</span> ${ff(p.C)}°</div>
+        <div class="pf"><span>A(Z)</span> ${ff(d.A)}°</div><div class="pf"><span>B(Y)</span> ${ff(d.B)}°</div><div class="pf"><span>C(X)</span> ${ff(d.C)}°</div>
         ${ikHtml}
       </div></div>`;
   }).join('');

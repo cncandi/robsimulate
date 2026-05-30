@@ -930,6 +930,10 @@ function fvTakeRobotPos(mode, lineIdx) {
     var prefix = (mode === 'end') ? 'end' : 'pos';
     var vals = { X:tcp[0], Y:tcp[1], Z:tcp[2],
                  A:a*toDeg, B:b*toDeg, C:cval*toDeg };
+    // Formularfelder sind base-relativ -> Welt-Roboterpose in aktiven BASE umrechnen
+    if (typeof worldToBase === 'function' && typeof activeBaseAtLine === 'function') {
+      vals = worldToBase(vals, activeBaseAtLine(lineIdx));
+    }
     ['X','Y','Z','A','B','C'].forEach(function(f) {
       var inp = document.getElementById('fv-'+prefix+'-'+f+'-'+lineIdx);
       if (inp) inp.value = (vals[f]).toFixed(3);
