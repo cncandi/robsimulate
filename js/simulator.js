@@ -1,4 +1,9 @@
-const APP_VERSION = 'V0.83';
+const APP_VERSION = 'V0.84';
+// On-Demand-Rendering: nur rendern wenn nötig (spart GPU/CPU/Akku im Leerlauf)
+let _renderFrames = 4;
+function requestRender(n) { _renderFrames = Math.max(_renderFrames, n || 2); }
+// console.log nur mit ?debug in der URL (Produktiv still; warn/error bleiben)
+if (!/[?&]debug\b/.test(location.search)) { const _noop = function(){}; console.log = _noop; console.debug = _noop; }
 
 
 // ── Splash Screen ─────────────────────────────────────────────
@@ -3379,6 +3384,7 @@ function updateCamera(){
     }
     orthoCam.lookAt(t);
   }
+  requestRender();
 }
 updateCamera();
 
@@ -3401,6 +3407,7 @@ function resize(){
   renderer.setSize(w,h);perspCam.aspect=w/h;perspCam.updateProjectionMatrix();
   const asp=w/h;orthoCam.left=-orthoHalfSize*asp;orthoCam.right=orthoHalfSize*asp;
   orthoCam.top=orthoHalfSize;orthoCam.bottom=-orthoHalfSize;orthoCam.updateProjectionMatrix();
+  requestRender();
 }
 window.addEventListener('resize', function(){ resize(); _aPlotFitWidth(); });
 resize();
@@ -3487,7 +3494,7 @@ let selectedPosIdx=null,currentDragMode='translate';
 
 function setDragMode(mode){currentDragMode=mode;document.getElementById('ep-translate').classList.toggle('active',mode==='translate');document.getElementById('ep-tz').classList.toggle('active',mode==='tz');}
 
-function selectPosition(idx){
+function selectPosition(idx){ requestRender();
   selectedPosIdx=idx;_epNavUpdateInfo();const pos=parsedData.positions[idx];
   if(typeof setActiveTool==='function')setActiveTool(pos.toolN); // TCP/Tool dieses Punkts aktiv
   // Wenn Formular aktiv: zugehörige Karte öffnen + scrollen
@@ -3538,7 +3545,7 @@ function _epNavUpdateInfo() {
   el.textContent=(selectedPosIdx+1)+' / '+N;
 }
 
-function deselectPosition(){
+function deselectPosition(){ requestRender();
   selectedPosIdx=null;_epNavUpdateInfo();selSphere.visible=false;
   document.getElementById('edit-panel').style.display='none';
   document.querySelectorAll('.pc').forEach(el=>el.classList.remove('selected'));
@@ -3557,7 +3564,7 @@ function applyEditPanel(){
 
 ['ep-x','ep-y','ep-z','ep-a','ep-b','ep-c'].forEach(id=>document.getElementById(id).addEventListener('keydown',e=>{if(e.key==='Enter')applyEditPanel();}));
 
-function applyDraggedPos(idx,newPos,syncCode){
+function applyDraggedPos(idx,newPos,syncCode){ requestRender();
   var _bn = (newPos.baseN!=null) ? newPos.baseN : ((parsedData.positions[idx] && parsedData.positions[idx].baseN!=null) ? parsedData.positions[idx].baseN : _activeBaseN());
   newPos.baseN = _bn;
   const dD = newPos.rel || worldToBase(newPos, _bn); // Code-Koordinate (rel)
@@ -3598,7 +3605,7 @@ document.getElementById('code-input').addEventListener('input',()=>rebuildGutter
 // ═══════════════════════════════════════════════════
 // APPLY ANGLES — update robot model + status bar
 // ═══════════════════════════════════════════════════
-function applyAngles(angles) {
+function applyAngles(angles) { requestRender();
   for (let i=0;i<6;i++) jointAngles[i] = angles[i];
   buildRobotModel(angles);
   // status bar
@@ -4448,8 +4455,10 @@ function frame(ts) {
     const velEl = document.getElementById('tcp-vel-v');
     if (velEl) velEl.textContent = displayMmMin + ' mm/min';
     _simAdvance(N, dt, speed, velCP, displayMmMin);
+    _renderFrames = Math.max(_renderFrames, 1); // während Sim rendern
   }
-  renderer.render(scene, activeCam);
+  if (_tween) _renderFrames = Math.max(_renderFrames, 1);
+  if (_renderFrames > 0) { renderer.render(scene, activeCam); _renderFrames--; }
 }
 requestAnimationFrame(frame);
 
@@ -4545,7 +4554,7 @@ function fitAllToView() {
 // ═══════════════════════════════════════════════════
 // PATH BUILDING
 // ═══════════════════════════════════════════════════
-function buildScene(positions){
+function buildScene(positions){ requestRender();
   posGrp.clear(); posGrp.visible = showPosFrames;pathGrp.clear();tcpTraceGrp.clear();tcpTracePoints.length=0;
   visitedLine=null;markerGrp.visible=false;selSphere.visible=false;
   if(!positions.length)return;
@@ -4605,7 +4614,7 @@ function updateIKBadge(idx, res) {
   badge.textContent = (res&&res.ok) ? `IK ✓  Δ${res.score.toFixed(1)}` : 'IK ✗ nicht erreichbar';
 }
 
-function renderPositions(positions){
+function renderPositions(positions){ requestRender();
   const el=document.getElementById('pos-list');
   if(!positions.length){el.innerHTML='<div class="empty">' + t('no_pos2') + '</div>';return;}
   el.innerHTML=positions.map((p,i)=>{
