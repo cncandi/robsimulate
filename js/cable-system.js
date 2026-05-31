@@ -1,6 +1,10 @@
 /**
  * cable-system.js  –  Kabel  (RobModel Editor / RobSimul Viewer)
  *
+ * EINZIGE QUELLE (Single Source): liegt im robsimul-Repo und wird nach
+ * /robsimul/js/cable-system.js deployt. RobModel laedt diese Datei relativ
+ * ueber ../js/cable-system.js (gleiche Domain). Aenderungen NUR hier vornehmen.
+ *
  * RobModel:
  *   init(THREE, scene, {upAxis:'z'})
  *   setTrackObjects({tcp,a1..a6})   ← Ende rebuildRobotKinematics()
