@@ -3402,6 +3402,18 @@ function setView(view){
   updateCamera();resize();
 }
 
+// Nächstgelegene Standard-Ansicht zur aktuellen Kamera
+function _nearestView(){
+  const cam = (typeof activeCam!=='undefined'&&activeCam)?activeCam:perspCam;
+  const v = cam.position.clone().sub(orbitTarget);
+  if (v.lengthSq() < 1e-6) return 'top';
+  v.normalize();
+  const cand=[['top',[0,0,1]],['bottom',[0,0,-1]],['front',[0,-1,0]],['back',[0,1,0]],['left',[-1,0,0]],['right',[1,0,0]]];
+  let best='top',bd=-Infinity;
+  for(const [name,d] of cand){const dot=v.x*d[0]+v.y*d[1]+v.z*d[2]; if(dot>bd){bd=dot;best=name;}}
+  return best;
+}
+
 function resize(){
   const vp=canvas.parentElement;const w=vp.clientWidth,h=vp.clientHeight;
   renderer.setSize(w,h);perspCam.aspect=w/h;perspCam.updateProjectionMatrix();
@@ -3478,7 +3490,7 @@ window.addEventListener('mousemove',e=>{
 
 window.addEventListener('mouseup',e=>{
   if(dragPos){if(dragMoved)syncPositionToCode(dragPos.idx);dragPos=null;canvas.classList.remove('dragging');return;}
-  if(drag){drag=null;canvas.classList.remove('dragging');if(!dragMoved&&e.button===0){const hit=raycastPositions(e);if(hit===null)deselectPosition();}}
+  if(drag){drag=null;canvas.classList.remove('dragging');if(!dragMoved&&e.button===0){const hit=raycastPositions(e);if(hit===null)deselectPosition();}else if(!dragMoved&&e.button===1){setView(_nearestView());}}
 });
 canvas.addEventListener('contextmenu',e=>e.preventDefault());
 canvas.addEventListener('wheel',e=>{
