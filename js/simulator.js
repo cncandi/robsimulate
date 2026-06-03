@@ -6880,3 +6880,55 @@ function submitAddFmt() {
   document.getElementById('add-fmt-logo').value='';
   document.getElementById('add-fmt-cmt').value='';
 }
+
+// ── postMessage API für iframe-Einbettung ──────────────────────────────────
+window.addEventListener('message', function(e) {
+  if (e.origin !== 'https://cnc-technik.de') return;
+  var msg = e.data;
+  if (!msg || typeof msg !== 'object') return;
+
+  if (msg.type === 'krl:load') {
+    var ta = document.getElementById('code-input');
+    if (!ta) return;
+    ta.value = msg.code || '';
+    rebuildGutter();
+    parseAndLoad();
+    e.source.postMessage({ type: 'krl:loaded', ok: true }, e.origin);
+  }
+
+  if (msg.type === 'krl:get') {
+    var ta2 = document.getElementById('code-input');
+    var code = ta2 ? ta2.value : '';
+    e.source.postMessage({ type: 'krl:code', code: code }, e.origin);
+  }
+
+  if (msg.type === 'krl:control') {
+    if (msg.action === 'play')  { document.getElementById('b-playfwd') && document.getElementById('b-playfwd').click(); }
+    if (msg.action === 'pause') { typeof pauseSim === 'function' && pauseSim(); }
+    if (msg.action === 'stop')  { typeof stopSim  === 'function' && stopSim(0); }
+  }
+});
+
+// ── embed-Modus (?embed=1) ─────────────────────────────────────────────────
+(function() {
+  if (new URLSearchParams(location.search).get('embed') !== '1') return;
+  function applyEmbed() {
+    var sel = [
+      'header',
+      '.sidebar', '#sidebar', '#left-panel',
+      '#menu-bar', '.menu-bar',
+      '#top-bar', '.top-bar',
+      '#file-panel', '.file-panel',
+      '#upload-btn', '.upload-btn'
+    ];
+    sel.forEach(function(s) {
+      var el = document.querySelector(s);
+      if (el) el.style.setProperty('display', 'none', 'important');
+    });
+  }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', applyEmbed);
+  } else {
+    applyEmbed();
+  }
+})();
