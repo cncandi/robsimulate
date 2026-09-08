@@ -474,6 +474,12 @@ function parseKRL(code){
       positions.push(W({type:'CIRC_AUX',...parsePos(circM[1].slice(1,-1)),lineNum:ln,snapshot:s}));
       positions.push(W({type:'CIRC',...parsePos(circM[2].slice(1,-1)),lineNum:ln,snapshot:s}));
       pushStep(ln,'move',{posIdx:pi+1,label:'CIRC'});continue;}
+    // CIRC_EXTRUDE ({Hilfspunkt},{Zielpunkt},N) — Extrusionsparameter wird ignoriert
+    const circExtM=line.match(/^CIRC_EXTRUDE\s*\(\s*(\{[^}]+\})\s*,\s*(\{[^}]+\})\s*,[^)]*\)/i);
+    if(circExtM){const s=snap();const pi=positions.length;
+      positions.push(W({type:'CIRC_AUX',...parsePos(circExtM[1].slice(1,-1)),lineNum:ln,snapshot:s}));
+      positions.push(W({type:'CIRC',...parsePos(circExtM[2].slice(1,-1)),lineNum:ln,snapshot:s}));
+      pushStep(ln,'move',{posIdx:pi+1,label:'CIRC'});continue;}
     const circP=line.match(/^CIRC\s+(\{[^}]+\})\s*,?\s*$/i);
     if(circP){let next='';
       for(let j=ln+1;j<Math.min(ln+3,lines.length);j++){next=lines[j].trim().replace(/^;.*/,'');if(next)break;}
@@ -496,6 +502,11 @@ function parseKRL(code){
       }
       positions.push(W({type:moveType,...parsedMove,lineNum:ln,velCP:_velCP,snapshot:snap()}));
       pushStep(ln,'move',{posIdx:pi,label:moveType});continue;}
+    // LIN_EXTRUDE({X ...},N) — Extrusionsparameter wird ignoriert
+    const linExtM=line.match(/^LIN_EXTRUDE\s*\(\s*\{([^}]+)\}\s*,[^)]*\)/i);
+    if(linExtM){const pi=positions.length;
+      positions.push(W({type:'LIN',...parsePos(linExtM[1]),lineNum:ln,velCP:_velCP,snapshot:snap()}));
+      pushStep(ln,'move',{posIdx:pi,label:'LIN'});continue;}
     let m;
     // ── Systemvariablen mit vollständigen Daten ──────────────────────────
     if((m=line.match(/^\$TOOL\s*=\s*TOOL_DATA\[(\d+)\]/i))){curTool=+m[1];pushStep(ln,'tool',{n:+m[1]});continue;}
