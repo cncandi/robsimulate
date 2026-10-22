@@ -256,6 +256,101 @@ function solveLM(cfg) {
 
 // ── IK-Wrapper (öffentliche API bleibt identisch) ───────────────────────────
 
+
+const R2D = 180/Math.PI;
+function ikAnalyticSupported() {
+  const J = JOINTS_DEF;
+  return J.length === 6 &&
+    Math.abs(J[3].off[1]) < 1e-9 && Math.abs(J[3].off[2]) < 1e-9 &&
+    Math.abs(J[4].off[1]) < 1e-9 && Math.abs(J[4].off[2]) < 1e-9 &&
+    Math.abs(J[5].off[1]) < 1e-9 && Math.abs(J[5].off[2]) < 1e-9;
+}
+function ikAnalyticAll(tx, ty, tz, ta, tb, tc) {
+  const J = JOINTS_DEF, S = FK_SIGNS;
+  const Rt = rotZYX(ta, tb, tc);
+  // Flansch aus TCP (Umkehr von fkAll): R6 = Rt * R_tcp^T, p6 = P - R6 * R_fc * tcp
+  const R_fc = mRy(Math.PI/2);
+  const R_tcp = mMul(R_fc, rotZYX(TCP_DEF.a, TCP_DEF.b, TCP_DEF.c));
+  const R6 = mMul(Rt, mT(R_tcp));
+  const pt = mVec(R6, mVec(R_fc, [TCP_DEF.x, TCP_DEF.y, TCP_DEF.z]));   // wie fkAll: rot * R_fc * tcp
+  const p6 = [tx - pt[0], ty - pt[1], tz - pt[2]];
+  // Handwurzel p4 = p6 - (L5+L6) * x-Achse(R6)
+  const L56 = J[4].off[0] + J[5].off[0];
+  const px = p6[0] - L56*R6[0][0], py = p6[1] - L56*R6[1][0], pz = p6[2] - L56*R6[2][0];
+  const o1 = J[0].off, o2 = J[1].off, o3 = J[2].off;
+  const ys = o1[1] + o2[1] + o3[1];                 // konstanter Y-Versatz im A1-System
+  const wx = o3[0] + J[3].off[0], wz = o3[2];       // Unterarm bis Handwurzel (x,z)
+  const r2 = px*px + py*py - ys*ys;
+  if (r2 < 0) return [];
+  const out = [];
+  for (const sx of [1, -1]) {                        // vorne / über Kopf
+    const Xp = sx*Math.sqrt(r2);
+    const th1 = Math.atan2(py, px) - Math.atan2(ys, Xp);
+    const Qx = Xp - o1[0], Qz = pz - o1[2];
+    const A = o2[0]*wx + o2[2]*wz, B = o2[0]*wz - o2[2]*wx;
+    const K = (Qx*Qx + Qz*Qz - (o2[0]*o2[0] + o2[2]*o2[2]) - (wx*wx + wz*wz)) / 2;
+    const AB = Math.hypot(A, B);
+    if (AB < 1e-9 || Math.abs(K) > AB*(1+1e-12)) continue;
+    const base = Math.atan2(B, A), dlt = Math.acos(Math.max(-1, Math.min(1, K/AB)));
+    for (const th3 of [base + dlt, base - dlt]) {    // Ellbogen oben / unten
+      const c3 = Math.cos(th3), s3 = Math.sin(th3);
+      const ux = o2[0] + wx*c3 + wz*s3, uz = o2[2] - wx*s3 + wz*c3;
+      const th2 = Math.atan2(uz, ux) - Math.atan2(Qz, Qx);
+      const R3 = mMul(mRz(th1), mMul(mRy(th2), mRy(th3)));
+      const M = mMul(mT(R3), R6);                    // = Rx(th4) Ry(th5) Rx(th6)
+      const c5 = Math.max(-1, Math.min(1, M[0][0]));
+      for (const sw of [1, -1]) {                    // Handgelenk normal / Flip
+        const th5 = sw*Math.acos(c5), s5 = Math.sin(th5);
+        let th4, th6;
+        if (Math.abs(s5) > 1e-9) {
+          th4 = Math.atan2(M[1][0]/s5, -M[2][0]/s5);
+          th6 = Math.atan2(M[0][1]/s5,  M[0][2]/s5);
+        } else {                                     // Singularität: A4+A6 gekoppelt, A4 = 0
+          th4 = 0;
+          th6 = Math.atan2(-M[1][2], M[1][1]) * (c5 > 0 ? 1 : -1);
+        }
+        out.push([th1, th2, th3, th4, th5, th6].map((v, i) => v*R2D*S[i]));
+      }
+    }
+  }
+  return out;
+}
+function solveIKAnalytic(tx, ty, tz, ta, tb, tc, prevQ, strict) {
+  if (!ikAnalyticSupported()) return null;
+  prevQ = prevQ || jointAngles;
+  let best = null, bestCost = Infinity;
+  for (const sol of ikAnalyticAll(tx, ty, tz, ta, tb, tc)) {
+    const q = [];
+    let inLim = true;
+    for (let i = 0; i < 6; i++) {
+      const lo = JOINTS_DEF[i].min, hi = JOINTS_DEF[i].max;
+      let v = sol[i] + 360*Math.round((prevQ[i] - sol[i]) / 360);   // nächstgelegene 360°-Kopie
+      if ((v < lo || v > hi) && strict) inLim = false;
+      else if (v < lo || v > hi) {                                   // sonst nächste Kopie in den Grenzen
+        let alt = null;
+        for (let k = -2; k <= 2; k++) { const w = sol[i] + 360*k; if (w >= lo && w <= hi && (alt === null || Math.abs(w - prevQ[i]) < Math.abs(alt - prevQ[i]))) alt = w; }
+        if (alt === null) inLim = false; else v = alt;
+      }
+      q.push(v);
+    }
+    // Abstand über den kürzesten Winkelweg: prevQ kann stetig fortgeführt außerhalb ±360° liegen
+    // (Simulationstabelle); sonst wirkt die nahe Lösung 360° entfernt und die Über-Kopf-Stellung gewinnt
+    let cost = 0;
+    for (let i = 0; i < 6; i++) cost += shortestAngleDiff(prevQ[i], q[i])**2;
+    if (!inLim) cost += 1e9;
+    if (cost < bestCost) { bestCost = cost; best = {q, inLim}; }
+  }
+  if (!best) return null;
+  // Verifikation per FK
+  const fk = fkTCP_full(best.q);
+  const eP = Math.hypot(fk.pos[0]-tx, fk.pos[1]-ty, fk.pos[2]-tz);
+  const eO = Math.hypot(...logOriErr(rotZYX(ta, tb, tc), fk.rot));
+  if (!(eP < 0.01 && eO < 0.01)) return null;
+  return { angles: best.q, score: eP + eO, ok: best.inLim };
+}
+function ikFastA(x,y,z,a,b,c,init)    { return solveIKAnalytic(x,y,z,a,b,c,init) || solveIKFast(x,y,z,a,b,c,init); }
+function ikRobustA(x,y,z,a,b,c,init)  { return solveIKAnalytic(x,y,z,a,b,c,init) || solveIK(x,y,z,a,b,c,init); }
+function ikPreciseA(x,y,z,a,b,c,init) { return solveIKAnalytic(x,y,z,a,b,c,init) || solveIKPrecise(x,y,z,a,b,c,init); }
 function solveIK(tx, ty, tz, ta, tb, tc, initAngles) {
   return solveLM({
     tp:[tx,ty,tz], Rt:rotZYX(ta,tb,tc),
@@ -475,7 +570,7 @@ function parseKRL(code){
       positions.push(W({type:'CIRC',...parsePos(circM[2].slice(1,-1)),lineNum:ln,snapshot:s}));
       pushStep(ln,'move',{posIdx:pi+1,label:'CIRC'});continue;}
     // CIRC_EXTRUDE ({Hilfspunkt},{Zielpunkt},N) — Extrusionsparameter wird ignoriert
-    const circExtM=line.match(/^CIRC_EXTRUDE\s*\(\s*(\{[^}]+\})\s*,\s*(\{[^}]+\})\s*,[^)]*\)/i);
+    const circExtM=line.match(/^CIRC_EXTRUDE\s*\(\s*(\{[^}]+\})\s*,\s*(\{[^}]+\})\s*(?:,[^)]*)?\)/i);
     if(circExtM){const s=snap();const pi=positions.length;
       positions.push(W({type:'CIRC_AUX',...parsePos(circExtM[1].slice(1,-1)),lineNum:ln,snapshot:s}));
       positions.push(W({type:'CIRC',...parsePos(circExtM[2].slice(1,-1)),lineNum:ln,snapshot:s}));
@@ -503,7 +598,7 @@ function parseKRL(code){
       positions.push(W({type:moveType,...parsedMove,lineNum:ln,velCP:_velCP,snapshot:snap()}));
       pushStep(ln,'move',{posIdx:pi,label:moveType});continue;}
     // LIN_EXTRUDE({X ...},N) — Extrusionsparameter wird ignoriert
-    const linExtM=line.match(/^LIN_EXTRUDE\s*\(\s*\{([^}]+)\}\s*,[^)]*\)/i);
+    const linExtM=line.match(/^LIN_EXTRUDE\s*\(\s*\{([^}]+)\}\s*(?:,[^)]*)?\)/i);
     if(linExtM){const pi=positions.length;
       positions.push(W({type:'LIN',...parsePos(linExtM[1]),lineNum:ln,velCP:_velCP,snapshot:snap()}));
       pushStep(ln,'move',{posIdx:pi,label:'LIN'});continue;}
@@ -552,6 +647,10 @@ function parseKRL(code){
 // THREE.JS SETUP (Z-up scene = KUKA Robot CS)
 // ═══════════════════════════════════════════════════
 const canvas=document.getElementById('c3d');
+// Editor und Zeilennummern (früh deklariert: werden von Funktionen schon beim Laden benutzt)
+const _codeEl=document.getElementById('code-input'), _gutEl=document.getElementById('gutter');
+let _gutLines=0, _gutActive=-1, _gutKey='';
+let _edDriving=false; // Positionswechsel kommt aus dem Editor: Editor nicht scrollen, Cursorzeile bleibt markiert
 const renderer=new THREE.WebGLRenderer({canvas,antialias:true});
 renderer.setPixelRatio(window.devicePixelRatio);
 const scene=new THREE.Scene();
@@ -954,7 +1053,13 @@ function _buildSkeleton(angles) {
 
 function buildRobotModel(angles) {
   if (!axisPivots.length) buildPivotChain();
-  robotGrp.children.filter(ch => !axisPivots.includes(ch)).forEach(ch => robotGrp.remove(ch));
+  robotGrp.children.filter(ch => !axisPivots.includes(ch)).forEach(ch => {
+    robotGrp.remove(ch);
+    // Skelett wird pro Bild neu aufgebaut: eigene Geometrien/Materialien freigeben
+    // (ArrowHelper teilt seine Geometrie in three.js — dort nur Materialien)
+    if (ch.isMesh) { ch.geometry.dispose(); ch.material.dispose(); }
+    else if (ch.line) { ch.line.material.dispose(); ch.cone.material.dispose(); }
+  });
   updatePivotRotations(angles);
   _applySTLMeshPoses(angles);
   _applyToolMeshPose(angles);
@@ -1905,14 +2010,22 @@ function applyBase() {
   var savedH = (typeof orthoHalfSize !== 'undefined') ? orthoHalfSize : null;
   if (typeof buildScene === 'function') buildScene(parsedData.positions);
   if (savedT) { orbitTarget.copy(savedT); if (savedR!=null) orbitState.radius=savedR; if (savedH!=null) orthoHalfSize=savedH; if (typeof updateCamera==='function') updateCamera(); }
-  // IK NICHT hier neu rechnen (blockiert ~5s) – Pfad/Frames sind via buildScene aktualisiert;
-  // die IK fuer die verschobenen Endpunkte wird beim naechsten Parsen/Start berechnet.
+  // IK nicht sofort: Pfad/Frames sind via buildScene aktualisiert; die IK wird 0,7 s nach der
+  // letzten Eingabe automatisch neu berechnet (siehe Ende der Funktion).
   if (typeof renderPositions === 'function') renderPositions(parsedData.positions);
   if (typeof selectedPosIdx !== 'undefined' && selectedPosIdx !== null) {
     var c = document.getElementById('pcard-'+selectedPosIdx); if (c) c.classList.add('selected');
     var sp = parsedData.positions[selectedPosIdx];
     if (sp && typeof selSphere !== 'undefined' && selSphere) { selSphere.position.set(sp.X,sp.Y,sp.Z); selSphere.visible=true; }
   }
+  if (typeof aPlotInvalidate === 'function') aPlotInvalidate();
+  // Achsstellungen passen nicht mehr zur verschobenen Bahn: Hinweis ausblenden und
+  // nach kurzer Eingabepause automatisch neu rechnen (vorher erst beim nächsten Parsen)
+  var w = document.getElementById('sim-warn'); if (w) w.style.display = 'none';
+  setStatus('paused', 'BASE geändert…');
+  clearTimeout(applyBase._t);
+  applyBase._pending = true;
+  applyBase._t = setTimeout(function() { applyBase._pending = false; parseAndLoad(); }, 700);
 }
 
 document.addEventListener('DOMContentLoaded', function() {
@@ -3121,6 +3234,17 @@ function isSingular(angles_deg) {
 // Wrist:    |sin(A5)| < sin(8°)  → Achsen 4+6 kollinear
 // Shoulder: Handgelenk-XY < 50mm → WZ auf A1-Achse
 // Elbow:    isSingular() && weder Wrist noch Shoulder → Jacobi-Rangabfall
+var _armMaxCache = { key: '', v: 0 };
+function _armMaxReach() {
+  var J = JOINTS_DEF, key = JSON.stringify(J.map(function(j) { return j.off; }));
+  if (_armMaxCache.key === key) return _armMaxCache.v;
+  var o2 = J[1].off, o3 = J[2].off, ux = o3[0] + J[3].off[0], uz = o3[2];
+  var th3s = Math.atan2(o2[0]*uz - o2[2]*ux, o2[0]*ux + o2[2]*uz) * 180 / Math.PI * FK_SIGNS[2];
+  var p = fkAll([0, -90, th3s, 0, 45, 0]).pts;
+  _armMaxCache = { key: key, v: Math.hypot(p[4][0]-p[1][0], p[4][1]-p[1][1], p[4][2]-p[1][2]) };
+  return _armMaxCache.v;
+}
+function _elbowWarnMm() { var el = document.getElementById('aplot-elbow'); var v = el ? parseFloat(el.value) : 50; return isFinite(v) ? Math.max(0, v) : 50; }
 function classifySingTypes(angles_deg) {
   var types = [];
 
@@ -3133,12 +3257,17 @@ function classifySingTypes(angles_deg) {
   var wx = pts[4][0], wy = pts[4][1];
   if (Math.sqrt(wx*wx + wy*wy) < 60) types.push('shoulder');
 
-  // ── 3. Ellbogen (Streckstellung): cos(A3) ≈ 0 ────────────────
-  // Analytisch: d(Armreichweite)/d(A3) = 630·200·cos(A3)/dist
-  // Nullstelle bei A3 = ±90°  →  arm an max. oder min. Extension
-  // FK_SIGNS[2] = 1, also effektiver Winkel = A3_deg
-  var a3rad = angles_deg[2] * Math.PI / 180;
-  if (Math.abs(Math.cos(a3rad)) < 0.17) types.push('elbow'); // ±80°..±100°
+  // ── 3. Ellbogen (Streckstellung) ──────────────────────────────
+  // Gestreckt ist der Arm, wenn Schulter (A2-Achse) und Handwurzel den größten Abstand haben
+  // (beide Ellbogen-Lösungen fallen zusammen, KR8 bei A3 ≈ 17,6°). Warnung, wenn der Abstand
+  // weniger als die eingestellte Strecke (Vorgabe 50 mm) unter diesem Maximum liegt.
+  if (ikAnalyticSupported()) {
+    var pts = fk.pts, dS = Math.hypot(pts[4][0]-pts[1][0], pts[4][1]-pts[1][1], pts[4][2]-pts[1][2]);
+    if (_armMaxReach() - dS < _elbowWarnMm()) types.push('elbow');
+  } else {
+    var a3rad = angles_deg[2] * Math.PI / 180;
+    if (Math.abs(Math.cos(a3rad)) < 0.17) types.push('elbow');
+  }
 
   return types;
 }
@@ -3340,7 +3469,22 @@ function parseProgressHide() {
 }
 
 // IK-Tabelle häppchenweise berechnen, damit die Fortschrittsleiste echt mitläuft (UI bleibt responsiv).
+// Nachschliff nach dem DP-Planer: die DP-Lösung legt die Konfiguration fest (Ellbogen/Hand/Umdrehung),
+// die analytische IK macht jeden Punkt in genau dieser Konfiguration exakt (DP allein: bis ~30 mm Abweichung)
+function _ikTableRefine(positions) {
+  for (let i = 0; i < ikTable.length; i++) {
+    const e = ikTable[i], p = positions[i]; if (!e || !e.angles || !p) continue;
+    if (typeof _applyToolToTCPDEF === 'function') _applyToolToTCPDEF(p.toolN || 1);
+    const an = solveIKAnalytic(p.X, p.Y, p.Z, p.A, p.B, p.C, e.angles);
+    if (!an || !an.ok) continue;
+    const q = an.angles.map((v, j) => e.angles[j] + shortestAngleDiff(e.angles[j], v));
+    // nur übernehmen, wenn die Konfiguration erhalten bleibt (keine Achse springt um mehr als 30°)
+    if (q.every((v, j) => Math.abs(v - e.angles[j]) < 30) || !e.ok) ikTable[i] = { angles: q, score: an.score, ok: true };
+  }
+}
+let _ikGen = 0;
 function computeIKTableProgressive(positions, done) {
+  const gen = ++_ikGen;
   ikTable = [];
   var N = positions.length;
   if (!N) { buildTrajectory(positions, ikTable); done && done(); return; }
@@ -3349,7 +3493,9 @@ function computeIKTableProgressive(positions, done) {
     _applyToolToTCPDEF(positions[0].toolN || 1);
     parseProgress(40, N + ' Punkte — IK wird berechnet…');
     setTimeout(function(){
+      if (gen !== _ikGen) return;
       try { _ikTableDPSolver(positions, N); } catch(e) { _ikTableFallbackDP(positions, N); }
+      _ikTableRefine(positions);
       buildTrajectory(positions, ikTable);
       parseProgress(100, 'fertig'); done && done();
     }, 20);
@@ -3358,11 +3504,12 @@ function computeIKTableProgressive(positions, done) {
   // Große Programme oder mehrere Tools: Schnell-IK in Häppchen, TCP pro Punkt gesetzt
   var prevQ = _ikGetStartQ(), i = 0, CH = Math.max(25, Math.floor(N/50));
   (function chunk(){
+    if (gen !== _ikGen) return;
     var end = Math.min(i + CH, N);
     for (; i < end; i++) {
       var p = positions[i];
       _applyToolToTCPDEF(p.toolN); // aktives Tool dieses Punkts
-      var res = solveIKFast(p.X, p.Y, p.Z, p.A, p.B, p.C, prevQ);
+      var res = ikFastA(p.X, p.Y, p.Z, p.A, p.B, p.C, prevQ);
       var angles = (res.ok ? res.angles : prevQ).map(function(v, j){ return prevQ[j] + shortestAngleDiff(prevQ[j], v); });
       ikTable.push({ angles: angles, score: res.score, ok: res.ok });
       prevQ = angles.slice();
@@ -3982,7 +4129,8 @@ const sim={t:0,playing:false,dir:1,stepTarget:null,stepIdx:0};
 const breakpoints=new Set();
 
 function simSpeed(){return(parseInt(document.getElementById('spd-s').value)/100)*3.0;}
-function lerpPos(a,b,f){return{X:a.X+(b.X-a.X)*f,Y:a.Y+(b.Y-a.Y)*f,Z:a.Z+(b.Z-a.Z)*f,A:a.A+(b.A-a.A)*f,B:a.B+(b.B-a.B)*f,C:a.C+(b.C-a.C)*f};}
+function lerpPos(a,b,f){return{X:a.X+(b.X-a.X)*f,Y:a.Y+(b.Y-a.Y)*f,Z:a.Z+(b.Z-a.Z)*f,
+  A:a.A+shortestAngleDiff(a.A,b.A)*f,B:a.B+shortestAngleDiff(a.B,b.B)*f,C:a.C+shortestAngleDiff(a.C,b.C)*f};}
 function shortestAngleDiff(from, to) {
   // Returns smallest signed difference (always <= 180°)
   var d = ((to - from) % 360 + 540) % 360 - 180;
@@ -4015,6 +4163,7 @@ var _realtimeMode = false;  // Standard: aus
 })();
 let trajectoryRef = [];  // Referenz-Trajektorie für Map (unveränderlich)
 let trajMax = 0;       // trajectory.length - 1
+let trajSegEnd = null; // Int32Array: Index des letzten Stützpunkts je Satz
 
 // ── Geometric helpers ─────────────────────────────────────
 function vec3(p){return[p.X,p.Y,p.Z];}
@@ -4111,8 +4260,11 @@ function buildTrajectory(positions, ikTab) {
   // IK with warm-start from previous angles
   // Used for LIN/SLIN/CIRC to guarantee straight Cartesian path
   function ikWarm(pos, prevAngles) {
-    const res = solveIK(pos.X, pos.Y, pos.Z, pos.A, pos.B, pos.C, prevAngles);
-    return res.ok ? res.angles : prevAngles;
+    const res = ikRobustA(pos.X, pos.Y, pos.Z, pos.A, pos.B, pos.C, prevAngles);
+    if (!res.ok) return prevAngles;
+    // Sprungsperre wie bei LIN: keine Achse springt zwischen zwei Bahnpunkten um mehr als 30°
+    const maxDelta = res.angles.reduce((m, v, j) => Math.max(m, Math.abs(v - prevAngles[j])), 0);
+    return maxDelta < 30 ? res.angles : prevAngles;
   }
 
   function pushSample(pos, angles, segIdx) {
@@ -4192,17 +4344,15 @@ function buildTrajectory(positions, ikTab) {
       const angCurrLin = angCurr.map(function(v, j) {
         return angPrev[j] + shortestAngleDiff(angPrev[j], v);
       });
-      // Für ersten Schritt: linear interpolieren als sicherer Warm-Start
-      let warmAng = lerpAngles(angPrev, angCurrLin, 1/steps);
-      // Erster Schritt immer linear (kein IK-Sprung am Segment-Anfang)
-      pushSample(lerpPos(prev, curr, 1/steps), warmAng, i);
-      for (let s = 2; s <= steps; s++) {
+      // Alle Stützpunkte per IK auf der Geraden (auch der erste); Achsinterpolation nur als Rückfall bei Sprung
+      let warmAng = angPrev.slice();
+      for (let s = 1; s <= steps; s++) {
         const f = s / steps;
         const pos = lerpPos(prev, curr, f);
         if (dist < 20) {
           warmAng = lerpAngles(angPrev, angCurrLin, f);
         } else {
-          const res = solveIK(pos.X, pos.Y, pos.Z, pos.A, pos.B, pos.C, warmAng);
+          const res = ikRobustA(pos.X, pos.Y, pos.Z, pos.A, pos.B, pos.C, warmAng);
           if (res.ok) {
             const resN = res.angles.map(function(v, j) {
               return warmAng[j] + shortestAngleDiff(warmAng[j], v);
@@ -4236,23 +4386,39 @@ function buildTrajectory(positions, ikTab) {
   }
 
   trajMax = Math.max(0, trajectory.length - 1);
-  // Referenz-Trajektorie für Map (tief kopieren)
-  trajectoryRef = trajectory.map(function(t) {
-    return { pos: t.pos, angles: t.angles ? t.angles.slice() : [] };
-  });
+  // Letzter Stützpunkt je Satz (liegt genau auf dem Programmpunkt) für die Umrechnung Satz → Stützpunkt
+  trajSegEnd = new Int32Array(N).fill(-1);
+  for (let k = 0; k < trajectory.length; k++) { const si = trajectory[k].segIdx; if (si >= 0 && si < N) trajSegEnd[si] = k; }
+  for (let i = 1; i < N; i++) if (trajSegEnd[i] < 0) trajSegEnd[i] = trajSegEnd[i-1];
 
-  // Rebuild path line from actual Cartesian trajectory
-  pathGrp.clear();
-  // Full programmed path from parsedData.positions (always correct)
-  if (parsedData.positions.length > 1) {
-    const progPts = parsedData.positions.map(p => new THREE.Vector3(p.X, p.Y, p.Z));
-    pathGrp.add(new THREE.Line(
-      new THREE.BufferGeometry().setFromPoints(progPts),
-      new THREE.LineBasicMaterial({color:hexToInt((document.getElementById('cfg-planned-col')||{value:'#1a3050'}).value)})
-    ));
+  // Abgefahrene Bahn: einmal bauen, beim Abspielen nur DrawRange verlängern.
+  // Gerade Abschnitte nur mit Endpunkt (Kreis/Spline mit allen Stützpunkten) -> weniger Eckpunkte;
+  // das Stück bis zur aktuellen Position zeichnet eine kurze Kopflinie.
+  [visitedLine, visitedHead].forEach(o => { if (o) { pathGrp.remove(o); o.geometry.dispose(); o.material.dispose(); } });
+  visitedLine = visitedHead = null;
+  if (trajectory.length > 1) {
+    const keep = [];
+    _visitedVtx = new Int32Array(trajectory.length);
+    for (let i = 0; i < trajectory.length; i++) {
+      const s = trajectory[i], nx = trajectory[i+1], ty = (positions[s.segIdx] || {}).type;
+      if (i === 0 || !nx || nx.segIdx !== s.segIdx || ty === 'CIRC' || ty === 'SLIN') keep.push(i);
+      _visitedVtx[i] = keep.length;
+    }
+    _visitedKeep = keep;
+    const arr = new Float32Array(keep.length * 3);
+    keep.forEach((k, i) => { const p = trajectory[k].pos; arr[i*3] = p.X; arr[i*3+1] = p.Y; arr[i*3+2] = p.Z; });
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.BufferAttribute(arr, 3));
+    geo.setDrawRange(0, 0);
+    const mat = new THREE.LineBasicMaterial({color:hexToInt((document.getElementById('cfg-path-col')||{value:'#32c6da'}).value), linewidth:pathLineWidth});
+    visitedLine = new THREE.Line(geo, mat);
+    visitedLine.frustumCulled = false;
+    const hg = new THREE.BufferGeometry();
+    hg.setAttribute('position', new THREE.BufferAttribute(new Float32Array(6), 3));
+    visitedHead = new THREE.Line(hg, mat.clone());
+    visitedHead.frustumCulled = false; visitedHead.visible = false;
+    pathGrp.add(visitedLine, visitedHead);
   }
-  // Scan wird nur durch 'MAP erzeugen' gestartet
-  // Scan wird nur durch 'MAP erzeugen' Button gestartet
 }
 
 function getTrajSample(t) {
@@ -4271,7 +4437,11 @@ function getTrajSample(t) {
 // Legacy: map t (0..N-1) to trajectory fraction
 function simTToTrajT(t) {
   const N = parsedData.positions.length;
-  return N > 1 ? t / (N-1) : 0;
+  if (N < 2 || !trajMax) return 0;
+  if (!trajSegEnd || trajSegEnd.length !== N) return t / (N-1);
+  const k = Math.max(0, Math.min(N - 2, Math.floor(t))), f = Math.max(0, Math.min(1, t - k));
+  const a = Math.max(0, trajSegEnd[k]), b = Math.max(a, trajSegEnd[k+1]);
+  return (a + f * (b - a)) / trajMax;
 }
 
 function getIPos(t){
@@ -4288,15 +4458,18 @@ function updateMarkerPose(ipos){markerGrp.position.set(ipos.X,ipos.Y,ipos.Z);mar
 
 // Visited path
 let visitedLine=null;
+let visitedHead=null, _visitedVtx=null, _visitedKeep=null;
 function updateVisitedPath(t){
-  if(visitedLine){pathGrp.remove(visitedLine);visitedLine=null;}
-  if(!trajectory.length||t<=0)return;
-  const pathCol=hexToInt(document.getElementById('cfg-path-col').value);
-  const tf=simTToTrajT(t);
-  const cutIdx=Math.floor(tf*trajMax);
-  if(cutIdx<1)return;
-  const pts=trajectory.slice(0,cutIdx+1).map(s=>new THREE.Vector3(s.pos.X,s.pos.Y,s.pos.Z));
-  if(pts.length>1){visitedLine=new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts),new THREE.LineBasicMaterial({color:pathCol,linewidth:pathLineWidth}));pathGrp.add(visitedLine);}
+  _applyPathMode(t);
+  if(!visitedLine)return;
+  const cutIdx=(trajectory.length&&t>0)?Math.floor(simTToTrajT(t)*trajMax):0;
+  if(cutIdx<1){visitedLine.geometry.setDrawRange(0,0);visitedHead.visible=false;return;}
+  const n=_visitedVtx[cutIdx];
+  visitedLine.geometry.setDrawRange(0, n>=2?n:0);
+  // Kopflinie vom letzten gespeicherten Eckpunkt bis zur aktuellen Bahnposition
+  const a=trajectory[_visitedKeep[n-1]].pos, b=trajectory[cutIdx].pos, h=visitedHead.geometry.attributes.position;
+  h.setXYZ(0,a.X,a.Y,a.Z); h.setXYZ(1,b.X,b.Y,b.Z); h.needsUpdate=true;
+  visitedHead.visible=true;
 }
 
 function setStatus(cls,txt){const el=document.getElementById('sim-status');el.className='sstatus '+cls;el.textContent=txt;}
@@ -4312,13 +4485,14 @@ function applySimT(t){ _tween = null;
   const pos=parsedData.positions,N=pos.length;if(!N)return;
   sim.t=Math.max(0,Math.min(N-1,t));
   document.getElementById('pos-s').value=sim.t;
+  {const pe=document.getElementById('pos-pct'); if(pe) pe.textContent=(N>1?Math.round(sim.t/(N-1)*100):0)+' %';}
   const idx=Math.min(Math.floor(sim.t),N-1);
   if(typeof setActiveTool==='function')setActiveTool(pos[idx]&&pos[idx].toolN); // aktives TCP/Tool dieses Satzes
   // Show trajectory sample count
   const trajSamples = trajectory.length;
   document.getElementById('pos-v').textContent=`${idx+1} / ${N}` + (trajSamples>N?` (${trajSamples} Schritte)`:'');
   updateVisitedPath(sim.t);updateGutterActive(pos[idx].lineNum);updatePosCards(idx);updateSignalsForStep(pos[idx]);
-  if(parsedData.steps){const si=parsedData.steps.findIndex(s=>s.type==='move'&&s.posIdx===idx);if(si>=0)sim.stepIdx=si;}
+  {const si=parsedData.stepOfPos?parsedData.stepOfPos[idx]:-1;if(si>=0)sim.stepIdx=si;}
   // Bei exaktem Positionsindex: präzise ikTable-Winkel verwenden
   let angles;
   if(Number.isInteger(sim.t) && ikTable[idx] && ikTable[idx].ok) {
@@ -4421,6 +4595,14 @@ function updateTween(dt) {
 
 let lastTs=null;
 // Simulationsgeschwindigkeit für aktuellen Satz berechnen
+let _meanSegCache = { pos: null, v: 1 };
+function _meanSegLen(pos) {
+  if (_meanSegCache.pos === pos) return _meanSegCache.v;
+  let sum = 0;
+  for (let i = 1; i < pos.length; i++) sum += Math.sqrt((pos[i].X-pos[i-1].X)**2 + (pos[i].Y-pos[i-1].Y)**2 + (pos[i].Z-pos[i-1].Z)**2);
+  _meanSegCache = { pos: pos, v: pos.length > 1 ? Math.max(0.1, sum / (pos.length - 1)) : 1 };
+  return _meanSegCache.v;
+}
 function _simCalcSpeed(pos, curPosIdx, nextPosIdx) {
   // VEL.CP gilt für den Zielpunkt (nextPosIdx), nicht den Ausgangspunkt
   const curVelCP = (pos[nextPosIdx] && pos[nextPosIdx].velCP) ? pos[nextPosIdx].velCP : 0.167;
@@ -4431,34 +4613,60 @@ function _simCalcSpeed(pos, curPosIdx, nextPosIdx) {
   // Anzeige IMMER die programmierte TCP-Geschwindigkeit des aktuellen Satzes (passt zum Programm),
   // unabhaengig vom Abspieltempo (Slider).
   const dispMmMin = Math.round(velMmS * 60);
+  // Zeit je Satz proportional zur Streckenlänge (kurze Sätze, z. B. 1 mm Lagenwechsel, ohne Stillstand).
+  // Mindestlänge 0,1 mm, damit reine Umorientierungen nicht in null Zeit ablaufen.
+  const eff = Math.max(segDist, 0.1);
   if (!_realtimeMode) {
-    // Slider steuert nur, wie schnell abgespielt wird – nicht den angezeigten Wert
-    return { speed: simSpeed(), velCP: curVelCP, displayMmMin: dispMmMin };
+    // Slider: Tempo in Sätzen/s bezogen auf die mittlere Satzlänge → gleiche Gesamtdauer wie zuvor
+    return { speed: simSpeed() * _meanSegLen(pos) / eff, velCP: curVelCP, displayMmMin: dispMmMin };
   }
-  const N = pos.length;
-  const speed = Math.max(0.01, segDist > 1 ? velMmS/segDist : (N > 1 ? velMmS/100 : simSpeed()));
-  return { speed, velCP: curVelCP, displayMmMin: dispMmMin };
+  return { speed: velMmS / eff, velCP: curVelCP, displayMmMin: dispMmMin };
 }
 
 // Simulationszeit um dt vorrücken; rendert selbst und gibt false zurück wenn frame() nicht weiterrendern soll
+function _simIntegrate(pos, t, dir, dt) {
+  const N = pos.length;
+  let rem = dt, guard = 0;
+  while (rem > 1e-9 && guard++ < 100000) {
+    const i0 = dir > 0 ? Math.floor(t + 1e-9) : Math.ceil(t - 1e-9) - 1;
+    if (i0 < 0 || i0 >= N - 1) break;
+    const rate = _simCalcSpeed(pos, i0, i0 + 1).speed;
+    const bound = dir > 0 ? i0 + 1 : i0;
+    const need = Math.abs(bound - t) / rate;
+    if (need > rem) { t += dir * rate * rem; rem = 0; }
+    else { t = bound; rem -= need; }
+  }
+  return t;
+}
 function _simAdvance(N, dt, speed, velCP, displayMmMin) {
   const prevT = sim.t;
   let newT;
   if (sim.stepTarget !== null) {
     const sd = sim.stepTarget > sim.t ? 1 : -1;
-    newT = sim.t + sd * speed * dt;
+    newT = _simIntegrate(parsedData.positions, sim.t, sd, dt);
     if ((sd > 0 && newT >= sim.stepTarget) || (sd < 0 && newT <= sim.stepTarget)) {
       newT = sim.stepTarget; sim.stepTarget = null;
       applySimT(newT); setStatus('paused','PAUSED'); renderer.render(scene, activeCam);
       return false;
     }
   } else {
-    newT = sim.t + sim.dir * speed * dt;
+    newT = _simIntegrate(parsedData.positions, sim.t, sim.dir, dt);
     const bp = checkBP(prevT, newT, sim.dir);
     if (bp !== null) { pauseSim(); applySimT(bp); setStatus('bp','● BREAKPOINT'); renderer.render(scene, activeCam); return false; }
     if      (newT >= N-1) { newT = N-1; pauseSim(); setStatus('end','END ✓'); }
     else if (newT <= 0)   { newT = 0;   pauseSim(); setStatus('paused','START'); }
-    else { setStatus('playing', (sim.dir>0?'▶':'◀') + '  ' + (displayMmMin??Math.round(velCP*60000)) + ' mm/min'); }
+    else {
+      // Ist-Geschwindigkeit (Bahn-mm pro echter Sekunde, geglättet) neben dem Sollwert
+      const P = parsedData.positions, D = t => { const i = Math.min(Math.floor(t), P.length - 2), f = t - i;
+        return i < 0 ? 0 : Math.hypot(P[i+1].X-P[i].X, P[i+1].Y-P[i].Y, P[i+1].Z-P[i].Z) * f; };
+      let dist = 0; const a = Math.min(sim.t, newT), b = Math.max(sim.t, newT);
+      if (Math.floor(a) === Math.floor(b)) dist = Math.abs(D(b) - D(a));
+      else { dist = (Math.hypot(P[Math.floor(a)+1].X-P[Math.floor(a)].X, P[Math.floor(a)+1].Y-P[Math.floor(a)].Y, P[Math.floor(a)+1].Z-P[Math.floor(a)].Z) - D(a)) + D(b);
+        for (let i = Math.floor(a) + 1; i < Math.floor(b); i++) dist += Math.hypot(P[i+1].X-P[i].X, P[i+1].Y-P[i].Y, P[i+1].Z-P[i].Z); }
+      if (dt > 0) sim.vIst = sim.vIst === undefined ? dist / dt : sim.vIst * 0.9 + (dist / dt) * 0.1;
+      setStatus('playing', (sim.dir>0?'▶':'◀') + '  ' + (displayMmMin??Math.round(velCP*60000)) + ' mm/min'
+        + (sim.vIst !== undefined ? ' · Ist ' + Math.round(sim.vIst * 60) : ''));
+    }
   }
   applySimT(newT);
   return true;
@@ -4466,7 +4674,8 @@ function _simAdvance(N, dt, speed, velCP, displayMmMin) {
 
 function frame(ts) {
   requestAnimationFrame(frame);
-  const dt = lastTs !== null ? Math.min((ts-lastTs)/1000, .1) : 0;
+  // Bildzeit bis 0,5 s übernehmen: auch bei wenigen Bildern/s läuft Echtzeit mit der echten Uhr
+  const dt = lastTs !== null ? Math.min((ts-lastTs)/1000, .5) : 0;
   lastTs = ts;
   updateTween(dt);
   const N = parsedData.positions.length;
@@ -4577,35 +4786,92 @@ function fitAllToView() {
 // ═══════════════════════════════════════════════════
 // PATH BUILDING
 // ═══════════════════════════════════════════════════
+const FRAME_LIMIT = 300;   // darüber Zielpunkte als Punktwolke statt einzelner Koordinatenkreuze
+function _disposeGroup(grp){
+  grp.traverse(o=>{
+    if(o.isArrowHelper){ o.line.material.dispose(); o.cone.material.dispose(); return; }
+    if(o.parent&&o.parent.isArrowHelper) return;
+    if(o.geometry) o.geometry.dispose();
+    if(o.material) o.material.dispose();
+  });
+  grp.clear();
+}
+let plannedLine=null, pathMode='all';
+// G-Code-Darstellung: 'all' = ganze Bahn, 'upto' = bis zur aktuellen Simulationsposition, 'none' = ausgeblendet
+function setPathMode(mode){
+  pathMode=mode;
+  document.querySelectorAll('[data-path]').forEach(b=>b.classList.toggle('on',b.dataset.path===mode));
+  updateVisitedPath(sim.t); requestRender();
+}
+function _applyPathMode(t){
+  const show=pathMode!=='none';
+  pathGrp.visible=show; posGrp.visible=show&&showPosFrames;
+  if(!show)return;
+  const N=parsedData.positions.length;
+  const cnt=pathMode==='upto' ? (t>0||sim.t>0 ? Math.min(N,Math.floor(t)+1) : 1) : N;
+  if(plannedLine) plannedLine.geometry.setDrawRange(0,cnt);
+  // Zielpunkte: Punktwolke per DrawRange, Koordinatenkreuze einzeln
+  posGrp.children.forEach((c,i)=>{ if(c.isPoints) c.geometry.setDrawRange(0,cnt); else c.visible=i<cnt; });
+}
 function buildScene(positions){ requestRender();
-  posGrp.clear(); posGrp.visible = showPosFrames;pathGrp.clear();tcpTraceGrp.clear();tcpTracePoints.length=0;
-  visitedLine=null;markerGrp.visible=false;selSphere.visible=false;
+  _disposeGroup(posGrp); posGrp.visible = showPosFrames; _disposeGroup(pathGrp); tcpTraceGrp.clear(); tcpTracePoints.length=0;
+  visitedLine=visitedHead=plannedLine=null; markerGrp.visible=false; selSphere.visible=false;
   if(!positions.length)return;
-  const pts=positions.map(p=>new THREE.Vector3(p.X,p.Y,p.Z));
-  if(pts.length>1)pathGrp.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts),new THREE.LineBasicMaterial({color:hexToInt((document.getElementById('cfg-planned-col')||{value:'#1a3050'}).value),linewidth:pathLineWidth})));
-  positions.forEach((pos,i)=>{const g=makeFrame(pos);g.userData.posIdx=i;posGrp.add(g);});
-  const box=new THREE.Box3();pts.forEach(p=>box.expandByPoint(p));
+  const N=positions.length, arr=new Float32Array(N*3);
+  positions.forEach((p,i)=>{arr[i*3]=p.X;arr[i*3+1]=p.Y;arr[i*3+2]=p.Z;});
+  if(N>1){const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.BufferAttribute(arr,3));
+    plannedLine=new THREE.Line(g,new THREE.LineBasicMaterial({color:hexToInt((document.getElementById('cfg-planned-col')||{value:'#1a3050'}).value),linewidth:pathLineWidth}));
+    plannedLine.frustumCulled=false;pathGrp.add(plannedLine);}
+  if(N<=FRAME_LIMIT){
+    positions.forEach((pos,i)=>{const g=makeFrame(pos);g.userData.posIdx=i;posGrp.add(g);});
+  }else{
+    const col=new Float32Array(N*3),c=new THREE.Color();
+    positions.forEach((p,i)=>{c.setHex(TYPE_COL[p.type]!==undefined?TYPE_COL[p.type]:0xffffff);col[i*3]=c.r;col[i*3+1]=c.g;col[i*3+2]=c.b;});
+    const g=new THREE.BufferGeometry();
+    g.setAttribute('position',new THREE.BufferAttribute(arr.slice(),3));
+    g.setAttribute('color',new THREE.BufferAttribute(col,3));
+    posGrp.add(new THREE.Points(g,new THREE.PointsMaterial({size:4,sizeAttenuation:false,vertexColors:true})));
+  }
+  const box=new THREE.Box3();box.setFromArray(arr);
   const ctr=new THREE.Vector3();box.getCenter(ctr);const span=box.getSize(new THREE.Vector3()).length();
   orbitTarget.copy(ctr);orbitState.radius=Math.max(800,span*1.9);orthoHalfSize=Math.max(800,span*.7);updateCamera();
+  _applyPathMode(sim.t);
 }
 
 // ═══════════════════════════════════════════════════
 // GUTTER
 // ═══════════════════════════════════════════════════
 let posLineNums=new Set();
-function buildGutter(count){
-  const gut=document.getElementById('gutter');gut.innerHTML='';
-  for(let i=0;i<count;i++){
-    const row=document.createElement('div');row.className='gl';row.dataset.line=i;
-    if(posLineNums.has(i))row.classList.add('can-bp');if(breakpoints.has(i))row.classList.add('has-bp');
-    const ln=document.createElement('span');ln.className='ln';ln.textContent=i+1;
-    const dot=document.createElement('span');dot.className='bpdot';
-    row.appendChild(ln);row.appendChild(dot);row.addEventListener('click',()=>toggleBP(i,row));gut.appendChild(row);
-  }
+// Zeilennummern virtuell: nur die sichtbaren Zeilen werden gezeichnet (50.000-Zeilen-Programme).
+// Haltepunkte per Klick auf die Zeilennummer (Ereignis am Container).
+function _lineHeight(){ return parseFloat(getComputedStyle(_codeEl).lineHeight)||20; }
+function _padTop(){ return parseFloat(getComputedStyle(_codeEl).paddingTop)||0; }
+function renderGutter(){
+  if(!_gutEl)return;
+  const lh=_lineHeight(), pt=_padTop(), st=_codeEl.scrollTop;
+  const first=Math.max(0,Math.floor((st-pt)/lh)), cnt=Math.ceil(_gutEl.clientHeight/lh)+2;
+  const last=Math.min(_gutLines,first+cnt);
+  const key=first+'|'+last+'|'+_gutActive+'|'+st+'|'+lh+'|'+breakpoints.size;
+  if(key===_gutKey)return; _gutKey=key;
+  let html='<div style="transform:translateY('+(pt+first*lh-st)+'px)">';
+  for(let i=first;i<last;i++) html+='<div class="gl'+(i===_gutActive?' active':'')+(posLineNums.has(i)?' can-bp':'')+(breakpoints.has(i)?' has-bp':'')
+    +'" data-line="'+i+'"><span class="ln">'+(i+1)+'</span><span class="bpdot"></span></div>';
+  _gutEl.innerHTML=html+'</div>';
+  // Balken über der aktiven Zeile im Textfeld
+  const hl=document.getElementById('code-hl');
+  if(hl){ if(_gutActive<0){hl.style.top='-100px';} else { const y=pt+_gutActive*lh-st; hl.style.top=y+'px'; hl.style.height=lh+'px';
+    hl.style.display=(y<-lh||y>_codeEl.clientHeight)?'none':''; } }
 }
-function toggleBP(ln,row){if(!posLineNums.has(ln))return;if(breakpoints.has(ln)){breakpoints.delete(ln);row.classList.remove('has-bp');}else{breakpoints.add(ln);row.classList.add('has-bp');}}
-function rebuildGutter(){const lines=document.getElementById('code-input').value.split(/\r?\n/);buildGutter(lines.length);}
-document.getElementById('code-input').addEventListener('scroll',function(){document.getElementById('gutter').scrollTop=this.scrollTop;});
+function buildGutter(count){ _gutLines=count; _gutKey=''; renderGutter(); }
+function toggleBP(ln){if(!posLineNums.has(ln))return;if(breakpoints.has(ln))breakpoints.delete(ln);else breakpoints.add(ln);_gutKey='';renderGutter();}
+function rebuildGutter(){
+  const v=_codeEl.value; let n=1;
+  for(let i=v.indexOf('\n');i>=0;i=v.indexOf('\n',i+1)) n++;
+  buildGutter(n);
+}
+if(_gutEl) _gutEl.addEventListener('click',e=>{ const r=e.target.closest('.gl'); if(r) toggleBP(+r.dataset.line); });
+_codeEl.addEventListener('scroll',renderGutter);
+window.addEventListener('resize',()=>{_gutKey='';renderGutter();});
 function updateGutterActive(lineNum){
   // Formular-Modus: Karte hervorheben
   var fv = document.getElementById('krl-form-view');
@@ -4616,10 +4882,12 @@ function updateGutterActive(lineNum){
     return;
   }
   // KUKA KRL Modus: Gutter
-  document.querySelectorAll('#gutter .gl').forEach(r=>r.classList.remove('active'));
-  const t=document.querySelector(`#gutter .gl[data-line="${lineNum}"]`);if(!t)return;t.classList.add('active');
-  const ta=document.getElementById('code-input');const lh=20,pv=10;const top=lineNum*lh+pv;
-  if(top<ta.scrollTop||top>ta.scrollTop+ta.clientHeight-lh)ta.scrollTop=Math.max(0,top-ta.clientHeight/2);
+  if(_edDriving)return;
+  if(lineNum===_gutActive)return;
+  _gutActive=lineNum;
+  const lh=_lineHeight(), top=_padTop()+lineNum*lh;
+  if(top<_codeEl.scrollTop||top>_codeEl.scrollTop+_codeEl.clientHeight-lh)_codeEl.scrollTop=Math.max(0,top-_codeEl.clientHeight/2);
+  renderGutter();
 }
 
 // ═══════════════════════════════════════════════════
@@ -4637,9 +4905,12 @@ function updateIKBadge(idx, res) {
   badge.textContent = (res&&res.ok) ? `IK ✓  Δ${res.score.toFixed(1)}` : 'IK ✗ nicht erreichbar';
 }
 
+const POS_CARD_LIMIT=2000;   // große Programme: Liste gekürzt (Navigation über Editor, Positionsregler, Map)
 function renderPositions(positions){ requestRender();
   const el=document.getElementById('pos-list');
+  _posCardActive=-1;
   if(!positions.length){el.innerHTML='<div class="empty">' + t('no_pos2') + '</div>';return;}
+  const all=positions; positions=all.length>POS_CARD_LIMIT?all.slice(0,POS_CARD_LIMIT):all;
   el.innerHTML=positions.map((p,i)=>{
     const tc=(p.type||'').toLowerCase();
     const ik=ikTable[i];
@@ -4654,11 +4925,19 @@ function renderPositions(positions){ requestRender();
         <div class="pf"><span>A(Z)</span> ${ff(d.A)}°</div><div class="pf"><span>B(Y)</span> ${ff(d.B)}°</div><div class="pf"><span>C(X)</span> ${ff(d.C)}°</div>
         ${ikHtml}
       </div></div>`;
-  }).join('');
+  }).join('') + (all.length>positions.length ? '<div class="empty">Liste gekürzt: '+positions.length+' von '+all.length+' Positionen angezeigt</div>' : '');
   positions.forEach((_,i)=>{(function(){var _e=document.getElementById('pcard-'+i);if(_e)_e.addEventListener('click',function(){pauseSim();setStatus('paused','PAUSED');selectPosition(i);});})();;});
 }
 
-function updatePosCards(activeIdx){document.querySelectorAll('.pc').forEach((el,i)=>el.classList.toggle('sim-cur',i===activeIdx));(function(){var _e=document.getElementById('pcard-'+activeIdx);if(_e)_e.scrollIntoView({block:'nearest',behavior:'smooth'});})();;}
+// Nur die vorher und jetzt aktive Karte umschalten (vorher: alle Karten je Bild, bei 50.000 Punkten ~65 ms)
+let _posCardActive=-1;
+function updatePosCards(activeIdx){
+  if(activeIdx===_posCardActive)return;
+  const old=document.getElementById('pcard-'+_posCardActive); if(old)old.classList.remove('sim-cur');
+  _posCardActive=activeIdx;
+  const el=document.getElementById('pcard-'+activeIdx);
+  if(el){ el.classList.add('sim-cur'); if(el.offsetParent) el.scrollIntoView({block:'nearest',behavior:sim.playing?'auto':'smooth'}); }
+}
 function renderVariables(vars){const el=document.getElementById('var-list');const entries=Object.entries(vars);if(!entries.length){el.innerHTML='<div class="empty">' + t('no_vars') + '</div>';return;}el.innerHTML=entries.map(([n,v])=>{const d=typeof v==='boolean'?(v?'TRUE':'FALSE'):String(v);return`<div class="vr"><span class="vn">${n}</span><span class="vv">${d}</span></div>`;}).join('');}
 function _spToggleDig(prefix,idx){
   const key=prefix==='$IN'?'digitalIn':'digitalOut';
@@ -4939,6 +5218,7 @@ function updateTCPDef(){
 var _krlSnapshot = '';
 var _krlSnapshotParsed = false;
 
+let _parsedCode=null, _ikPending=false;   // zuletzt geparster KRL-Code; IK-Berechnung läuft
 function parseAndLoad(){
   var _activeId = (typeof FormatRegistry !== 'undefined' && FormatRegistry.getActiveId) ? FormatRegistry.getActiveId() : null;
   var _isKRL = !_activeId || _activeId === 'kuka' || _activeId === 'kuka-form';
@@ -4959,12 +5239,25 @@ function parseAndLoad(){
     code = _krlSnapshot;
     _krlSnapshotParsed = true;
   }
+  _parsedCode=code; _ikPending=true;
+  if(applyBase._t){ clearTimeout(applyBase._t); applyBase._pending=false; }
+  if(typeof _updateDirtyUI==='function')_updateDirtyUI();
   parsedData=parseKRL(code);const N=parsedData.positions.length;
+  // Schnellzugriff: Positionsindex -> Programmschritt
+  parsedData.stepOfPos=new Int32Array(N).fill(-1);
+  parsedData.steps.forEach((s,i)=>{if(s.type==='move'&&parsedData.stepOfPos[s.posIdx]<0)parsedData.stepOfPos[s.posIdx]=i;});
+  _gutActive=-1;
   ensureBasesForProgram(); // Eintraege fuer alle referenzierten BASE_DATA[n] sicherstellen
   bakeBaseOffset(); // Code-Koordinaten + jeweils aktiver BASE-Offset pro Punkt -> Welt
   posLineNums=new Set(parsedData.positions.map(p=>p.lineNum).filter(n=>n!==undefined));
   for(const bp of[...breakpoints])if(!posLineNums.has(bp))breakpoints.delete(bp);
-  buildGutter(code.split(/\r?\n/).length);
+  const _nLines=code.split(/\r?\n/).length;
+  buildGutter(_nLines);
+  // Programmzeile → Positionsindex (Zeilen ohne Bewegung: letzte Bewegung davor)
+  parsedData.posOfLine=new Int32Array(_nLines).fill(-1);
+  parsedData.positions.forEach((p,i)=>{if(p.lineNum!==undefined&&p.lineNum<_nLines&&parsedData.posOfLine[p.lineNum]<0)parsedData.posOfLine[p.lineNum]=i;});
+  for(let l=1;l<_nLines;l++) if(parsedData.posOfLine[l]<0) parsedData.posOfLine[l]=parsedData.posOfLine[l-1];
+  for(let l=0;l<_nLines&&parsedData.posOfLine[l]<0;l++) if(N) parsedData.posOfLine[l]=0; // Programmkopf → Anfang
   const ps=document.getElementById('pos-s');ps.min=0;ps.max=Math.max(0,N-1);ps.step=0.001;ps.value=0;
   document.getElementById('pos-v').textContent=N>0?`1 / ${N}`:'— / —';
   stopSim(0);setStatus('stopped','STOPPED');document.getElementById('marker-info').style.display='none';deselectPosition();
@@ -4976,9 +5269,13 @@ function parseAndLoad(){
     computeIKTableProgressive(parsedData.positions, ()=>{
       renderPositions(parsedData.positions);
       renderVariables(parsedData.finalState.variables);renderDigital(parsedData.finalState.digitalIn,'$IN','din-list');renderDigital(parsedData.finalState.digitalOut,'$OUT','dout-list');renderAnalog(parsedData.finalState.analogOut);
+      _ikPending=false;
       if(N>0){applySimT(0);sim.stepIdx=0;if((parsedData.steps&&parsedData.steps.length))applyStep(0);else setStatus('paused','BEREIT');}
       else setStatus('stopped','STOPPED');
       parseProgressHide();
+      if(typeof _ikJumpCheck==='function')_ikJumpCheck();
+      if(typeof _aScanAfterIK!=='undefined'&&_aScanAfterIK){ _aScanAfterIK=false; aPlotStartScan(); }
+      if(typeof aPlotInvalidate==='function')aPlotInvalidate();
     });
   },10);
 }
