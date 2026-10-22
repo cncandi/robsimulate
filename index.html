@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>RobSimul · cnc-technik.de</title>
-<link rel="stylesheet" href="./css/simulator.css">
+<link rel="stylesheet" href="./css/simulator.css?v=20261022a">
 <style>
 /* ── Menüleiste ──────────────────────────────────────────────── */
 header {
@@ -201,6 +201,9 @@ header .title    { display: none !important; }
 <symbol id="s-trash"    viewBox="0 0 16 16"><path d="M3 4h10M6 4V2h4v2M5 4v9a1 1 0 0 0 1 1h4a1 1 0 0 0 1-1V4"/><path d="M7 7v4M9 7v4"/></symbol>
 <symbol id="s-reset"    viewBox="0 0 16 16"><path d="M3 8A5 5 0 1 1 5 4"/><path d="M1 2v4h4"/></symbol>
 <symbol id="s-monitor"  viewBox="0 0 16 16"><rect x="1" y="2" width="14" height="10" rx="1"/><path d="M5 14h6M8 12v2"/></symbol>
+<symbol id="s-path"     viewBox="0 0 24 24"><path d="M3 18c3-8 6-12 9-8s6 2 9-6"/><circle cx="3" cy="18" r="1.4" fill="currentColor"/></symbol>
+<symbol id="s-pathupto" viewBox="0 0 24 24"><path d="M3 18c3-8 6-12 9-8"/><path d="M12 10c3 4 6 2 9-6" stroke-dasharray="2 2.5" opacity=".5"/><circle cx="12" cy="10" r="2" fill="currentColor"/></symbol>
+<symbol id="s-pathoff"  viewBox="0 0 24 24"><path d="M3 18c3-8 6-12 9-8s6 2 9-6" opacity=".45"/><path d="M4 4l16 16"/></symbol>
 <symbol id="s-chart"    viewBox="0 0 16 16"><path d="M2 13l3-4 3 2 3-5 3 2"/><path d="M2 13h12"/></symbol>
 <symbol id="s-grid"     viewBox="0 0 16 16"><path d="M1 5h14M1 10h14M5 1v14M10 1v14" stroke-width="1.2"/></symbol>
 <symbol id="s-help"     viewBox="0 0 16 16"><circle cx="8" cy="8" r="6"/><path d="M6 6.5a2 2 0 0 1 4 .5c0 2-2 2-2 3"/><circle cx="8" cy="12" r=".7" fill="currentColor" stroke="none"/></symbol>
@@ -319,7 +322,10 @@ header .title    { display: none !important; }
     <button class="rib-btn" id="rib-grid" onclick="toggleGrid()" title="Grid"><svg><use href="#s-grid"/></svg>Grid</button>
     <button class="rib-btn" id="rib-bg" onclick="document.getElementById('btn-bg')?.click()" title="Hintergrund"><svg><use href="#s-palette"/></svg>Theme</button>
     <button class="rib-btn" id="rib-steuer" onclick="toggleSteuerPanel()" title="Status Panel"><svg><use href="#s-monitor"/></svg>Status</button>
-    <button class="rib-btn" id="rib-aplot" onclick="toggleAPlot?.()" title="A-Winkel Map"><svg><use href="#s-chart"/></svg>A-Plot</button>
+    <button class="rib-btn" id="rib-aplot" onclick="toggleAPlot?.()" title="Robot Map (A-Winkel)"><svg><use href="#s-chart"/></svg>A-Plot</button>
+    <button class="rib-btn on" data-path="all"  onclick="setPathMode('all')"  title="G-Code-Bahn vollständig anzeigen"><svg><use href="#s-path"/></svg>G-Code</button>
+    <button class="rib-btn" data-path="upto" onclick="setPathMode('upto')" title="G-Code-Bahn nur bis zum aktuellen Simulationspunkt anzeigen"><svg><use href="#s-pathupto"/></svg>Bis Pos.</button>
+    <button class="rib-btn" data-path="none" onclick="setPathMode('none')" title="G-Code-Bahn ausblenden"><svg><use href="#s-pathoff"/></svg>Aus</button>
     <span class="rib-group-label">Anzeige</span>
   </div>
 
@@ -378,6 +384,7 @@ header .title    { display: none !important; }
   <span class="slbl">Step</span>
   <input type="range" class="ss" id="pos-s" min="0" max="1" value="0" step="0.001" style="width:120px">
   <span class="sv" id="pos-v">— / —</span>
+  <span class="sv" id="pos-pct" title="Position im Programm">0 %</span>
   <div class="sep"></div>
   <span class="slbl" id="tcp-vel-lbl">TCP</span>
   <span class="sv" id="tcp-vel-v" style="min-width:72px">0 mm/s</span>
@@ -537,6 +544,7 @@ header .title    { display: none !important; }
     </div>
     <div class="ew">
       <div id="gutter"></div>
+      <div id="code-hl"></div>
       <textarea id="code-input" spellcheck="false" wrap="off"></textarea>
       <div id="fv-form-wrap" class="ew-form-wrap" style="display:none">
         <div id="krl-form-view" style="flex-direction:column;flex:1;overflow-y:auto;background:var(--bg1)"></div>
@@ -626,6 +634,7 @@ header .title    { display: none !important; }
       </div>
     </div>
     <div id="marker-info"></div>
+    <div id="sim-warn" style="display:none" title="Klicken: zur ersten Stelle springen"></div>
     <div class="scene-hint" data-i18n="hint">LMB: Orbit / Pos. ziehen &nbsp;|&nbsp; RMB: Pan &nbsp;|&nbsp; Wheel: Zoom &nbsp;|&nbsp; Pos. klicken = auswählen</div>
     <!-- robot status bar -->
     <div id="robot-bar">
@@ -808,33 +817,57 @@ header .title    { display: none !important; }
 <script src="./js/i18n.js?v=20260531a"></script>
 <script src="./js/dp-solver.js?v=20260531a"></script>
 <script src="./js/formats/registry.js?v=20260531a"></script>
-<script src="./js/simulator.js?v=20260908a"></script>
+<script src="./js/simulator.js?v=20261022a"></script>
 <script src="./js/cable-system.js?v=20260531a"></script>
 <script src="./js/formats/kuka-form.js?v=20260531a"></script>
 <script src="./js/formats/kuka.js?v=20260531a"></script>
 <script src="./js/formats/converters.js?v=20260531a"></script>
 <script src="./js/formats/abb-binary.js?v=20260531a"></script>
 
-<!-- A-Winkel Diagramm -->
-<div id="aplot-panel" style="position:fixed;bottom:60px;left:320px;width:660px;background:rgba(8,18,28,.97);border:1px solid var(--acc);border-radius:5px;z-index:30;user-select:none;box-shadow:0 4px 20px rgba(0,0,0,.8);display:none">
-  <div id="aplot-hdr" style="display:flex;align-items:center;padding:5px 8px;background:rgba(240,85,0,.12);border-bottom:1px solid rgba(240,85,0,.3);cursor:move;gap:8px">
-    <span style="color:var(--acc);font-weight:bold;font-size:.8em;letter-spacing:1px">A(Rz) — Winkel-Verlauf</span>
-    <span id="aplot-info" style="color:var(--txt2);font-size:.75em;flex:1">—</span>
-    <span id="aplot-edit-hint" style="color:#ffee00;font-size:.72em;display:none">✎ Punkt gezogen</span>
-    <button id="aplot-auto-btn" onclick="aPlotAutoSolve()" title="Automatische A-Winkel-Lösung ohne gelbe Bereiche" style="background:rgba(200,160,0,.15);border:1px solid #c8a000;color:#c8a000;cursor:pointer;font-size:.75em;padding:3px 10px;border-radius:3px">⚡ Auto-Lösung</button>
-    <button onclick="aPlotStartScan()" title="Reachability-Scan starten" style="background:rgba(0,160,80,.15);border:1px solid #00a050;color:#00c060;cursor:pointer;font-size:.75em;padding:3px 10px;border-radius:3px">⟳ MAP erzeugen</button>
-    <button onclick="aPlotApply()" title="Geänderte A-Werte ins KRL übernehmen" style="background:rgba(240,85,0,.2);border:1px solid var(--acc);color:var(--acc);cursor:pointer;font-size:.75em;padding:3px 10px;border-radius:3px;margin-right:4px">✅ Übernehmen</button>
-    <button onclick="aPlotReset()" title="Änderungen zurücksetzen" style="background:none;border:1px solid #3a6080;color:#3a6080;cursor:pointer;font-size:.75em;padding:3px 8px;border-radius:3px;margin-right:4px">↺</button>
-    <button onclick="toggleAPlot()" style="background:none;border:none;color:var(--txt2);cursor:pointer;font-size:1em;padding:0 4px;line-height:1">✕</button>
+<!-- Robot Map (A) -->
+<div id="aplot-panel">
+  <div id="aplot-grip" title="Höhe ändern"></div>
+  <div id="aplot-hdr">
+    <span class="sec-title">Robot Map · A</span>
+    <span id="aplot-info">—</span>
+    <span id="aplot-msg"></span>
+    <span id="aplot-edit-hint">Linie nicht übernommen</span>
+    <button class="btn" onclick="aPlotStartScan()" title="Karte der erreichbaren A-Werte entlang der Bahn berechnen">MAP erzeugen</button>
+    <button class="btn" onclick="aPlotAutoPath()" title="Grüne Linie automatisch um Störbereiche legen">Auto-Weg</button>
+    <button class="btn" onclick="aPlotPathFromProgram()" title="Grüne Linie aus den A-Werten des Programms anlegen">Aus Programm</button>
+    <button class="btn primary" onclick="aPlotApply()" title="A-Werte der grünen Linie für alle Punkte ins KRL schreiben">Übernehmen</button>
+    <button class="btn icon" onclick="aPlotReset()" title="Linie neu automatisch anlegen">↺</button>
+    <button class="btn icon" onclick="aPlotToggleMax()" title="Maximieren / Normal">⤢</button>
+    <button class="xbtn" onclick="toggleAPlot()" title="Schließen">✕</button>
   </div>
-  <div style="position:relative;padding:6px 6px 4px">
-    <canvas id="aplot-canvas" width="648" height="210" style="display:block;border-radius:3px"></canvas>
-    <div id="aplot-scan-overlay" style="display:none;position:absolute;inset:6px 6px 4px;background:rgba(5,12,22,.85);border-radius:3px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px">
-      <div style="color:var(--acc);font-size:.8em;letter-spacing:1px" id="aplot-scan-msg">Reachability-Scan läuft…</div>
-      <div style="width:80%;height:4px;background:var(--bg2);border-radius:2px;overflow:hidden">
-        <div id="aplot-scan-bar" style="height:100%;width:0%;background:var(--acc);border-radius:2px;transition:width .1s"></div>
+  <div class="aplot-main">
+    <div class="aplot-side">
+      <div class="side-h">Karte</div>
+      <label><input type="checkbox" checked onchange="aPlotLayer('reach',this.checked)"><i style="background:rgb(110,18,32)"></i>Unerreichbar</label>
+      <label><input type="checkbox" checked onchange="aPlotLayer('limit',this.checked)"><i style="background:rgb(222,40,82)"></i>Achsgrenze</label>
+      <label><input type="checkbox" checked onchange="aPlotLayer('sing',this.checked)"><i style="background:rgb(235,196,50)"></i>Singularität</label>
+      <label><input type="checkbox" checked onchange="aPlotLayer('coll',this.checked)"><i style="background:rgb(255,140,26)"></i>Kollision</label>
+      <label><input type="checkbox" checked onchange="aPlotLayer('prog',this.checked)"><i class="dash"></i>Programm-A</label>
+      <label><input type="checkbox" checked onchange="aPlotLayer('path',this.checked)"><i style="background:#3ddc84"></i>Weg (grün)</label>
+      <div class="side-h">Einstellungen</div>
+      <div class="side-row"><span>Auflösung</span><select id="aplot-res" class="inp">
+        <option value="auto">Auto</option><option value="500">500</option><option value="1000">1000</option><option value="2000">2000</option><option value="all">Alle Punkte</option></select></div>
+      <div class="side-row"><span>A-Schritt</span><select id="aplot-astep" class="inp">
+        <option value="6">6°</option><option value="3" selected>3°</option><option value="2">2°</option></select></div>
+      <div class="side-row"><span>Abstand</span><input id="aplot-safe" class="inp" type="number" value="12" min="0" max="90" step="3" onchange="if(_aMap)aPlotMsg('Einstellung geändert – MAP neu erzeugen')"><span class="u">°</span></div>
+      <div class="side-row" title="Ellbogen-Singularität melden, wenn der Arm weniger als diese Strecke vor seiner maximalen Reichweite (gestreckt) ist"><span>Ellbogen</span><input id="aplot-elbow" class="inp" type="number" value="50" min="0" max="500" step="10" onchange="if(_aMap)aPlotMsg('Einstellung geändert – MAP neu erzeugen')"><span class="u">mm</span></div>
+      <div class="side-row" title="Radius der Roboterglieder für die Kollisionsprüfung gegen das gedruckte Teil"><span>Kollision</span><input id="aplot-coll" class="inp" type="number" value="60" min="0" max="300" step="10" onchange="if(_aMap)aPlotMsg('Einstellung geändert – MAP neu erzeugen')"><span class="u">mm</span></div>
+      <div class="side-h">Verifikation</div>
+      <div id="aplot-verify">—</div>
+      <div class="side-help">Knoten ziehen · auf Linie ziehen fügt Knoten ein · Rechtsklick löscht Knoten · Klick setzt Simulation</div>
+    </div>
+    <div class="aplot-body">
+      <canvas id="aplot-canvas"></canvas>
+      <div id="aplot-scan-overlay">
+        <div class="lbl" id="aplot-scan-msg">MAP wird erzeugt…</div>
+        <div class="progress"><div id="aplot-scan-bar"></div></div>
+        <div class="lbl" id="aplot-scan-pct">0%</div>
       </div>
-      <div id="aplot-scan-pct" style="color:var(--txt3);font-size:.75em">0%</div>
     </div>
   </div>
 </div>

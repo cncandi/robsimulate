@@ -771,3 +771,58 @@ body.bg-pro ::-webkit-scrollbar-thumb:hover { background:#6a6a6a; }
 .sp-tog.on  { background:#00cc66; color:#001a0d; }
 .sp-tog.off { background:#444; color:#aaa; }
 .sp-aslider { width:100%; accent-color:var(--acc); margin:4px 0; height:6px; }
+
+/* ── Robot Map (A) ── Panel über der 3D-Ansicht, Höhe ziehbar ── */
+#aplot-panel{position:fixed;bottom:60px;left:320px;width:660px;height:var(--aplot-h,58vh);background:rgba(8,18,28,.98);
+  border:1px solid var(--acc);border-radius:5px;z-index:30;user-select:none;box-shadow:0 4px 20px rgba(0,0,0,.8);
+  display:none;flex-direction:column;font-family:'Consolas','Courier New',monospace}
+#aplot-panel.max{bottom:auto}
+#aplot-grip{height:5px;cursor:ns-resize;flex:none;border-radius:5px 5px 0 0}
+#aplot-grip:hover{background:rgba(240,85,0,.35)}
+#aplot-hdr{display:flex;align-items:center;gap:8px;padding:2px 8px 6px;border-bottom:1px solid rgba(240,85,0,.3);background:rgba(240,85,0,.08);flex:none}
+#aplot-hdr .sec-title{color:var(--acc);font-weight:bold;font-size:.8em;letter-spacing:1px;white-space:nowrap}
+#aplot-info{flex:1;min-width:120px;font-size:.75em;color:var(--txt2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#aplot-msg{font-size:.75em;color:var(--info);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:30%}
+#aplot-edit-hint{font-size:.72em;color:#d8f03c;display:none;white-space:nowrap}
+#aplot-panel .btn{flex:none;background:rgba(255,255,255,.05);border:1px solid #3a6080;color:var(--txt2);cursor:pointer;
+  font-family:inherit;font-size:.75em;padding:3px 10px;border-radius:3px;height:24px}
+#aplot-panel .btn:hover{border-color:var(--acc);color:var(--txt)}
+#aplot-panel .btn.primary{background:rgba(240,85,0,.2);border-color:var(--acc);color:var(--acc)}
+#aplot-panel .btn.icon{padding:3px 7px}
+#aplot-panel .xbtn{background:none;border:none;color:var(--txt2);cursor:pointer;font-size:1em;padding:0 4px;line-height:1}
+.aplot-main{flex:1;display:flex;min-height:0}
+.aplot-side{width:178px;flex:none;border-right:1px solid var(--bdr);padding:8px 10px;display:flex;flex-direction:column;gap:5px;
+  overflow:auto;font-size:.75em;color:var(--txt2)}
+.aplot-side .side-h{font-size:.9em;text-transform:uppercase;letter-spacing:.06em;color:var(--txt3);margin-top:6px}
+.aplot-side label{display:flex;align-items:center;gap:7px;cursor:pointer}
+.aplot-side label input{margin:0;accent-color:var(--acc)}
+.aplot-side label i{width:12px;height:12px;border-radius:2px;flex:none}
+.aplot-side label i.dash{height:0;border-top:2px dashed #c8ccd6;border-radius:0}
+.side-row{display:flex;align-items:center;gap:6px}
+.side-row>span:first-child{width:62px;flex:none}
+.side-row .inp{height:22px;padding:0 4px;font-family:inherit;font-size:1em;min-width:0;flex:1;background:var(--bg1);color:var(--txt);border:1px solid var(--bdr);border-radius:3px}
+.side-row .u{color:var(--txt3)}
+#aplot-verify{font-size:1em;line-height:1.4;color:var(--txt3)}
+#aplot-verify.ok{color:var(--ok)}
+#aplot-verify.bad{color:#ff6b81}
+#aplot-verify.run{color:var(--info)}
+.side-help{margin-top:auto;font-size:.9em;line-height:1.45;color:var(--txt3)}
+.aplot-body{position:relative;flex:1;min-width:0;min-height:0}
+#aplot-canvas{display:block;position:absolute;inset:0;cursor:crosshair}
+#aplot-scan-overlay{display:none;position:absolute;inset:0;background:rgba(5,12,22,.88);
+  flex-direction:column;align-items:center;justify-content:center;gap:10px}
+#aplot-scan-overlay .lbl{color:var(--acc);font-size:.8em;letter-spacing:1px}
+#aplot-scan-overlay .progress{width:80%;height:4px;background:var(--bg2);border-radius:2px;overflow:hidden}
+#aplot-scan-bar{height:100%;width:0%;background:var(--acc);transition:width .1s}
+
+/* aktive Programmzeile im Editor (folgt der Simulation) */
+#code-hl{position:absolute;left:var(--gw);right:0;height:var(--lh);top:-100px;pointer-events:none;z-index:1;
+  background:rgba(240,85,0,.14);border-left:2px solid var(--acc)}
+/* Hinweis Achssprung / Kollision / Parsen notwendig */
+#sim-warn{position:absolute;top:8px;left:50%;transform:translateX(-50%);max-width:70%;z-index:20;cursor:pointer;
+  background:rgba(60,30,8,.92);border:1px solid #c06a1c;color:#ffb469;font-size:.78em;line-height:1.4;padding:6px 10px;border-radius:4px}
+#sim-warn.flash{animation:warnflash .6s ease 2}
+@keyframes warnflash{50%{background:#7a3d0e}}
+/* Programm geändert, nicht geparst: Simulation gesperrt */
+.tb.dirty #b-start,.tb.dirty #b-end,.tb.dirty #b-playfwd,.tb.dirty #b-playrev,.tb.dirty #b-stepfwd,.tb.dirty #b-steprev,.tb.dirty #pos-s{opacity:.35}
+#parse-btn.attn{box-shadow:0 0 0 2px var(--warn) inset}
