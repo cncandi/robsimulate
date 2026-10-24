@@ -17,10 +17,11 @@ jobs:
           set -u
           H=ftp.fastmill.biz
           echo "== Wurzel des FTP-Kontos:"
-          curl -s --user "$FTP_USER:$FTP_PASS" --list-only "ftp://$H/" | sort | head -50 || true
+          echo "Passwort gesetzt: $([ -n "$FTP_PASS" ] && echo ja || echo nein)"
+          curl -sS --ftp-pasv --user "$FTP_USER:$FTP_PASS" --list-only "ftp://$H/" 2>&1 | sort | head -50; echo "exit=$?"
           TARGET=""
           for c in /public_html/apps/ /apps/ /httpdocs/apps/ /www/apps/ /../apps/; do
-            L=$(curl -s --user "$FTP_USER:$FTP_PASS" --list-only "ftp://$H$c" || true)
+            L=$(curl -sS --ftp-pasv --user "$FTP_USER:$FTP_PASS" --list-only "ftp://$H$c" 2>&1 || true)
             echo "== Pruefe $c: $(echo "$L" | tr '\n' ' ' | head -c 200)"
             if echo "$L" | grep -qx "api.php" && echo "$L" | grep -qx "portal.php"; then TARGET=$c; break; fi
           done
