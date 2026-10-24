@@ -1,0 +1,31 @@
+name: FTP Upload App-Store-Dateien (cnc-technik.de/apps)
+
+on:
+  push:
+    branches: [ftp-apps-upload]
+
+jobs:
+  upload:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Ziel ermitteln und hochladen
+        env:
+          FTP_USER: robsimul@cnc-technik.de
+          FTP_PASS: ${{ secrets.FTP_PASS_ROBSIMUL != '' && secrets.FTP_PASS_ROBSIMUL || secrets.FTP_PASSWORD }}
+        run: |
+          set -u
+          H=ftp.fastmill.biz
+          echo "== Wurzel des FTP-Kontos:"
+          curl -s --user "$FTP_USER:$FTP_PASS" --list-only "ftp://$H/" | sort | head -50 || true
+          TARGET=""
+          for c in /public_html/apps/ /apps/ /httpdocs/apps/ /www/apps/ /../apps/; do
+            L=$(curl -s --user "$FTP_USER:$FTP_PASS" --list-only "ftp://$H$c" || true)
+            echo "== Pruefe $c: $(echo "$L" | tr '\n' ' ' | head -c 200)"
+            if echo "$L" | grep -qx "api.php" && echo "$L" | grep -qx "portal.php"; then TARGET=$c; break; fi
+          done
+          if [ -z "$TARGET" ]; then echo "ERGEBNIS: Ordner apps mit diesem FTP-Konto nicht erreichbar. Kein Upload."; exit 1; fi
+          echo "ERGEBNIS: Ziel $TARGET"
+          for f in portal.php admin.html gate-template.txt; do
+            curl -s --show-error --user "$FTP_USER:$FTP_PASS" -T "files/$f" "ftp://$H$TARGET$f" && echo "OK $f"
+          done

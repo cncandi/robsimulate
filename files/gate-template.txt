@@ -1,0 +1,140 @@
+<?php
+/* CNC-Portal-Zugangsschutz fuer: %%TITLE%%
+ * Erzeugt von cnc-technik.de Apps. Nicht weitergeben (enthaelt den geheimen Schluessel dieser App).
+ *
+ * Einbau (Apache 2.4 mit PHP und mod_rewrite): Diese Datei als guard.php neben die veroeffentlichte
+ * index.html bzw. index.php legen und dort eine .htaccess mit folgendem Inhalt anlegen
+ * (bei vorhandener .htaccess diese Zeilen an den Anfang setzen):
+ *
+ *   RewriteEngine On
+ *   RewriteRule ^guard\.php$ - [END]
+ *   RewriteRule ^ guard.php [END,QSA]
+ *
+ * Ablauf: Ohne Sitzung -> Portal (Anmeldung, Testphase, Freischaltung) -> signiertes cnc_token zurueck ->
+ * Pruefung von Signatur, App-ID, Ablauf -> eigene Sitzung (hoechstens %%HOURS%% Stunden, nie laenger als die Freigabe).
+ * In HTML-Seiten werden die Nutzungsstatistik und die Benutzeranzeige automatisch eingefuegt.
+ *
+ * Fuer die App abrufbar:  guard.php?cnc=me      -> {"email","customer","accessState","accessUntil","accessExpiresUnix","sessionUntil"}
+ *                         guard.php?cnc=logout  -> lokale Sitzung dieser App beenden
+ */
+const CNC_APP_ID = '%%APP_ID%%';
+const CNC_SECRET = '%%SECRET%%';
+const CNC_PORTAL = '%%PORTAL%%';
+const CNC_HOURS  = %%HOURS%%;
+const CNC_BADGE  = true;    // Benutzeranzeige (unten rechts) in HTML-Seiten einblenden
+// Auch nach Anmeldung gesperrt: versteckte Dateien, Konfiguration, Backups, Archive, Datenbanken, Logs
+const CNC_DENY   = '~(^|/)\.|\.(env|ini|conf|config|bak|old|orig|save|swp|tmp|log|sql|sqlite|db|zip|tar|gz|tgz|7z|rar|pem|key|crt|lock)$|(^|/)(composer\.(json|lock)|package(-lock)?\.json|yarn\.lock)$~i';
+
+function cnc_b64u($s) { return rtrim(strtr(base64_encode($s), '+/', '-_'), '='); }
+function cnc_unb64u($s) { return base64_decode(strtr((string)$s, '-_', '+/') . str_repeat('=', (4 - strlen((string)$s) % 4) % 4), true); }
+function cnc_sign($p) { $p = cnc_b64u(json_encode($p)); return $p . '.' . cnc_b64u(hash_hmac('sha256', $p, CNC_SECRET, true)); }
+function cnc_verify($t) {
+  if (!is_string($t) || substr_count($t, '.') !== 1) return null;
+  [$p, $s] = explode('.', $t);
+  if (!hash_equals(cnc_b64u(hash_hmac('sha256', $p, CNC_SECRET, true)), $s)) return null;
+  $d = json_decode(cnc_unb64u($p), true);
+  if (!is_array($d) || ($d['a'] ?? '') !== CNC_APP_ID || ($d['e'] ?? 0) < time()) return null;
+  if (isset($d['accessExpiresUnix']) && (int)$d['accessExpiresUnix'] <= time()) return null;   // Freigabe abgelaufen
+  return $d;
+}
+
+$self_name = basename(__FILE__);
+$https  = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') || (($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '') === 'https');
+$base   = rtrim(str_replace('\\', '/', dirname($_SERVER['SCRIPT_NAME'])), '/') . '/';
+$cookie = 'cnc_gate_' . substr(CNC_APP_ID, 0, 8);
+$uri    = $_SERVER['REQUEST_URI'] ?? '/';
+$self   = ($https ? 'https' : 'http') . '://' . $_SERVER['HTTP_HOST'] . $uri;
+$setc   = fn($v, $exp) => setcookie($cookie, $v, ['expires' => $exp, 'path' => $base, 'secure' => $https, 'httponly' => true, 'samesite' => 'Lax']);
+
+// 1. Rueckkehr vom Portal mit Freigabe-Token (gueltig 120 s)
+if (isset($_GET['cnc_token'])) {
+  $d = cnc_verify($_GET['cnc_token']);
+  if ($d && !empty($d['c'])) {
+    $exp = time() + CNC_HOURS * 3600;
+    if (!empty($d['accessExpiresUnix'])) $exp = min($exp, (int)$d['accessExpiresUnix']);
+    $sess = ['c' => $d['c'], 'm' => $d['m'] ?? '', 'a' => CNC_APP_ID, 'e' => $exp];
+    foreach (['accessState', 'accessUntil', 'accessExpiresUnix'] as $k) if (isset($d[$k])) $sess[$k] = $d[$k];
+    $setc(cnc_sign($sess), $exp);
+  }
+  $clean = preg_replace('/([?&])cnc_token=[^&#]*(&?)/', '$1', $self);
+  $clean = preg_replace('/[?&]$/', '', str_replace('?&', '?', $clean));
+  header('Location: ' . $clean, true, 302); exit;
+}
+
+// 2. Datei bestimmen
+$path = rawurldecode(parse_url($uri, PHP_URL_PATH) ?? '/');
+$rel  = strpos($path, $base) === 0 ? substr($path, strlen($base)) : ltrim($path, '/');
+if ($rel === $self_name) $rel = '';
+$root = realpath(__DIR__);
+$file = realpath($root . '/' . $rel);
+if ($file && is_dir($file)) $file = realpath($file . '/index.html') ?: realpath($file . '/index.php');
+if (!$file && !pathinfo($rel, PATHINFO_EXTENSION)) $file = realpath($root . '/index.html') ?: realpath($root . '/index.php');   // Single-Page-App
+$relFile = $file ? str_replace('\\', '/', substr($file, strlen($root) + 1)) : '';
+$bad = !$file || strpos($file, $root . DIRECTORY_SEPARATOR) !== 0
+    || basename($file) === $self_name || preg_match(CNC_DENY, $relFile) || preg_match(CNC_DENY, $rel);
+
+// 3. Nur Kopfzeilen (Aenderungsdatum fuer den Store) - ohne Anmeldung, ohne Inhalt
+if ($_SERVER['REQUEST_METHOD'] === 'HEAD') {
+  if ($bad) { http_response_code(404); exit; }
+  header('Last-Modified: ' . gmdate('D, d M Y H:i:s', filemtime($file)) . ' GMT'); exit;
+}
+
+// 4. Freigabe pruefen
+$user = cnc_verify($_COOKIE[$cookie] ?? '');
+$cnc = $_GET['cnc'] ?? '';
+if ($cnc === 'logout') { $setc('', time() - 3600); header('Location: ' . preg_replace('#/portal\.php$#', '/', CNC_PORTAL), true, 302); exit; }
+if (!$user) {
+  if ($cnc === 'me' || stripos($_SERVER['HTTP_ACCEPT'] ?? '', 'text/html') === false && $_SERVER['REQUEST_METHOD'] !== 'GET') {
+    header('Content-Type: application/json'); header('Cache-Control: no-store'); http_response_code(401); echo '{"error":"not_authorized"}'; exit;
+  }
+  header('Location: ' . CNC_PORTAL . '?fn=sso&app=' . CNC_APP_ID . '&return=' . rawurlencode($self), true, 302); exit;
+}
+$me = ['email' => $user['m'], 'customer' => $user['c'], 'accessState' => $user['accessState'] ?? null, 'accessUntil' => $user['accessUntil'] ?? null,
+       'accessExpiresUnix' => $user['accessExpiresUnix'] ?? null, 'sessionUntil' => gmdate('c', $user['e'])];
+if ($cnc === 'me') { header('Content-Type: application/json'); header('Cache-Control: no-store'); echo json_encode($me); exit; }
+
+// 5. Datei ausliefern
+if ($bad) { http_response_code(404); exit('Nicht gefunden.'); }
+$ext = strtolower(pathinfo($file, PATHINFO_EXTENSION));
+if ($ext === 'php') { chdir(dirname($file)); include $file; exit; }
+$types = ['html' => 'text/html; charset=utf-8', 'htm' => 'text/html; charset=utf-8', 'js' => 'text/javascript; charset=utf-8', 'mjs' => 'text/javascript; charset=utf-8',
+  'css' => 'text/css; charset=utf-8', 'json' => 'application/json', 'webmanifest' => 'application/manifest+json', 'svg' => 'image/svg+xml', 'png' => 'image/png',
+  'jpg' => 'image/jpeg', 'jpeg' => 'image/jpeg', 'gif' => 'image/gif', 'webp' => 'image/webp', 'ico' => 'image/x-icon', 'woff' => 'font/woff', 'woff2' => 'font/woff2',
+  'ttf' => 'font/ttf', 'wasm' => 'application/wasm', 'txt' => 'text/plain; charset=utf-8', 'xml' => 'application/xml', 'pdf' => 'application/pdf',
+  'glb' => 'model/gltf-binary', 'gltf' => 'model/gltf+json', 'stl' => 'model/stl', 'mp4' => 'video/mp4', 'map' => 'application/json'];
+$mtime = filemtime($file);
+
+// HTML-Seiten: Nutzungsstatistik und Benutzeranzeige einfuegen
+if ($ext === 'html' || $ext === 'htm') {
+  $html = file_get_contents($file);
+  $tag = '<script src="' . htmlspecialchars(dirname(CNC_PORTAL) . '/t.js') . '" data-app="' . CNC_APP_ID . '" data-u="' . htmlspecialchars($_COOKIE[$cookie] ?? '') . '" defer></script>';
+  if (CNC_BADGE) {
+    $tag .= '<script>(function(m,lo){'
+      . 'function d(v){if(!v)return null;if(/^\d{4}-\d{2}-\d{2}$/.test(v)){var p=v.split("-");return p[2]+"."+p[1]+"."+p[0];}'
+      . 'var x=new Date(v);return isNaN(x)?null:x.toLocaleString("de-DE",{timeZone:"Europe/Berlin",day:"2-digit",month:"2-digit",year:"numeric",hour:"2-digit",minute:"2-digit"});}'
+      . 'var u=d(m.accessUntil),lbl=m.accessState==="trial"?"Testphase bis":"Freigeschaltet bis";'
+      . 'var b=document.createElement("div");b.id="cnc-account";'
+      . 'b.style.cssText="position:fixed;right:12px;bottom:12px;z-index:2147483000;font:12px/1.45 system-ui,Segoe UI,sans-serif;background:#1f2937;color:#f3f4f6;border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,.3);max-width:280px;opacity:.92";'
+      . 'var h="<div style=\"padding:6px 10px;cursor:pointer\" data-t title=\"Konto\">"+(m.email||"")+"</div><div data-p style=\"display:none;padding:0 10px 8px\">"'
+      . '+"Angemeldet als: "+(m.email||"—")+"<br>"+lbl+": "+(u||"<i>keine Angabe</i>")+"<br>Sitzung gültig bis: "+(d(m.sessionUntil)||"—")'
+      . '+"<br><a href=\""+lo+"\" style=\"color:#93c5fd\">Abmelden</a></div>";'
+      . 'b.innerHTML=h;b.querySelector("[data-t]").onclick=function(){var p=b.querySelector("[data-p]");p.style.display=p.style.display==="none"?"block":"none";};'
+      . 'document.addEventListener("DOMContentLoaded",function(){document.body.appendChild(b);});'
+      . '})(' . json_encode($me, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) . ',' . json_encode($base . $self_name . '?cnc=logout', JSON_HEX_TAG | JSON_HEX_QUOT) . ');</script>';
+  }
+  $pos = stripos($html, '</body>');
+  $html = $pos === false ? $html . $tag : substr($html, 0, $pos) . $tag . substr($html, $pos);
+  header('Content-Type: text/html; charset=utf-8');
+  header('Last-Modified: ' . gmdate('D, d M Y H:i:s', $mtime) . ' GMT');
+  header('Cache-Control: private, no-store');
+  header('Content-Length: ' . strlen($html));
+  echo $html; exit;
+}
+$etag = '"' . dechex($mtime) . '-' . dechex(filesize($file)) . '"';
+header('Content-Type: ' . ($types[$ext] ?? 'application/octet-stream'));
+header('Last-Modified: ' . gmdate('D, d M Y H:i:s', $mtime) . ' GMT');
+header('ETag: ' . $etag);
+header('Cache-Control: private, no-cache');
+if (($_SERVER['HTTP_IF_NONE_MATCH'] ?? '') === $etag) { http_response_code(304); exit; }
+header('Content-Length: ' . filesize($file));
+readfile($file);

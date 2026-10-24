@@ -1,0 +1,536 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Apps verwalten</title>
+<script src="config.js?v=7"></script>
+<style>
+:root { --bg:#F3F3F3; --surface:#FFF; --surface-2:#F7F7F7; --border:#DDD; --text:#1A1A1A; --muted:#666; --accent:#0F6CBD; --danger:#C42B1C; --ok:#107C10; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --bg:#1E1E1E; --surface:#2A2A2A; --surface-2:#323232; --border:#404040; --text:#EEE; --muted:#AAA; --accent:#4CA3F0; --danger:#FF7B6E; --ok:#6CCB5F; } }
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body { margin: 0; background: var(--bg); color: var(--text); font: 14px/1.45 "Segoe UI", system-ui, sans-serif; }
+button, input, select, textarea { font: inherit; color: inherit; }
+.wrap { max-width: 1180px; margin: 0 auto; padding: 20px 20px 60px; }
+h1 { font-size: 22px; margin: 0; font-weight: 600; }
+.bar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 16px; }
+.bar .sp { flex: 1; }
+.btn { height: 32px; padding: 0 14px; border-radius: 6px; border: 1px solid var(--border); background: var(--surface); cursor: pointer; text-decoration: none; color: inherit; display: inline-flex; align-items: center; gap: 6px; }
+.btn:hover { background: var(--surface-2); }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: #FFF; }
+.btn.danger { color: var(--danger); }
+.btn:disabled { opacity: .5; cursor: default; }
+.panel { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 16px 18px; }
+table { width: 100%; border-collapse: collapse; }
+th { text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); font-weight: 600; padding: 6px 8px; border-bottom: 1px solid var(--border); }
+td { padding: 8px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+tr.row { cursor: pointer; } tr.row:hover td { background: var(--surface-2); }
+tr.row.sel td { background: color-mix(in srgb, var(--accent) 12%, transparent); }
+.ic { width: 36px; height: 36px; border-radius: 8px; object-fit: cover; display: grid; place-items: center; color: #FFF; font-weight: 700; }
+.muted { color: var(--muted); font-size: 12px; }
+.layout { display: grid; grid-template-columns: minmax(0, 420px) minmax(0, 1fr); gap: 16px; align-items: start; }
+form { display: grid; gap: 14px; }
+.cols { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+label { display: grid; gap: 4px; font-size: 12px; color: var(--muted); }
+input[type=text], input[type=url], input[type=number], input[type=date], input[type=password], select, textarea {
+  width: 100%; padding: 7px 9px; border: 1px solid var(--border); border-radius: 6px; background: var(--surface); outline: none; }
+input:focus, select:focus, textarea:focus { border-color: var(--accent); }
+textarea { resize: vertical; min-height: 64px; }
+textarea.long { min-height: 150px; }
+.check { display: flex; gap: 6px; align-items: center; font-size: 13px; color: var(--text); }
+.imgs { display: flex; gap: 10px; flex-wrap: wrap; }
+.slot { position: relative; width: 168px; aspect-ratio: 16/9; border: 1px dashed var(--border); border-radius: 8px; display: grid; place-items: center; overflow: hidden; background: var(--surface-2); color: var(--muted); font-size: 12px; cursor: pointer; }
+.slot img { width: 100%; height: 100%; object-fit: cover; }
+.slot.icon { width: 96px; aspect-ratio: 1; }
+.slot .x { position: absolute; top: 4px; right: 4px; width: 22px; height: 22px; border-radius: 50%; border: 0; background: rgba(0,0,0,.6); color: #FFF; cursor: pointer; line-height: 1; }
+.slot .mv { position: absolute; bottom: 4px; left: 4px; display: flex; gap: 3px; }
+.slot .mv button { border: 0; border-radius: 4px; background: rgba(0,0,0,.6); color: #FFF; cursor: pointer; padding: 0 6px; }
+fieldset { border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px 12px; margin: 0; display: grid; gap: 10px; }
+legend { font-size: 12px; color: var(--muted); padding: 0 4px; }
+#status { font-size: 13px; min-height: 20px; }
+.err { color: var(--danger); } .okc { color: var(--ok); }
+#login { max-width: 360px; margin: 12vh auto; display: grid; gap: 12px; }
+.tabs { display: flex; gap: 4px; margin-bottom: 16px; border-bottom: 1px solid var(--border); }
+.tabs button { border: 0; background: none; padding: 8px 14px; border-bottom: 2px solid transparent; color: var(--muted); cursor: pointer; font-weight: 600; }
+.tabs button.on { color: var(--text); border-bottom-color: var(--accent); }
+.ctbl th.app { writing-mode: vertical-rl; transform: rotate(180deg); height: 110px; vertical-align: bottom; text-align: left; padding: 6px 4px; }
+.st { display: inline-block; font-size: 11px; padding: 1px 6px; border-radius: 4px; white-space: nowrap; border: 1px solid var(--border); }
+.st.trial, .st.trial_available { color: var(--accent); }
+.st.active { color: var(--ok); border-color: color-mix(in srgb, var(--ok) 50%, transparent); }
+.st.expired, .st.blocked { color: var(--danger); border-color: color-mix(in srgb, var(--danger) 50%, transparent); }
+.acc-row { display: grid; grid-template-columns: minmax(0, 1.2fr) 150px auto auto; gap: 10px; align-items: center; padding: 8px 0; border-top: 1px solid var(--border); }
+.acc-row:first-child { border-top: 0; }
+.code { width: 100%; height: 260px; font: 12px/1.4 ui-monospace, Consolas, monospace; }
+.kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin-bottom: 16px; }
+.kpi { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; }
+.kpi .v { font-size: 22px; font-weight: 600; } .kpi .l { font-size: 12px; color: var(--muted); }
+.chart { width: 100%; height: 150px; display: block; }
+.chart rect.bar { fill: var(--accent); } .chart rect.bar:hover { opacity: .75; }
+.chart text { fill: var(--muted); font-size: 10px; }
+.live-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--ok); margin-right: 6px; }
+@media (max-width: 900px) { .kpis { grid-template-columns: 1fr 1fr; } }
+@media (max-width: 900px) { .acc-row { grid-template-columns: 1fr 1fr; } }
+@media (max-width: 900px) { .layout { grid-template-columns: 1fr; } .cols { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<div id="login" class="panel" hidden>
+  <h1>Apps verwalten</h1>
+  <form onsubmit="login();return false" style="display:grid;gap:12px">
+    <label>Passwort<input type="password" id="pw" autocomplete="current-password" autofocus></label>
+    <label>Code aus der Authenticator-App<input type="text" id="code" inputmode="numeric" autocomplete="one-time-code" maxlength="7" placeholder="123456"></label>
+    <button class="btn primary" type="submit">Anmelden</button>
+  </form>
+  <div id="login-err" class="err"></div>
+</div>
+<div id="setup" class="panel" hidden style="max-width:440px;margin:8vh auto;display:grid;gap:12px">
+  <h1>Authenticator einrichten</h1>
+  <div class="muted">Einmalig: Scannen Sie den QR-Code mit Ihrer Authenticator-App (z. B. Microsoft oder Google Authenticator) und geben Sie den angezeigten 6-stelligen Code ein. Ab dann ist der Code bei jeder Anmeldung erforderlich.</div>
+  <div id="qr" style="background:#fff;padding:12px;border-radius:8px;justify-self:center;min-height:40px"></div>
+  <div class="muted">Manuelle Eingabe in der App: <code id="secret" style="user-select:all;word-break:break-all"></code></div>
+  <form onsubmit="enableTotp();return false" style="display:grid;gap:12px">
+    <label>Code aus der App<input type="text" id="setup-code" inputmode="numeric" autocomplete="one-time-code" maxlength="7" placeholder="123456"></label>
+    <button class="btn primary" type="submit">Bestätigen und einrichten</button>
+  </form>
+  <div id="setup-err" class="err"></div>
+</div>
+
+<div class="wrap" id="app" hidden>
+  <div class="bar">
+    <h1>App-Store Verwaltung</h1><span class="sp"></span>
+    <a class="btn" href="./" target="_blank">Store öffnen</a>
+    <button class="btn primary" id="new-btn" onclick="tab === 'apps' ? edit(null) : editCust(null)">Neue App</button>
+    <button class="btn" onclick="logout()">Abmelden</button>
+  </div>
+  <div class="tabs"><button data-t="apps" class="on" onclick="setTab('apps')">Apps</button><button data-t="cust" onclick="setTab('cust')">Kunden</button><button data-t="stats" onclick="setTab('stats')">Statistik</button></div>
+  <div id="stats-view" hidden>
+    <div class="bar" style="margin-bottom:12px">
+      <select id="s-app" onchange="renderStats()" style="width:auto;max-width:280px;padding:7px 9px;border:1px solid var(--border);border-radius:6px;background:var(--surface)"></select>
+      <select id="s-days" onchange="loadStats()" style="width:auto;padding:7px 9px;border:1px solid var(--border);border-radius:6px;background:var(--surface)">
+        <option value="30">30 Tage</option><option value="90">90 Tage</option><option value="365">12 Monate</option></select>
+      <span class="sp"></span><span class="muted" id="s-upd"></span><button class="btn" onclick="loadStats()">Aktualisieren</button>
+    </div>
+    <div class="kpis" id="s-kpis"></div>
+    <div class="layout" style="grid-template-columns:minmax(0,1fr) minmax(0,380px)">
+      <div style="display:grid;gap:16px">
+        <div class="panel"><strong>Aufrufe je Tag</strong><div id="s-ch1"></div></div>
+        <div class="panel"><strong>Nutzungszeit je Tag (Minuten)</strong><div id="s-ch2"></div></div>
+        <div class="panel"><strong>Nutzung je Kunde</strong><div class="muted" style="margin:2px 0 8px">Nur geschützte Apps; ungeschützte Apps werden anonym gezählt.</div><div style="overflow-x:auto"><table id="s-cust"></table></div></div>
+      </div>
+      <div class="panel"><strong><span class="live-dot"></span>Gerade aktiv</strong><div id="s-live" style="margin-top:8px"></div></div>
+    </div>
+  </div>
+  <div id="cust-view" hidden>
+    <div class="bar" style="margin-bottom:10px">
+      <input type="text" id="c-filter" placeholder="Suchen: Name, E-Mail, Firma" oninput="renderCust()" style="max-width:320px;padding:7px 9px;border:1px solid var(--border);border-radius:6px;background:var(--surface)">
+      <span class="muted" id="c-count"></span><span class="sp"></span><button class="btn" onclick="loadCust()">Aktualisieren</button>
+    </div>
+    <div class="layout" style="grid-template-columns:minmax(0,1fr) minmax(0,460px)">
+      <div class="panel" style="padding:8px 10px;overflow-x:auto"><table class="ctbl" id="c-tbl"></table></div>
+      <div class="panel" id="c-editor"><div class="muted">Kunden links auswählen oder „Neuer Kunde“ anlegen.</div></div>
+    </div>
+  </div>
+  <div class="layout" id="apps-view">
+    <div class="panel" style="padding:8px 10px">
+      <table><thead><tr><th></th><th>App</th><th>Reihe</th><th>Status</th></tr></thead><tbody id="list"></tbody></table>
+    </div>
+    <div class="panel" id="editor"><div class="muted">App links auswählen oder „Neue App“ anlegen.</div></div>
+  </div>
+</div>
+
+<script>
+const ERR = { wrong_login: 'Passwort oder Code falsch.', code_required: 'Bitte den Code aus der Authenticator-App eingeben.', wrong_code: 'Code falsch. Bitte den aktuellen Code eingeben.',
+  not_authenticated: 'Bitte anmelden.', totp_setup_required: 'Bitte zuerst den Authenticator einrichten.', already_set: 'Authenticator ist bereits eingerichtet.',
+  wrong_password: 'Passwort falsch.', locked: 'Zu viele Fehlversuche – für 10 Minuten gesperrt.', too_many_images: 'Höchstens 3 Bilder.', bad_image: 'Bildformat nicht unterstützt (PNG, JPEG, WebP).', image_too_large: 'Bild zu groß (max. 3 MB).', not_found: 'Nicht gefunden.', bad_email: 'Ungültige E-Mail-Adresse.', email_exists: 'Diese E-Mail-Adresse ist bereits vergeben.', mail_failed: 'E-Mail konnte nicht versendet werden.', not_protected: 'App ist nicht als zugangsgeschützt markiert.' };
+let apps = [], sel = null, draft = null;
+const catOpts = v => STORE.CATEGORIES.map(c => `<option value="${c[0]}"${c[0] === v ? ' selected' : ''}>${esc(c[1])}</option>`).join('');
+
+async function rpc(fn, body) {
+  const d = await storeRpc(fn, body || {});
+  if (d && d.error) {
+    if (d.error === 'not_authenticated' || d.error === 'totp_setup_required') showLogin(ERR[d.error]);
+    const e = new Error(ERR[d.error] || d.error); e.code = d.error; throw e;
+  }
+  return d;
+}
+async function prpc(fn, body) {
+  const r = await fetch('portal.php?fn=' + fn, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body || {}) });
+  const d = await r.json().catch(() => null);
+  if (!r.ok) throw new Error((d && d.message) || 'HTTP ' + r.status);
+  if (d && d.error) {
+    if (d.error === 'not_authenticated' || d.error === 'totp_setup_required') showLogin(ERR[d.error]);
+    throw new Error(ERR[d.error] || d.error);
+  }
+  return d;
+}
+function status(msg, cls) { const s = document.getElementById('status'); if (s) { s.textContent = msg; s.className = cls || ''; } }
+
+function showView(v) { for (const k of ['login', 'setup', 'app']) document.getElementById(k).hidden = k !== v; }
+function showLogin(msg) {
+  showView('login');
+  document.getElementById('login-err').textContent = msg && msg !== ERR.not_authenticated ? msg : '';
+  document.getElementById('pw').focus();
+}
+async function login() {
+  const err = document.getElementById('login-err'); err.textContent = '';
+  try {
+    const d = await storeRpc('admin_login', { pw: document.getElementById('pw').value, code: document.getElementById('code').value });
+    if (d.error) { err.textContent = ERR[d.error] || d.error; if (d.error === 'code_required') document.getElementById('code').focus(); return; }
+    document.getElementById('pw').value = ''; document.getElementById('code').value = '';
+    if (d.setup) await startSetup(); else await load();
+  } catch (e) { err.textContent = e.message; }
+}
+async function startSetup() {
+  showView('setup');
+  const d = await storeRpc('admin_totp_new', {});
+  if (d.error) { showLogin(ERR[d.error] || d.error); return; }
+  document.getElementById('secret').textContent = d.secret.replace(/(.{4})/g, '$1 ').trim();
+  const qr = document.getElementById('qr'); qr.innerHTML = '';
+  try {
+    if (!window.QRCode) await new Promise((ok, fail) => { const sc = document.createElement('script'); sc.src = 'https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js'; sc.onload = ok; sc.onerror = fail; document.head.appendChild(sc); });
+    new QRCode(qr, { text: d.uri, width: 200, height: 200, correctLevel: QRCode.CorrectLevel.M });
+  } catch (e) { qr.innerHTML = '<div class="muted" style="color:#666">QR-Code konnte nicht geladen werden. Bitte den Schlüssel unten manuell in der App eintragen.</div>'; }
+  document.getElementById('setup-code').focus();
+}
+async function enableTotp() {
+  const err = document.getElementById('setup-err'); err.textContent = '';
+  const d = await storeRpc('admin_totp_enable', { code: document.getElementById('setup-code').value }).catch(e => ({ error: e.message }));
+  if (d.error) { err.textContent = ERR[d.error] || d.error; if (d.error === 'not_authenticated') showLogin('Einrichtung abgelaufen. Bitte erneut anmelden.'); return; }
+  await load();
+}
+async function logout() { await storeRpc('admin_logout', {}).catch(() => {}); showLogin(); }
+
+async function load(keepId) {
+  try {
+    const d = await rpc('store_admin_list', {});
+    apps = d.apps || [];
+    showView('app');
+    renderList();
+    if (keepId) edit(keepId);
+  } catch (e) { if (!document.getElementById('app').hidden) status('Fehler: ' + e.message, 'err'); else if (e.code !== 'not_authenticated') document.getElementById('login-err').textContent = e.message; }
+}
+
+function icHtml(a) { return a.icon ? `<img class="ic" src="${esc(a.icon)}" alt="">` : `<div class="ic" style="background:${esc(a.accent)}">${esc((a.title_de || '?')[0])}</div>`; }
+function renderList() {
+  document.getElementById('list').innerHTML = apps.map(a => `<tr class="row${a.id === sel ? ' sel' : ''}" onclick="edit('${a.id}')">
+    <td style="width:46px">${icHtml(a)}</td>
+    <td><div style="font-weight:600">${esc(a.title_de || a.title_en || '(ohne Titel)')}</div><div class="muted">${esc((STORE.CATEGORIES.find(c => c[0] === a.category) || [, a.category])[1])}</div></td>
+    <td>${a.sort}</td>
+    <td class="muted">${a.visible ? 'sichtbar' : '<span class="err">verborgen</span>'}${a.featured ? '<br>Startbanner' : ''}${a.protected ? '<br>geschützt' : ''}</td></tr>`).join('')
+    || '<tr><td colspan="4" class="muted">Noch keine Apps.</td></tr>';
+}
+
+function edit(id) {
+  sel = id;
+  const a = id ? apps.find(x => x.id === id) : null;
+  draft = a ? { ...a, shots: [...(a.shots || [])], _iconChanged: false, _shotsChanged: false }
+            : { id: '', sort: (Math.max(0, ...apps.map(x => x.sort)) + 10), visible: true, featured: false, category: 'tools',
+                title_de: '', title_en: '', short_de: '', short_en: '', desc_de: '', desc_en: '', license_de: '', license_en: '',
+                publisher: 'CAD/CAM Systeme Datentechnik Reitz', url: 'https://cnc-technik.de/', accent: '#1F6FEB', updated_manual: null,
+                icon: null, shots: [], _iconChanged: false, _shotsChanged: false };
+  renderList();
+  const v = k => esc(draft[k] ?? '');
+  document.getElementById('editor').innerHTML = `<form onsubmit="save();return false" oninput="readForm()">
+    <div class="bar" style="margin:0"><strong style="font-size:16px">${a ? 'App bearbeiten' : 'Neue App'}</strong><span class="sp"></span>
+      ${a ? `<a class="btn" href="./#app=${a.id}" target="_blank">Vorschau</a><button type="button" class="btn danger" onclick="del()">Löschen</button>` : ''}
+      <button class="btn primary" type="submit">Speichern</button></div>
+    <div id="status"></div>
+    <div class="cols">
+      <label>Titel (DE)<input type="text" name="title_de" value="${v('title_de')}" required></label>
+      <label>Titel (EN)<input type="text" name="title_en" value="${v('title_en')}"></label>
+      <label>Kurztext (DE)<input type="text" name="short_de" value="${v('short_de')}" maxlength="120"></label>
+      <label>Kurztext (EN)<input type="text" name="short_en" value="${v('short_en')}" maxlength="120"></label>
+    </div>
+    <label>Link zur Anwendung<input type="url" name="url" value="${v('url')}" required placeholder="https://cnc-technik.de/kuka/"></label>
+    <div class="cols">
+      <label>Beschreibung (DE)<textarea class="long" name="desc_de">${v('desc_de')}</textarea></label>
+      <label>Beschreibung (EN)<textarea class="long" name="desc_en">${v('desc_en')}</textarea></label>
+      <label>Lizenz (DE) – erste Zeile erscheint als Kurzinfo<textarea name="license_de">${v('license_de')}</textarea></label>
+      <label>Lizenz (EN)<textarea name="license_en">${v('license_en')}</textarea></label>
+    </div>
+    <div class="cols">
+      <label>Kategorie<select name="category">${catOpts(draft.category)}</select></label>
+      <label>Anbieter<input type="text" name="publisher" value="${v('publisher')}"></label>
+      <label>Reihenfolge (kleiner = weiter vorne)<input type="number" name="sort" value="${v('sort')}"></label>
+      <label>Akzentfarbe (Startbanner, Ersatz-Icon)<input type="color" name="accent" value="${v('accent')}" style="height:34px;width:100%;border:1px solid var(--border);border-radius:6px;background:var(--surface)"></label>
+      <label>Letztes Update manuell (nur falls nicht automatisch lesbar)<input type="date" name="updated_manual" value="${v('updated_manual')}"></label>
+      <div style="display:grid;gap:8px;align-content:end;padding-bottom:4px">
+        <label class="check"><input type="checkbox" name="visible"${draft.visible ? ' checked' : ''}> Im Store sichtbar</label>
+        <label class="check"><input type="checkbox" name="featured"${draft.featured ? ' checked' : ''}> Im Startbanner zeigen</label>
+      </div>
+    </div>
+    <fieldset><legend>Zugangsschutz</legend>
+      <label class="check"><input type="checkbox" name="protected"${draft.protected ? ' checked' : ''}> Nur für angemeldete Kunden (Testphase, danach Freischaltung)</label>
+      <div class="cols">
+        <label>Preis-Hinweis (DE), z. B. „49 € / Monat zzgl. MwSt.“<input type="text" name="price_de" value="${v('price_de')}"></label>
+        <label>Preis-Hinweis (EN)<input type="text" name="price_en" value="${v('price_en')}"></label>
+      </div>
+      ${a && a.protected && a.gate_secret ? `<div class="bar" style="margin:0"><button type="button" class="btn" onclick="gateScript('${a.id}')">Prüfskript für den App-Server</button><span class="muted">guard.php + .htaccess in den Ordner der App legen</span></div><div id="gate-box"></div>`
+        : '<div class="muted">Nach dem Speichern als geschützte App steht hier das Prüfskript für den App-Server bereit.</div>'}
+    </fieldset>
+    ${a ? `<fieldset><legend>Nutzungsstatistik</legend>
+      ${a.protected ? '<div class="muted">Wird vom Prüfskript automatisch erfasst, mit Kundenbezug.</div>'
+        : `<div class="muted">Diese Zeile vor &lt;/body&gt; in die index.html der App einfügen (anonyme Erfassung):</div>
+           <textarea class="code" style="height:52px" readonly onclick="this.select()">${esc(trackSnippet(a.id))}</textarea>`}
+    </fieldset>` : ''}
+    <div class="muted">Letztes Update wird automatisch aus der Änderungszeit der Startseite gelesen (alle 6 Stunden). Liefert der Server dazu keine Angabe, gilt das manuelle Datum.</div>
+    <fieldset><legend>Icon (quadratisch, wird auf 256 px verkleinert)</legend><div class="imgs" id="icon-slot"></div></fieldset>
+    <fieldset><legend>Bilder (bis zu 3, 16:9, werden auf max. 1600 px verkleinert; das erste Bild erscheint im Startbanner)</legend><div class="imgs" id="shot-slots"></div></fieldset>
+    <input type="file" id="file" accept="image/png,image/jpeg,image/webp" hidden>
+  </form>`;
+  renderImages();
+}
+
+function readForm() {
+  const f = document.querySelector('#editor form'); if (!f) return;
+  for (const el of f.elements) {
+    if (!el.name) continue;
+    draft[el.name] = el.type === 'checkbox' ? el.checked : el.type === 'number' ? parseInt(el.value || '0', 10) : el.value;
+  }
+}
+
+function renderImages() {
+  document.getElementById('icon-slot').innerHTML = draft.icon
+    ? `<div class="slot icon" onclick="pick('icon')"><img src="${esc(draft.icon)}" alt=""><button type="button" class="x" onclick="event.stopPropagation();setIcon('')">×</button></div>`
+    : `<div class="slot icon" onclick="pick('icon')">+ Icon</div>`;
+  let h = draft.shots.map((s, i) => `<div class="slot" onclick="pick(${i})"><img src="${esc(s)}" alt="">
+      <button type="button" class="x" onclick="event.stopPropagation();removeShot(${i})">×</button>
+      <div class="mv">${i > 0 ? `<button type="button" onclick="event.stopPropagation();moveShot(${i},-1)">◀</button>` : ''}${i < draft.shots.length - 1 ? `<button type="button" onclick="event.stopPropagation();moveShot(${i},1)">▶</button>` : ''}</div></div>`).join('');
+  if (draft.shots.length < 3) h += `<div class="slot" onclick="pick(${draft.shots.length})">+ Bild</div>`;
+  document.getElementById('shot-slots').innerHTML = h;
+}
+function setIcon(d) { draft.icon = d || null; draft._iconChanged = true; renderImages(); }
+function removeShot(i) { draft.shots.splice(i, 1); draft._shotsChanged = true; renderImages(); }
+function moveShot(i, s) { const a = draft.shots; [a[i], a[i + s]] = [a[i + s], a[i]]; draft._shotsChanged = true; renderImages(); }
+
+function pick(target) {
+  const inp = document.getElementById('file');
+  inp.value = '';
+  inp.onchange = async () => {
+    const f = inp.files[0]; if (!f) return;
+    try {
+      if (target === 'icon') setIcon(await resize(f, 256, 256, true));
+      else { draft.shots[target] = await resize(f, 1600, 900, false); draft._shotsChanged = true; renderImages(); }
+    } catch (e) { status('Bild konnte nicht gelesen werden.', 'err'); }
+  };
+  inp.click();
+}
+
+// Verkleinert im Browser. Icon: quadratisch zugeschnitten, PNG (Transparenz). Bild: max. Kantenlaenge, JPEG.
+function resize(file, maxW, maxH, square) {
+  return new Promise((res, rej) => {
+    const img = new Image(), url = URL.createObjectURL(file);
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      let sx = 0, sy = 0, sw = img.naturalWidth, sh = img.naturalHeight;
+      if (square) { const m = Math.min(sw, sh); sx = (sw - m) / 2; sy = (sh - m) / 2; sw = sh = m; }
+      const k = Math.min(1, maxW / sw, maxH / sh);
+      const c = document.createElement('canvas');
+      c.width = Math.round(sw * k); c.height = Math.round(sh * k);
+      const g = c.getContext('2d'); g.imageSmoothingQuality = 'high';
+      g.drawImage(img, sx, sy, sw, sh, 0, 0, c.width, c.height);
+      res(square ? c.toDataURL('image/png') : c.toDataURL('image/jpeg', 0.82));
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); rej(new Error('image')); };
+    img.src = url;
+  });
+}
+
+async function save() {
+  readForm();
+  if (!draft.title_de.trim()) { status('Titel (DE) fehlt.', 'err'); return; }
+  const app = {};
+  for (const k of ['id', 'sort', 'visible', 'featured', 'category', 'title_de', 'title_en', 'short_de', 'short_en', 'desc_de', 'desc_en',
+                   'license_de', 'license_en', 'publisher', 'url', 'accent', 'updated_manual', 'protected', 'price_de', 'price_en']) app[k] = draft[k] ?? '';
+  status('Speichere…');
+  try {
+    const d = await rpc('store_admin_save', {
+      p_app: app,
+      p_icon: draft._iconChanged ? (draft.icon || '') : null,
+      p_shots: draft._shotsChanged || !draft.id ? draft.shots : null,
+    });
+    await load(d.id);
+    status('Gespeichert.', 'okc');
+  } catch (e) { status('Fehler: ' + e.message, 'err'); }
+}
+
+async function del() {
+  if (!draft.id || !confirm(`„${draft.title_de}“ endgültig löschen? Texte und Bilder werden entfernt.`)) return;
+  try { await rpc('store_admin_delete', { p_id: draft.id }); sel = null; await load(); document.getElementById('editor').innerHTML = '<div class="muted">Gelöscht.</div>'; }
+  catch (e) { status('Fehler: ' + e.message, 'err'); }
+}
+
+// ─── Pruefskript ───
+async function gateScript(id) {
+  try {
+    const d = await prpc('admin_gate_script', { app: id });
+    const ht = 'RewriteEngine On\nRewriteRule ^guard\\.php$ - [END]\nRewriteRule ^ guard.php [END,QSA]\n';
+    const app = apps.find(x => x.id === id) || {};
+    const txt = `Zugriffsschutz für: ${app.title_de || ''}\n\n`
+      + `Lege diese beiden Dateien neben die index.html zum Schutz der Software ab. Kunden, die keine oder falsche Anmeldedaten haben, landen unter www.cnc-technik.de/apps.\n\n`
+      + `Wichtig: Die Datei .htaccess beginnt mit einem Punkt und hat keine Endung. Gibt es im Ordner bereits eine .htaccess, diese sichern und die drei Zeilen an deren Anfang setzen. Der Server muss Apache 2.4 mit PHP und mod_rewrite unterstützen. Die Anmeldung sowie das Freigabe-Enddatum werden in der Software unten rechts angezeigt.\n\n`
+      + `========== Datei 1: guard.php ==========\n${d.script}\n========== Ende guard.php ==========\n\n`
+      + `========== Datei 2: .htaccess ==========\n${ht}========== Ende .htaccess ==========\n`;
+    const fname = 'Zugriffsschutz-' + (app.title_de || 'App').replace(/[^A-Za-z0-9äöüÄÖÜß_-]+/g, '-') + '.txt';
+    document.getElementById('gate-box').innerHTML = `<div class="muted" style="margin:10px 0 4px"><b>Anleitung mit beiden Dateien</b> (zum Weitergeben, enthält den geheimen Schlüssel – nur an Berechtigte):</div>
+      <div class="bar" style="margin:0 0 6px"><button type="button" class="btn primary" onclick="dl('${fname}', document.getElementById('gate-txt').value)">Als Textdatei herunterladen</button>
+        <button type="button" class="btn" onclick="navigator.clipboard.writeText(document.getElementById('gate-txt').value).then(() => status('Text kopiert.', 'okc'))">Text kopieren</button></div>
+      <textarea class="code" id="gate-txt" readonly>${esc(txt)}</textarea>
+      <div class="muted" style="margin:14px 0 4px">Oder die Dateien einzeln:</div>
+      <div class="muted" style="margin:8px 0 4px">1. Als <b>guard.php</b> in den Hauptordner der App speichern (enthält den geheimen Schlüssel, nicht weitergeben):</div>
+      <div class="bar" style="margin:0 0 6px"><button type="button" class="btn" onclick="dl('guard.php', document.getElementById('gate-php').value)">guard.php herunterladen</button></div>
+      <textarea class="code" id="gate-php" readonly>${esc(d.script)}</textarea>
+      <div class="muted" style="margin:8px 0 4px">2. In denselben Ordner eine Datei <b>.htaccess</b> mit diesem Inhalt (bzw. an den Anfang einer vorhandenen):</div>
+      <textarea class="code" style="height:70px" readonly>${esc(ht)}</textarea>`;
+  } catch (e) { status('Fehler: ' + e.message, 'err'); }
+}
+function dl(name, text) { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([text], { type: 'text/plain' })); a.download = name; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 1000); }
+
+function trackSnippet(id) { return `<script src="${location.origin}${location.pathname.replace(/[^/]*$/, '')}t.js" data-app="${id}" defer></` + `script>`; }
+
+// ─── Statistik ───
+let stats = null, statsTimer = null;
+async function loadStats() {
+  try {
+    stats = await rpc('store_admin_stats', { days: +document.getElementById('s-days').value });
+    const sel = document.getElementById('s-app'), cur = sel.value;
+    sel.innerHTML = '<option value="">Alle Apps</option>' + stats.apps.map(a => `<option value="${a.id}">${esc(a.title)}${a.protected ? ' (geschützt)' : ''}</option>`).join('');
+    sel.value = stats.apps.some(a => a.id === cur) ? cur : '';
+    document.getElementById('s-upd').textContent = 'Stand ' + new Date().toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+    renderStats();
+  } catch (e) { document.getElementById('s-kpis').innerHTML = `<div class="err">Fehler: ${esc(e.message)}</div>`; }
+}
+const fmtDur = sec => sec >= 3600 ? `${Math.floor(sec / 3600)} h ${Math.round(sec % 3600 / 60)} min` : `${Math.round(sec / 60)} min`;
+function barChart(vals, labels, fmt) {
+  const W = 760, H = 150, pad = 22, n = vals.length, max = Math.max(1, ...vals), bw = (W - pad) / n;
+  let g = `<svg class="chart" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">`;
+  g += `<text x="0" y="10">${fmt(max)}</text><line x1="${pad}" y1="${H - 16}" x2="${W}" y2="${H - 16}" stroke="var(--border)"/>`;
+  vals.forEach((v, i) => {
+    const h = (H - 34) * v / max, x = pad + i * bw;
+    g += `<rect class="bar" x="${x + bw * .12}" y="${H - 16 - h}" width="${Math.max(1, bw * .76)}" height="${h}"><title>${labels[i]}: ${fmt(v)}</title></rect>`;
+  });
+  const step = Math.ceil(n / 8);
+  labels.forEach((l, i) => { if (i % step === 0) g += `<text x="${pad + i * bw}" y="${H - 3}">${l.slice(8, 10)}.${l.slice(5, 7)}.</text>`; });
+  return g + '</svg>';
+}
+function renderStats() {
+  if (!stats) return;
+  const app = document.getElementById('s-app').value;
+  const ids = app ? [app] : stats.apps.map(a => a.id);
+  const n = stats.series[ids[0]] ? stats.series[ids[0]].length : 0;
+  const labels = n ? stats.series[ids[0]].map(r => r[0]) : [];
+  const starts = labels.map((_, i) => ids.reduce((s, id) => s + (stats.series[id] ? stats.series[id][i][1] : 0), 0));
+  const secs = labels.map((_, i) => ids.reduce((s, id) => s + (stats.series[id] ? stats.series[id][i][2] : 0), 0));
+  const S = starts.reduce((a, b) => a + b, 0), T = secs.reduce((a, b) => a + b, 0);
+  const custRows = stats.customers.filter(r => !app || r.app === app);
+  const since = new Date(Date.now() - stats.days * 86400e3).toISOString();
+  const activeCust = new Set(custRows.filter(r => r.last && r.last >= since).map(r => r.id)).size;
+  document.getElementById('s-kpis').innerHTML = [
+    ['Aufrufe', S], ['Nutzungszeit', fmtDur(T)], ['Ø Dauer je Aufruf', S ? fmtDur(T / S) : '—'], ['Aktive Kunden', activeCust]
+  ].map(k => `<div class="kpi"><div class="v">${esc(k[1])}</div><div class="l">${k[0]} · ${stats.days} Tage</div></div>`).join('');
+  document.getElementById('s-ch1').innerHTML = barChart(starts, labels, v => String(v));
+  document.getElementById('s-ch2').innerHTML = barChart(secs.map(v => Math.round(v / 60)), labels, v => v + ' min');
+  const title = id => (stats.apps.find(a => a.id === id) || {}).title || '(gelöscht)';
+  document.getElementById('s-cust').innerHTML = `<thead><tr><th>Kunde</th>${app ? '' : '<th>App</th>'}<th>Aufrufe</th><th>Nutzungszeit</th><th>Zuletzt</th></tr></thead><tbody>` +
+    (custRows.map(r => `<tr><td><div style="font-weight:600">${esc(r.name || r.email)}</div><div class="muted">${esc(r.name ? r.email : '')}${r.company ? ' · ' + esc(r.company) : ''}</div></td>
+      ${app ? '' : `<td>${esc(title(r.app))}</td>`}<td>${r.s}</td><td>${fmtDur(r.t)}</td><td class="muted">${r.last ? new Date(r.last).toLocaleString('de-DE', { dateStyle: 'short', timeStyle: 'short' }) : '—'}</td></tr>`).join('')
+     || `<tr><td colspan="5" class="muted">Noch keine Nutzung durch angemeldete Kunden.</td></tr>`) + '</tbody>';
+  const live = stats.live.filter(l => !app || l.app === app);
+  document.getElementById('s-live').innerHTML = live.length ? live.map(l => `<div class="list-row" style="display:flex;justify-content:space-between;gap:8px;padding:8px 0;border-top:1px solid var(--border)">
+      <div><div style="font-weight:600">${esc(l.name || l.email || 'Anonym')}</div><div class="muted">${esc(title(l.app))}${l.email && l.name ? ' · ' + esc(l.email) : ''}</div></div>
+      <div class="muted" style="text-align:right">seit ${new Date(l.since).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })}<br>${fmtDur(l.sec)}</div></div>`).join('')
+    : '<div class="muted">Niemand aktiv.</div>';
+}
+
+// ─── Kunden ───
+let tab = 'apps', custs = [], capps = [], csel = null, trialDays = 7;
+const fmtD = s => s ? new Date(s).toLocaleDateString('de-DE') : '—';
+function setTab(t) {
+  tab = t;
+  document.querySelectorAll('.tabs button').forEach(b => b.classList.toggle('on', b.dataset.t === t));
+  document.getElementById('apps-view').hidden = t !== 'apps';
+  document.getElementById('cust-view').hidden = t !== 'cust';
+  document.getElementById('stats-view').hidden = t !== 'stats';
+  document.getElementById('new-btn').hidden = t === 'stats';
+  document.getElementById('new-btn').textContent = t === 'apps' ? 'Neue App' : 'Neuer Kunde';
+  if (t === 'cust') loadCust();
+  if (t === 'stats') loadStats();
+  clearInterval(statsTimer); if (t === 'stats') statsTimer = setInterval(loadStats, 30000);
+}
+async function loadCust(keep) {
+  try { const d = await prpc('admin_customers', {}); custs = d.customers; capps = d.apps; trialDays = d.trial_days; renderCust(); if (keep) editCust(keep); }
+  catch (e) { document.getElementById('c-editor').innerHTML = `<div class="err">Fehler: ${esc(e.message)}</div>`; }
+}
+function stShort(st) {
+  if (!st) return '';
+  const lbl = { trial_available: 'Test offen', trial: `Test ${st.days_left} T.`, active: 'bis ' + fmtD(st.until), expired: 'abgelaufen', blocked: 'gesperrt' }[st.state] || st.state;
+  return `<span class="st ${st.state}">${esc(lbl)}</span>`;
+}
+function stLong(st) {
+  return { trial_available: `Testphase noch nicht begonnen (${trialDays} Tage ab erstem Öffnen)`, trial: `Testphase bis ${fmtD(st.until)} (noch ${st.days_left} Tage)`,
+           active: `Freigeschaltet bis ${fmtD(st.until)}`, expired: `Testphase abgelaufen am ${fmtD(st.until)}`, blocked: 'Gesperrt' }[st.state] || st.state;
+}
+function renderCust() {
+  const q = document.getElementById('c-filter').value.trim().toLowerCase();
+  const list = custs.filter(c => !q || [c.email, c.name, c.company].some(v => (v || '').toLowerCase().includes(q)));
+  document.getElementById('c-count').textContent = `${list.length} von ${custs.length}`;
+  let h = `<thead><tr><th>Kunde</th><th>Registriert</th><th>Letzte Anm.</th><th>Passkeys</th>${capps.map(a => `<th class="app">${esc(a.title)}</th>`).join('')}</tr></thead><tbody>`;
+  h += list.map(c => `<tr class="row${c.id === csel ? ' sel' : ''}" onclick="editCust('${c.id}')">
+    <td><div style="font-weight:600">${esc(c.name || '—')}${c.blocked ? ' <span class="st blocked">gesperrt</span>' : ''}</div><div class="muted">${esc(c.email)}${c.company ? ' · ' + esc(c.company) : ''}</div></td>
+    <td class="muted">${fmtD(c.created_at)}</td><td class="muted">${fmtD(c.last_login)}</td><td class="muted">${c.passkeys}</td>
+    ${capps.map(a => `<td>${stShort(c.access[a.id])}</td>`).join('')}</tr>`).join('') || `<tr><td colspan="${4 + capps.length}" class="muted">Keine Kunden.</td></tr>`;
+  document.getElementById('c-tbl').innerHTML = h + '</tbody>';
+}
+function editCust(id) {
+  csel = id; renderCust();
+  const c = id ? custs.find(x => x.id === id) : { id: '', email: '', name: '', company: '', note: '', blocked: false, access: {} };
+  document.getElementById('c-editor').innerHTML = `<form onsubmit="saveCust();return false">
+    <div class="bar" style="margin:0"><strong style="font-size:16px">${id ? 'Kunde bearbeiten' : 'Neuer Kunde'}</strong><span class="sp"></span>
+      ${id ? `<button type="button" class="btn" onclick="inviteCust('${id}')">Anmelde-Link senden</button><button type="button" class="btn danger" onclick="delCust('${id}')">Löschen</button>` : ''}
+      <button class="btn primary" type="submit">Speichern</button></div>
+    <div id="status"></div>
+    <label>E-Mail<input type="text" id="ce-email" value="${esc(c.email)}" required></label>
+    <div class="cols"><label>Name<input type="text" id="ce-name" value="${esc(c.name)}"></label><label>Firma<input type="text" id="ce-company" value="${esc(c.company)}"></label></div>
+    <label>Notiz (nur intern)<textarea id="ce-note">${esc(c.note || '')}</textarea></label>
+    <label class="check"><input type="checkbox" id="ce-blocked"${c.blocked ? ' checked' : ''}> Konto gesperrt (keine Anmeldung, kein Zugriff)</label>
+    ${id ? '' : `<label class="check"><input type="checkbox" id="ce-invite" checked> Einladung mit Anmelde-Link senden (7 Tage gültig)</label>`}
+    <fieldset><legend>Berechtigungen je App</legend>
+      ${capps.length ? capps.map(a => { const st = c.access[a.id] || { state: 'trial_available' }; const raw = st.raw || {};
+        return `<div class="acc-row" data-app="${a.id}"><div><div style="font-weight:600">${esc(a.title)}</div><div class="muted">${esc(stLong(st))}</div></div>
+          <label>Freigeschaltet bis<input type="date" class="acc-until" value="${esc(raw.manual_until || '')}"></label>
+          <label class="check"><input type="checkbox" class="acc-blocked"${raw.blocked ? ' checked' : ''}> gesperrt</label>
+          <label class="check" title="Testphase beginnt beim nächsten Öffnen neu"><input type="checkbox" class="acc-reset"> Test neu</label></div>`; }).join('')
+        : '<div class="muted">Keine zugangsgeschützten Apps. Im Reiter „Apps“ bei einer App „Nur für angemeldete Kunden“ aktivieren.</div>'}
+      <div class="muted">Testphase: ${trialDays} Tage je App ab dem ersten Öffnen. „Freigeschaltet bis“ verlängert den Zugang unabhängig davon (Datum einschließlich).</div>
+    </fieldset>
+    ${id ? `<div class="muted">Registriert ${fmtD(c.created_at)} · letzte Anmeldung ${fmtD(c.last_login)} · ${c.passkeys} Passkey(s)</div>` : ''}
+  </form>`;
+}
+async function saveCust() {
+  const access = {};
+  document.querySelectorAll('.acc-row').forEach(r => {
+    access[r.dataset.app] = { manual_until: r.querySelector('.acc-until').value || null, blocked: r.querySelector('.acc-blocked').checked, trial_reset: r.querySelector('.acc-reset').checked };
+  });
+  const inv = document.getElementById('ce-invite');
+  try {
+    const d = await prpc('admin_customer_save', { customer: { id: csel || '', email: document.getElementById('ce-email').value, name: document.getElementById('ce-name').value,
+      company: document.getElementById('ce-company').value, note: document.getElementById('ce-note').value, blocked: document.getElementById('ce-blocked').checked },
+      access, invite: !!(inv && inv.checked) });
+    await loadCust(d.id);
+    status(d.mail === 'failed' ? 'Gespeichert, aber die Einladung konnte nicht versendet werden.' : 'Gespeichert.' + (inv && inv.checked ? ' Einladung versendet.' : ''), d.mail === 'failed' ? 'err' : 'okc');
+  } catch (e) { status('Fehler: ' + e.message, 'err'); }
+}
+async function inviteCust(id) { try { await prpc('admin_customer_invite', { id }); status('Anmelde-Link versendet.', 'okc'); } catch (e) { status('Fehler: ' + e.message, 'err'); } }
+async function delCust(id) {
+  const c = custs.find(x => x.id === id);
+  if (!confirm(`Kunde ${c.email} endgültig löschen? Konto, Passkeys und Berechtigungen werden entfernt.`)) return;
+  try { await prpc('admin_customer_delete', { id }); csel = null; await loadCust(); document.getElementById('c-editor').innerHTML = '<div class="muted">Gelöscht.</div>'; }
+  catch (e) { status('Fehler: ' + e.message, 'err'); }
+}
+
+storeRpc('admin_status', {}).then(d => d.logged_in ? load() : d.setup ? startSetup() : showLogin()).catch(() => showLogin());
+</script>
+</body>
+</html>
