@@ -2,6 +2,11 @@ const APP_VERSION = 'V0.85';
 // On-Demand-Rendering: nur rendern wenn nötig (spart GPU/CPU/Akku im Leerlauf)
 let _renderFrames = 4;
 function requestRender(n) { _renderFrames = Math.max(_renderFrames, n || 2); }
+// Zeichnen über js/graphics.js (Grafikqualität Standard/Hoch/Maximal); ohne das Modul wie bisher
+function _renderScene() {
+  if (window.RSGfx) { window.RSGfx.render(); return; }
+  renderer.render(scene, activeCam);
+}
 // console.log nur mit ?debug in der URL (Produktiv still; warn/error bleiben)
 if (!/[?&]debug\b/.test(location.search)) { const _noop = function(){}; console.log = _noop; console.debug = _noop; }
 
@@ -3164,6 +3169,7 @@ document.getElementById('btn-bg').addEventListener('click', function(){
   if (t !== 'dark') document.body.classList.add(t);
   scene.background = new THREE.Color(_themeBg[_themeIndex]);
   setGridColor(_themeGrid[_themeIndex]);
+  requestRender();
 });
 document.getElementById('btn-tcp-trace').addEventListener('click', function(){
   showTCPTrace=!showTCPTrace;this.classList.toggle('on',showTCPTrace);
@@ -3613,6 +3619,7 @@ function resize(){
   renderer.setSize(w,h);perspCam.aspect=w/h;perspCam.updateProjectionMatrix();
   const asp=w/h;orthoCam.left=-orthoHalfSize*asp;orthoCam.right=orthoHalfSize*asp;
   orthoCam.top=orthoHalfSize;orthoCam.bottom=-orthoHalfSize;orthoCam.updateProjectionMatrix();
+  if(window.RSGfx) window.RSGfx.resize(w,h);
   requestRender();
 }
 window.addEventListener('resize', function(){ resize(); _aPlotFitWidth(); });
@@ -4681,13 +4688,13 @@ function _simAdvance(N, dt, speed, velCP, displayMmMin) {
     newT = _simIntegrate(parsedData.positions, sim.t, sd, dt);
     if ((sd > 0 && newT >= sim.stepTarget) || (sd < 0 && newT <= sim.stepTarget)) {
       newT = sim.stepTarget; sim.stepTarget = null;
-      applySimT(newT); setStatus('paused','PAUSED'); renderer.render(scene, activeCam);
+      applySimT(newT); setStatus('paused','PAUSED'); _renderScene();
       return false;
     }
   } else {
     newT = _simIntegrate(parsedData.positions, sim.t, sim.dir, dt);
     const bp = checkBP(prevT, newT, sim.dir);
-    if (bp !== null) { pauseSim(); applySimT(bp); setStatus('bp','● BREAKPOINT'); renderer.render(scene, activeCam); return false; }
+    if (bp !== null) { pauseSim(); applySimT(bp); setStatus('bp','● BREAKPOINT'); _renderScene(); return false; }
     if      (newT >= N-1) { newT = N-1; pauseSim(); setStatus('end','END ✓'); }
     else if (newT <= 0)   { newT = 0;   pauseSim(); setStatus('paused','START'); }
     else {
@@ -4725,7 +4732,7 @@ function frame(ts) {
     _renderFrames = Math.max(_renderFrames, 1); // während Sim rendern
   }
   if (_tween) _renderFrames = Math.max(_renderFrames, 1);
-  if (_renderFrames > 0) { renderer.render(scene, activeCam); _renderFrames--; }
+  if (_renderFrames > 0) { _renderScene(); _renderFrames--; }
 }
 requestAnimationFrame(frame);
 

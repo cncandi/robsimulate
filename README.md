@@ -24,3 +24,12 @@ dann http://localhost:8080
 X 364.5 · Y 0 · Z 46.5 · A 0 · B -90 · C 0
 
 Entwickelt von [cnc-technik.de](https://cnc-technik.de)
+
+
+## Grafikqualität (js/graphics.js)
+Drei Stufen, umschaltbar über Ribbon „Grafik“ (Kamera), Menü Ansicht oder URL `?quality=standard|high|max`:
+- **Standard**: bisherige Darstellung (Phong, ohne Schatten), für schwache Rechner.
+- **Hoch** (voreingestellt): PBR-Material (MeshPhysicalMaterial, Lack mit Klarlack, graue Teile metallisch), Studio-Umgebung (RoomEnvironment, keine HDR-Datei), weiche Schatten, ACES-Tonemapping, sRGB-Ausgabe.
+- **Maximal**: zusätzlich Ambient Occlusion (SSAO) und FXAA.
+In allen Stufen werden STL-Normalen mit Knickwinkel 32° geglättet. Linien, Zielpunkte und Beschriftungen behalten ihre Farben.
+`js/graphics.js` ist identisch mit RobSimul Simple; three.js-r128-Erweiterungen liegen in `js/vendor/three-r128/`.

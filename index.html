@@ -196,6 +196,7 @@ header .title    { display: none !important; }
 <symbol id="s-clock"    viewBox="0 0 16 16"><circle cx="8" cy="8" r="6"/><path d="M8 5v3l2 2"/></symbol>
 <symbol id="s-robot"    viewBox="0 0 16 16"><rect x="4" y="6" width="8" height="7" rx="1"/><rect x="5" y="3" width="6" height="3" rx="1"/><path d="M5 13v2M11 13v2M1 8h3M12 8h3"/><circle cx="6" cy="9" r=".8" fill="currentColor" stroke="none"/><circle cx="10" cy="9" r=".8" fill="currentColor" stroke="none"/></symbol>
 <symbol id="s-trace"    viewBox="0 0 16 16"><path d="M2 13C4 10 5 6 8 5s5 3 6 5"/><circle cx="2" cy="13" r="1.2" fill="currentColor" stroke="none"/><circle cx="14" cy="10" r="1.2" fill="currentColor" stroke="none"/></symbol>
+<symbol id="s-quality" viewBox="0 0 16 16"><circle cx="8" cy="8" r="5.5"/><path d="M8 2.5a5.5 5.5 0 0 1 0 11z" fill="currentColor" fill-opacity=".35"/></symbol>
 <symbol id="s-palette"  viewBox="0 0 16 16"><circle cx="8" cy="8" r="6"/><circle cx="8" cy="4" r="1" fill="currentColor" stroke="none"/><circle cx="11.5" cy="6" r="1" fill="currentColor" stroke="none"/><circle cx="11.5" cy="10" r="1" fill="currentColor" stroke="none"/><circle cx="8" cy="12" r="1" fill="currentColor" stroke="none"/><circle cx="4.5" cy="10" r="1" fill="currentColor" stroke="none"/><circle cx="4.5" cy="6" r="1" fill="currentColor" stroke="none"/></symbol>
 <symbol id="s-gear"     viewBox="0 0 16 16"><circle cx="8" cy="8" r="2.5"/><path d="M8 1v2M8 13v2M1 8h2M13 8h2M3.1 3.1l1.4 1.4M11.5 11.5l1.4 1.4M3.1 12.9l1.4-1.4M11.5 4.5l1.4-1.4"/></symbol>
 <symbol id="s-trash"    viewBox="0 0 16 16"><path d="M3 4h10M6 4V2h4v2M5 4v9a1 1 0 0 0 1 1h4a1 1 0 0 0 1-1V4"/><path d="M7 7v4M9 7v4"/></symbol>
@@ -246,6 +247,9 @@ header .title    { display: none !important; }
         <button id="btn-grid" onclick="toggleGrid()"><svg class="ico"><use href="#s-grid"/></svg>Grid ein/aus</button>
         <button id="btn-bg" data-i18n="bg"><svg class="ico"><use href="#s-palette"/></svg>Hintergrund</button>
         <button id="btn-persp" class="on" onclick="toggleProjection()">Perspektive / Ortho</button>
+        <button onclick="RSGfx.setQuality('standard')" data-quality="standard"><svg class="ico"><use href="#s-quality"/></svg>Grafik Standard</button>
+        <button onclick="RSGfx.setQuality('high')" data-quality="high"><svg class="ico"><use href="#s-quality"/></svg>Grafik Hoch</button>
+        <button onclick="RSGfx.setQuality('max')" data-quality="max"><svg class="ico"><use href="#s-quality"/></svg>Grafik Maximal</button>
         <div class="mnusep"></div>
         <button onclick="setView('iso')"><svg class="ico"><use href="#s-iso"/></svg>ISO</button>
         <button onclick="setView('top')"><svg class="ico"><use href="#s-top"/></svg>Top</button>
@@ -332,6 +336,7 @@ header .title    { display: none !important; }
   <!-- KAMERA -->
   <div class="rib-group">
     <button class="rib-btn on" id="rib-cammode-rs" onclick="toggleProjection()" title="Perspektive / Ortho"><svg><use href="#s-iso"/></svg>Perspektive</button>
+    <button class="rib-btn" id="rib-quality" onclick="RSGfx.cycle()" title="Grafikqualität: Standard (schnell), Hoch (Material, Studio-Licht, Schatten), Maximal (zusätzlich Ambient Occlusion und Kantenglättung)"><svg><use href="#s-quality"/></svg><span data-gfx-label>Grafik Hoch</span></button>
     <span class="rib-group-label">Kamera</span>
   </div>
 
@@ -814,10 +819,19 @@ header .title    { display: none !important; }
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/occt-import-js@0.0.23/dist/occt-import-js.js"></script>
+<script src="./js/vendor/three-r128/RoomEnvironment.js"></script>
+<script src="./js/vendor/three-r128/EffectComposer.js"></script>
+<script src="./js/vendor/three-r128/ShaderPass.js"></script>
+<script src="./js/vendor/three-r128/CopyShader.js"></script>
+<script src="./js/vendor/three-r128/SimplexNoise.js"></script>
+<script src="./js/vendor/three-r128/SSAOShader.js"></script>
+<script src="./js/vendor/three-r128/SSAOPass.js"></script>
+<script src="./js/vendor/three-r128/FXAAShader.js"></script>
 <script src="./js/i18n.js?v=20260531a"></script>
 <script src="./js/dp-solver.js?v=20260531a"></script>
 <script src="./js/formats/registry.js?v=20260531a"></script>
-<script src="./js/simulator.js?v=20261022a"></script>
+<script src="./js/simulator.js?v=20261026a"></script>
+<script src="./js/graphics.js?v=20261026a" data-key="robsimul.quality"></script>
 <script src="./js/cable-system.js?v=20260531a"></script>
 <script src="./js/formats/kuka-form.js?v=20260531a"></script>
 <script src="./js/formats/kuka.js?v=20260531a"></script>
